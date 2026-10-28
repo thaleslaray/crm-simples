@@ -1,3 +1,5 @@
+import type { UazapiMessage } from "../ingest";
+
 /**
  * Cliente Uazapi: interface unica e injetavel para tudo que fala com a Uazapi.
  * Hoje: `getInstanceStatus()`, `sendText()` e midia (`downloadMedia`, `openFile`).
@@ -6,6 +8,9 @@
 export interface InstanceStatus {
   /** Ex.: "connected", "connecting", "disconnected". */
   status: string;
+  /** QR code (data URL ou base64) enquanto a instancia estiver `connecting`. */
+  qrcode?: string;
+  lastDisconnectReason?: string;
 }
 
 export interface MediaDownload {
@@ -21,8 +26,20 @@ export interface SentText {
   messageId: string | null;
 }
 
+export interface FindMessagesPage {
+  /** Mensagens no mesmo formato do evento `messages` (mais recentes primeiro). */
+  messages: UazapiMessage[];
+  hasMore: boolean;
+}
+
 export interface UazapiClient {
+  /** `/message/find`: uma pagina de mensagens da instancia, para a reconciliacao (formato nao validado com a Uazapi real). */
+  findMessages(input: { limit: number; offset: number }): Promise<FindMessagesPage>;
   getInstanceStatus(): Promise<InstanceStatus>;
+  /** Inicia o pareamento (QR code). `history_days: 0`: nao importa historico anterior a conexao. */
+  connect(): Promise<InstanceStatus>;
+  /** Cadastra o webhook da instancia: so os eventos que o CRM usa, sem grupos nem mensagens `fromMe`. */
+  configureWebhook(url: string): Promise<void>;
   /** `/message/download`: pede o link do arquivo da mensagem (`id` = `message.id` do webhook). */
   downloadMedia(messageId: string): Promise<MediaDownload>;
   /** Abre o link do arquivo para leitura em stream. Nao envia o token da instancia: o host vem do corpo da resposta. */
@@ -128,13 +145,17 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     }
   }
 
+  async function readInstance(res: Response): Promise<InstanceStatus> {
+    const body = (await res.json()) as { instance?: { status?: string; qrcode?: string; lastDisconnectReason?: string } };
+    const { status, qrcode, lastDisconnectReason } = body.instance ?? {};
+    return { status: status ?? "unknown", ...(qrcode ? { qrcode } : {}), ...(lastDisconnectReason ? { lastDisconnectReason } : {}) };
+  }
+  const postJson = (path: string, body: unknown) =>
+    request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
   /** POST de envio (texto ou midia): a resposta traz o id da mensagem. */
   async function postSend(path: string, payload: object): Promise<SentText> {
-    const res = await request(path, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await postJson(path, payload);
     const body = (await res.json().catch(() => ({}))) as { id?: unknown; messageid?: unknown };
     return {
       id: typeof body.id === "string" ? body.id : null,
@@ -143,10 +164,27 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
   }
 
   return {
+    async findMessages({ limit, offset }) {
+      const res = await postJson("/message/find", { limit, offset });
+      const body = (await res.json()) as { messages?: UazapiMessage[]; hasMore?: boolean };
+      return { messages: Array.isArray(body.messages) ? body.messages : [], hasMore: body.hasMore === true };
+    },
     async getInstanceStatus() {
-      const res = await request("/instance/status");
-      const body = (await res.json()) as { instance?: { status?: string }; status?: unknown };
-      return { status: body.instance?.status ?? "unknown" };
+      return readInstance(await request("/instance/status"));
+    },
+    async connect() {
+      return readInstance(await postJson("/instance/connect", { history_days: 0 }));
+    },
+    async configureWebhook(url) {
+      const res = await postJson("/webhook", {
+        enabled: true,
+        url,
+        events: ["messages", "messages_update", "connection"],
+        excludeMessages: ["isGroupYes", "fromMeYes"],
+        addUrlEvents: false,
+        addUrlTypesMessages: false,
+      });
+      await res.body?.cancel();
     },
     async downloadMedia(messageId) {
       const res = await request("/message/download", {
