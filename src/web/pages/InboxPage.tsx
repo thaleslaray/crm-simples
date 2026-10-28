@@ -16,6 +16,8 @@ export function InboxPage() {
   const [query, setQuery] = useState("");
   const results = useSearch(query);
 
+  const isAdmin = (data?.user as { role?: string } | undefined)?.role === "admin";
+
   const load = useCallback(() => {
     api
       .conversations()
@@ -44,7 +46,8 @@ export function InboxPage() {
       <header className="topbar">
         <h1>Caixa de entrada</h1>
         <div className="user">
-          {(data?.user as { role?: string } | undefined)?.role === "admin" && (
+          {isAdmin && <Link to="/respostas-rapidas">Respostas rápidas</Link>}
+          {isAdmin && (
             <Link to="/conexao" className="link">
               Conexão
             </Link>

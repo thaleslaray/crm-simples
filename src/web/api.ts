@@ -44,6 +44,12 @@ export interface MessageQuote {
 
 export type SendStatus = "sending" | "sent" | "failed" | "uncertain";
 
+export interface QuickReply {
+  id: string;
+  shortcut: string;
+  text: string;
+}
+
 /** Conexão do número do WhatsApp. `unknown` = ainda sem informação (nenhum aviso é mostrado). */
 export interface ConnectionState {
   status: "connected" | "connecting" | "disconnected" | "unknown";
@@ -89,6 +95,13 @@ export const api = {
       `/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/resend`,
       {},
     ),
+  me: () => getJson<{ user: { role: "admin" | "atendente" } }>("/api/me"),
+  quickReplies: () => getJson<{ quickReplies: QuickReply[] }>("/api/quick-replies"),
+  createQuickReply: (r: { shortcut: string; text: string }) =>
+    sendJson<{ quickReply: QuickReply }>("POST", "/api/quick-replies", r),
+  updateQuickReply: (id: string, r: { shortcut: string; text: string }) =>
+    sendJson<{ quickReply: QuickReply }>("PATCH", `/api/quick-replies/${encodeURIComponent(id)}`, r),
+  deleteQuickReply: (id: string) => sendJson<{ ok: true }>("DELETE", `/api/quick-replies/${encodeURIComponent(id)}`, {}),
   preferences: () => getJson<{ signatureEnabled: boolean }>("/api/me/preferences"),
   setSignature: (signatureEnabled: boolean) =>
     sendJson<{ signatureEnabled: boolean }>("PATCH", "/api/me/preferences", { signatureEnabled }),

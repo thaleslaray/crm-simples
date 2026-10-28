@@ -6,6 +6,7 @@ import { ConversationPage } from "./pages/ConversationPage";
 import { InboxPage, NoConversationSelected } from "./pages/InboxPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { QuickRepliesPage } from "./pages/QuickRepliesPage";
 import { useRealtimeConnection } from "./realtime";
 
 /** Rota protegida: sem sessão, redireciona para /login. Com sessão, tempo real e faixa de conexão valem para todas as telas. */
@@ -41,6 +42,7 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireSession />}>
         <Route path="/perfil" element={<ProfilePage />} />
+        <Route path="/respostas-rapidas" element={<QuickRepliesPage />} />
         <Route element={<InboxPage />}>
           <Route path="/" element={<NoConversationSelected />} />
           <Route path="/conversas/:id" element={<ConversationPage />} />

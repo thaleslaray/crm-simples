@@ -6,6 +6,7 @@ import { type AppEnv, requireAuth, requireRole } from "./middleware";
 import { media } from "./media";
 import { preferences } from "./preferences";
 import { handleQueue } from "./queue";
+import { quickReplies } from "./quick-replies";
 import { realtime } from "./realtime";
 import { handleScheduled } from "./scheduled";
 import { search } from "./search";
@@ -26,6 +27,7 @@ app.route("/api/realtime", realtime);
 app.route("/api/connection", connection);
 
 app.route("/api/me/preferences", preferences);
+app.route("/api/quick-replies", quickReplies);
 
 app.get("/api/health", (c) => c.json({ ok: true }));
 
