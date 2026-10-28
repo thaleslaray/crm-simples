@@ -154,6 +154,13 @@ export const contact = sqliteTable(
     jidPn: text("jid_pn").unique(),
     jidLid: text("jid_lid").unique(),
     createdAt: integer("created_at").notNull(),
+    /** Campos editaveis da ficha (ticket 11). */
+    email: text("email"),
+    company: text("company"),
+    notes: text("notes"),
+    /** Foto de perfil: URL temporaria da Uazapi e quando foi buscada (renovada quando velha ou quebrada). */
+    avatarUrl: text("avatar_url"),
+    avatarFetchedAt: integer("avatar_fetched_at"),
   },
 );
 
@@ -244,4 +251,19 @@ export const conversationEvent = sqliteTable(
     timestamp: integer("timestamp").notNull(),
   },
   (t) => [index("conversation_event_conv_ts_idx").on(t.conversationId, t.timestamp)],
+);
+
+/** Nota interna: so da equipe, aparece na linha do tempo da conversa e na ficha. Nunca vai para a Uazapi. */
+export const conversationNote = sqliteTable(
+  "conversation_note",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
+    text: text("text").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("conversation_note_conv_idx").on(t.conversationId, t.createdAt)],
 );

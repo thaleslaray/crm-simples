@@ -3,6 +3,7 @@ import { alias } from "drizzle-orm/sqlite-core";
 import { type Context, Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
 import { CONVERSATION_STATUSES, type ConversationStatus, type SendStatus } from "./db/schema";
+import { createNote, listNotes } from "./notes";
 import { type AppEnv, requireAuth } from "./middleware";
 import { publish } from "./realtime";
 import { sendOutgoingText } from "./send";
@@ -385,4 +386,25 @@ conversations.post("/:id/assume", async (c) => {
   if (outcome === "taken") return c.json({ error: "ja_assumida" }, 409);
   if (outcome === "not_open") return c.json({ error: "conversa_nao_aberta" }, 409);
   return c.json({ conversation: await loadConversation(createDb(c.env.DB), c.req.param("id")) });
+});
+
+conversations.get("/:id/notes", async (c) => {
+  const db = createDb(c.env.DB);
+  const id = c.req.param("id");
+  const exists = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { id: true } });
+  if (!exists) return c.json({ error: "nao_encontrado" }, 404);
+  return c.json({ notes: await listNotes(db, [id]) });
+});
+
+// Nota interna: so grava e avisa o hub. Nao e mensagem: nao passa por send.ts, nao toca a Uazapi nem muda o status.
+conversations.post("/:id/notes", async (c) => {
+  const db = createDb(c.env.DB);
+  const id = c.req.param("id");
+  const exists = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { id: true } });
+  if (!exists) return c.json({ error: "nao_encontrado" }, 404);
+  const body = await c.req.json<{ text?: unknown }>().catch(() => null);
+  const note = await createNote(db, id, c.get("user").id, body?.text);
+  if (note === "invalid") return c.json({ error: "texto_invalido" }, 400);
+  await publish(c.env, { type: "note.created", conversationId: id, note });
+  return c.json({ note }, 201);
 });

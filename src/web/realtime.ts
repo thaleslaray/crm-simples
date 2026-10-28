@@ -1,12 +1,14 @@
 // Tempo real: um WebSocket com o hub da caixa de entrada, que se reconecta sozinho.
 // Quem usa assina com `onRealtime`; ao reconectar, `reconnected` avisa para buscar pela API o que se perdeu.
 import { useEffect } from "react";
-import type { ConnectionState, Conversation, Message, SendStatus, TimelineEvent } from "./api";
+import type { ConnectionState, Contact, Conversation, Message, Note, SendStatus, TimelineEvent } from "./api";
 
 export type RealtimeEvent =
   | { type: "message.created"; conversation: Conversation; message: Message }
   | { type: "message.status"; conversationId: string; messageId: string; status: SendStatus }
   | { type: "conversation.updated"; conversation: Conversation; event?: TimelineEvent | null }
+  | { type: "note.created"; conversationId: string; note: Note }
+  | { type: "contact.updated"; contact: Contact }
   | { type: "connection.changed"; connection: ConnectionState }
   | { type: "reconnected" };
 
@@ -68,7 +70,7 @@ export function useRealtimeConnection() {
         if (e.data === "pong") return clearTimeout(pongTimer);
         try {
           const event = JSON.parse(String(e.data)) as RealtimeEvent;
-          if (["message.created", "message.status", "conversation.updated", "connection.changed"].includes(event.type)) emit(event);
+          if (["message.created", "message.status", "conversation.updated", "note.created", "contact.updated", "connection.changed"].includes(event.type)) emit(event);
         } catch {
           // Mensagem desconhecida: ignora.
         }

@@ -85,6 +85,13 @@
       "when": 1793153947370,
       "tag": "0011_curvy_miracleman",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793154624483,
+      "tag": "0012_equal_hellfire_club",
+      "breakpoints": true
     }
   ]
 }
