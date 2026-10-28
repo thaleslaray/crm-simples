@@ -1,11 +1,12 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { ApiError, api, type Conversation, type Member, type Message, type QuickReply, type SendStatus, type TimelineEvent } from "../api";
+import { ApiError, api, type Conversation, type Member, type Message, type Note, type QuickReply, type SendStatus, type TimelineEvent } from "../api";
 import { authClient } from "../auth-client";
 import { fillName, filterQuickReplies, slashQuery } from "../quick-replies";
 import { getDraft, setDraft } from "../drafts";
 import { contactLabel, dayLabel, eventText, formatPhone, formatSize, initials, messagePreview, messageTime, sameDay, STATUS_LABEL } from "../format";
 import { onRealtime } from "../realtime";
+import { ContactPanel } from "./ContactPanel";
 import { MessageBody } from "./MessageBody";
 import { VoiceRecorder } from "./VoiceRecorder";
 
@@ -39,7 +40,7 @@ type State =
   | { kind: "loading" }
   | { kind: "not-found" }
   | { kind: "error" }
-  | { kind: "ready"; conversation: Conversation; messages: Message[]; events: TimelineEvent[]; nextBefore: string | null; nextAfter: string | null };
+  | { kind: "ready"; conversation: Conversation; messages: Message[]; events: TimelineEvent[]; notes: Note[]; nextBefore: string | null; nextAfter: string | null };
 
 export function ConversationPage() {
   const { id } = useParams<{ id: string }>();
@@ -68,14 +69,15 @@ export function ConversationPage() {
       const history = opts.around
         ? api.messagesAround(id, opts.around)
         : api.messages(id).then((m) => ({ ...m, nextAfter: null }));
-      Promise.all([api.conversation(id), history, api.events(id)])
-        .then(([c, m, e]) => {
+      Promise.all([api.conversation(id), history, api.events(id), api.notes(id)])
+        .then(([c, m, e, n]) => {
           if (alive())
             setState({
               kind: "ready",
               conversation: c.conversation,
               messages: m.messages,
               events: e.events,
+              notes: n.notes,
               nextBefore: m.nextBefore,
               nextAfter: m.nextAfter,
             });
@@ -111,8 +113,8 @@ export function ConversationPage() {
         return { ...s, messages: [...s.messages, ...fresh] };
       });
     const refreshStatus = () =>
-      Promise.all([api.conversation(id), api.events(id)])
-        .then(([c, e]) => alive && setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, conversation: c.conversation, events: e.events } : s)))
+      Promise.all([api.conversation(id), api.events(id), api.notes(id)])
+        .then(([c, e, n]) => alive && setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, conversation: c.conversation, events: e.events, notes: n.notes } : s)))
         .catch(() => undefined);
     const off = onRealtime((event) => {
       if (event.type === "message.created") {
@@ -131,6 +133,24 @@ export function ConversationPage() {
           const events = novo && !s.events.some((e) => e.id === novo.id) ? [...s.events, novo] : s.events;
           return { ...s, conversation: event.conversation, events };
         });
+        return;
+      }
+      if (event.type === "note.created") {
+        if (event.conversationId === id)
+          setState((s) => {
+            if (s.kind !== "ready" || s.notes.some((n) => n.id === event.note.id)) return s;
+            const el = scroller.current;
+            stickToBottom.current = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+            return { ...s, notes: [...s.notes, event.note] };
+          });
+        return;
+      }
+      if (event.type === "contact.updated") {
+        setState((s) =>
+          s.kind === "ready" && s.conversation.contact.id === event.contact.id
+            ? { ...s, conversation: { ...s.conversation, contact: { ...s.conversation.contact, name: event.contact.name } } }
+            : s,
+        );
         return;
       }
       if (event.type === "message.status") {
@@ -245,6 +265,9 @@ export function ConversationPage() {
   }, [state, loadOlder]);
 
   const [draft, setDraftState] = useState("");
+  // Modo "nota interna": o campo grava uma nota só da equipe, que nunca vai ao cliente.
+  const [noteMode, setNoteMode] = useState(false);
+  useEffect(() => setNoteMode(false), [id]);
   const [sendError, setSendError] = useState(false);
   // Mensagem que o atendente escolheu "Responder": a próxima mensagem sai citando-a.
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -262,7 +285,7 @@ export function ConversationPage() {
   useEffect(() => {
     api.quickReplies().then((r) => setQuickReplies(r.quickReplies)).catch(() => undefined);
   }, [id]);
-  const query = slashDismissed ? null : slashQuery(draft);
+  const query = slashDismissed || noteMode ? null : slashQuery(draft);
   const matches = query === null ? [] : filterQuickReplies(quickReplies, query);
   const slashOpen = query !== null && quickReplies.length > 0;
   const pickQuickReply = (r: QuickReply) => {
@@ -334,6 +357,25 @@ export function ConversationPage() {
     },
     [setSearchParams],
   );
+
+  const [fichaOpen, setFichaOpen] = useState(() => window.matchMedia("(min-width: 1100px)").matches);
+
+  const sendNote = useCallback(async () => {
+    const text = draft.trim();
+    if (!id || !text) return;
+    setDraftState("");
+    setDraft(id, "");
+    setSendError(false);
+    try {
+      const { note } = await api.addNote(id, text);
+      stickToBottom.current = true;
+      setState((s) => (s.kind === "ready" && s.conversation.id === id && !s.notes.some((n) => n.id === note.id) ? { ...s, notes: [...s.notes, note] } : s));
+    } catch {
+      setDraftState(text);
+      setDraft(id, text);
+      setSendError(true);
+    }
+  }, [draft, id]);
 
   const [attachment, setAttachment] = useState<File | null>(null);
   const [recording, setRecording] = useState(false);
@@ -421,8 +463,8 @@ export function ConversationPage() {
       </p>
     );
 
-  const { conversation, messages, nextBefore, nextAfter, events } = state;
-  const items = timeline(messages, events, nextBefore !== null, nextAfter !== null);
+  const { conversation, messages, nextBefore, nextAfter, events, notes } = state;
+  const items = timeline(messages, events, notes, nextBefore !== null, nextAfter !== null);
   const label = contactLabel(conversation.contact);
 
   return (
@@ -440,7 +482,12 @@ export function ConversationPage() {
             <p className="muted">{formatPhone(conversation.contact.phone)}</p>
           )}
         </div>
+        <button type="button" className="secondary ficha-toggle" aria-pressed={fichaOpen} onClick={() => setFichaOpen((o) => !o)}>
+          Ficha
+        </button>
       </header>
+      <div className={`conv-body${fichaOpen ? " conv-body--ficha" : ""}`}>
+      <div className="conv-col">
       <ConversationActions
         conversation={conversation}
         onChanged={(c) => setState((s) => (s.kind === "ready" ? { ...s, conversation: c } : s))}
@@ -460,7 +507,7 @@ export function ConversationPage() {
           {items.map((item, i) => {
             const m = item.kind === "message" ? item.message : null;
             return (
-            <Fragment key={item.kind === "message" ? item.message.id : `ev-${item.event.id}`}>
+            <Fragment key={item.kind === "message" ? item.message.id : item.kind === "note" ? `note-${item.note.id}` : `ev-${item.event.id}`}>
               {(i === 0 || !sameDay(items[i - 1]!.ts, item.ts)) && (
                 <li className="day-sep">
                   <span>{dayLabel(item.ts)}</span>
@@ -470,6 +517,15 @@ export function ConversationPage() {
                 <li className="system-event" data-testid="system-event">
                   <span>
                     {eventText(item.event)} · <time dateTime={new Date(item.ts).toISOString()}>{messageTime(item.ts)}</time>
+                  </span>
+                </li>
+              )}
+              {item.kind === "note" && (
+                <li className="note" data-testid="internal-note">
+                  <span className="note-tag">Nota interna · só a equipe vê</span>
+                  <p>{item.note.text}</p>
+                  <span className="note-meta">
+                    {item.note.authorName ?? "Membro removido"} · <time dateTime={new Date(item.ts).toISOString()}>{messageTime(item.ts)}</time>
                   </span>
                 </li>
               )}
@@ -525,7 +581,7 @@ export function ConversationPage() {
         className="composer"
         onSubmit={(e) => {
           e.preventDefault();
-          void (attachment ? sendAttachment() : sendDraft());
+          void (noteMode ? sendNote() : attachment ? sendAttachment() : sendDraft());
         }}
       >
         {sendError && (
@@ -533,7 +589,15 @@ export function ConversationPage() {
             Não foi possível enviar. Tente de novo.
           </p>
         )}
-        {replyingTo && (
+        <div className="composer-mode" role="group" aria-label="Tipo de envio">
+          <button type="button" className={noteMode ? "secondary" : "mode-on"} aria-pressed={!noteMode} onClick={() => setNoteMode(false)}>
+            Mensagem
+          </button>
+          <button type="button" className={noteMode ? "mode-note-on" : "secondary"} aria-pressed={noteMode} onClick={() => setNoteMode(true)}>
+            Nota interna
+          </button>
+        </div>
+        {replyingTo && !noteMode && (
           <div className="reply-bar">
             <div className="reply-bar-text">
               <span className="quote-author">
@@ -568,7 +632,7 @@ export function ConversationPage() {
             )}
           </ul>
         )}
-        {recording ? (
+        {recording && !noteMode ? (
           <VoiceRecorder
             busy={sendingFile}
             onCancel={() => setRecording(false)}
@@ -578,7 +642,7 @@ export function ConversationPage() {
           />
         ) : (
           <>
-        {attachment && (
+        {attachment && !noteMode && (
           <div className="attachment" aria-label="Anexo">
             <AttachmentThumb file={attachment} />
             <span className="attachment-name">{attachment.name}</span>
@@ -589,6 +653,7 @@ export function ConversationPage() {
           </div>
         )}
         <div className="composer-row">
+          {!noteMode && (<>
           <label className="icon-button" title="Anexar arquivo">
             <span aria-hidden="true">📎</span>
             <span className="sr-only">Anexar arquivo</span>
@@ -598,11 +663,12 @@ export function ConversationPage() {
             <span aria-hidden="true">📷</span>
             <span className="sr-only">Tirar foto</span>
             <input type="file" hidden accept="image/*" capture="environment" onChange={(e) => { setAttachment(e.target.files?.[0] ?? null); e.target.value = ""; }} />
-          </label>
+          </label></>)}
           <textarea
             ref={inputRef}
-            aria-label="Mensagem"
-            placeholder="Escreva uma mensagem"
+            aria-label={noteMode ? "Nota interna" : "Mensagem"}
+            placeholder={noteMode ? "Escreva uma nota interna (o cliente não vê)" : "Escreva uma mensagem"}
+            className={noteMode ? "is-note" : undefined}
             rows={1}
             value={draft}
             onChange={(e) => {
@@ -612,7 +678,7 @@ export function ConversationPage() {
               if (id) setDraft(id, e.target.value);
             }}
             onKeyDown={(e) => {
-              if (slashOpen && matches.length > 0) {
+              if (slashOpen && !noteMode && matches.length > 0) {
                 const cur = Math.min(slashIndex, matches.length - 1);
                 if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                   e.preventDefault();
@@ -629,41 +695,47 @@ export function ConversationPage() {
               // Ctrl/Cmd+Enter envia; Enter sozinho quebra a linha (no celular não há outra forma de quebrar).
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
-                void (attachment ? sendAttachment() : sendDraft());
+                void (noteMode ? sendNote() : attachment ? sendAttachment() : sendDraft());
               }
             }}
           />
-          {!draft.trim() && !attachment && (
+          {!draft.trim() && !attachment && !noteMode && (
             <button type="button" className="icon-button" aria-label="Gravar nota de voz" onClick={() => setRecording(true)}>
               <span aria-hidden="true">🎤</span>
             </button>
           )}
-          <button type="submit" disabled={(!draft.trim() && !attachment) || sendingFile}>
-            Enviar
+          <button type="submit" disabled={(!draft.trim() && !(attachment && !noteMode)) || sendingFile}>
+            {noteMode ? "Salvar nota" : "Enviar"}
           </button>
         </div>
           </>
         )}
       </form>
+      </div>
+      {fichaOpen && <ContactPanel contactId={conversation.contact.id} onClose={() => setFichaOpen(false)} />}
+      </div>
     </article>
   );
 }
 
-type TimelineItem = ({ kind: "message"; message: Message } | { kind: "event"; event: TimelineEvent }) & { ts: number };
+type TimelineItem = ({ kind: "message"; message: Message } | { kind: "event"; event: TimelineEvent } | { kind: "note"; note: Note }) & { ts: number };
 
 /**
  * Mensagens e eventos de sistema por horário. Com histórico parcial (há páginas antigas ou novas por carregar),
  * só entram os eventos dentro da janela de mensagens já carregada.
  */
-function timeline(messages: Message[], events: TimelineEvent[], moreBefore: boolean, moreAfter: boolean): TimelineItem[] {
+function timeline(messages: Message[], events: TimelineEvent[], notes: Note[], moreBefore: boolean, moreAfter: boolean): TimelineItem[] {
   const first = messages[0]?.timestamp ?? -Infinity;
   const last = messages.at(-1)?.timestamp ?? Infinity;
-  const visible = events.filter((e) => (!moreBefore || e.timestamp >= first) && (!moreAfter || e.timestamp <= last));
+  const inWindow = (ts: number) => (!moreBefore || ts >= first) && (!moreAfter || ts <= last);
+  const visible = events.filter((e) => inWindow(e.timestamp));
   const all: TimelineItem[] = [
     ...messages.map((message): TimelineItem => ({ kind: "message", message, ts: message.timestamp })),
     ...visible.map((event): TimelineItem => ({ kind: "event", event, ts: event.timestamp })),
+    ...notes.filter((n) => inWindow(n.createdAt)).map((note): TimelineItem => ({ kind: "note", note, ts: note.createdAt })),
   ];
-  return all.sort((a, b) => a.ts - b.ts || (a.kind === b.kind ? 0 : a.kind === "message" ? -1 : 1));
+  const rank = { message: 0, event: 1, note: 2 };
+  return all.sort((a, b) => a.ts - b.ts || rank[a.kind] - rank[b.kind]);
 }
 
 /** Status, responsável e ações (assumir, atribuir/transferir, resolver) no topo da conversa. */

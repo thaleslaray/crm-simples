@@ -36,6 +36,8 @@ export interface UazapiClient {
   /** `/message/find`: uma pagina de mensagens da instancia, para a reconciliacao (formato nao validado com a Uazapi real). */
   findMessages(input: { limit: number; offset: number }): Promise<FindMessagesPage>;
   getInstanceStatus(): Promise<InstanceStatus>;
+  /** `/chat/details`: URL (temporaria) da foto de perfil do numero, ou null se ele nao tem foto (formato nao validado com a Uazapi real). */
+  getAvatar(number: string): Promise<string | null>;
   /** Inicia o pareamento (QR code). `history_days: 0`: nao importa historico anterior a conexao. */
   connect(): Promise<InstanceStatus>;
   /** Cadastra o webhook da instancia: so os eventos que o CRM usa, sem grupos nem mensagens `fromMe`. */
@@ -174,6 +176,11 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     },
     async getInstanceStatus() {
       return readInstance(await request("/instance/status"));
+    },
+    async getAvatar(number) {
+      const res = await postJson("/chat/details", { number, preview: false });
+      const body = (await res.json().catch(() => ({}))) as { image?: unknown };
+      return typeof body.image === "string" && body.image ? body.image : null;
     },
     async connect() {
       return readInstance(await postJson("/instance/connect", { history_days: 0 }));

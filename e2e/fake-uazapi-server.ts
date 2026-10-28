@@ -8,6 +8,19 @@ const fake = await startFakeUazapi({
     { method: "GET", path: "/instance/status", responses: [{ body: { instance: { status: "connected" } } }] },
     { method: "POST", path: "/send/text", responses: [{ body: { id: "owner:e2e-out", messageid: "e2e-out" } }] },
     { method: "POST", path: "/message/markread", responses: [{ body: { ok: true } }] },
+    // Foto de perfil: um SVG embutido, para a ficha mostrar uma imagem de verdade sem sair da maquina.
+    {
+      method: "POST",
+      path: "/chat/details",
+      responses: [
+        {
+          body: {
+            image:
+              "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' fill='%230f766e'/><circle cx='32' cy='26' r='12' fill='white'/></svg>",
+          },
+        },
+      ],
+    },
     { method: "POST", path: "/send/media", responses: [{ body: { id: "owner:e2e-media", messageid: "e2e-media" } }] },
   ],
 });

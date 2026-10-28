@@ -22,6 +22,33 @@ export interface TimelineEvent {
   fromName: string | null;
 }
 
+/** Nota interna: só a equipe vê; aparece na linha do tempo e na ficha. */
+export interface Note {
+  id: string;
+  conversationId: string;
+  text: string;
+  authorName: string | null;
+  createdAt: number;
+}
+
+export interface Contact {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  company: string | null;
+  notes: string | null;
+  avatarUrl: string | null;
+}
+
+export interface Ficha {
+  contact: Contact;
+  conversations: { id: string; status: ConversationStatus; assigneeName: string | null; assignees: string[]; createdAt: number }[];
+  notes: Note[];
+}
+
+export type ContactEdit = Pick<Contact, "name" | "email" | "company" | "notes">;
+
 export interface Member {
   id: string;
   name: string;
@@ -162,6 +189,15 @@ export const api = {
     sendJson<{ conversation: Conversation }>("POST", `/api/conversations/${encodeURIComponent(id)}/assign`, { userId }),
   resolve: (id: string) =>
     sendJson<{ conversation: Conversation }>("POST", `/api/conversations/${encodeURIComponent(id)}/resolve`, {}),
+  notes: (id: string) => getJson<{ notes: Note[] }>(`/api/conversations/${encodeURIComponent(id)}/notes`),
+  addNote: (id: string, text: string) =>
+    sendJson<{ note: Note }>("POST", `/api/conversations/${encodeURIComponent(id)}/notes`, { text }),
+  ficha: (contactId: string) => getJson<Ficha>(`/api/contacts/${encodeURIComponent(contactId)}`),
+  editContact: (contactId: string, edit: ContactEdit) =>
+    sendJson<{ contact: Contact }>("PATCH", `/api/contacts/${encodeURIComponent(contactId)}`, edit),
+  /** A foto quebrou (URL temporária expirada): busca outra. */
+  refreshAvatar: (contactId: string) =>
+    sendJson<{ contact: Contact }>("POST", `/api/contacts/${encodeURIComponent(contactId)}/avatar/refresh`, {}),
   connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
   /** Só admin: consulta a Uazapi e devolve o QR code atual. */
   connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),
