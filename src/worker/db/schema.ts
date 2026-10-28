@@ -70,3 +70,73 @@ export const verification = sqliteTable(
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
+
+// ---- Caixa de entrada (ticket 02) ----
+
+export const CONVERSATION_STATUSES = ["aberta"] as const; // em_andamento/resolvida entram nos tickets de status
+export const MESSAGE_TYPES = ["text", "unsupported"] as const;
+export type MessageType = (typeof MESSAGE_TYPES)[number];
+
+/** Evento cru do webhook, gravado antes de qualquer processamento. `processedAt` nulo = nao processado. */
+export const webhookEvent = sqliteTable(
+  "webhook_event",
+  {
+    id: text("id").primaryKey(),
+    eventType: text("event_type"),
+    /** Corpo cru (JSON em texto) SEM o campo `token`. */
+    payload: text("payload").notNull(),
+    receivedAt: integer("received_at").notNull(),
+    processedAt: integer("processed_at"),
+  },
+  (t) => [index("webhook_event_pending_idx").on(t.processedAt)],
+);
+
+export const contact = sqliteTable(
+  "contact",
+  {
+    id: text("id").primaryKey(),
+    name: text("name"),
+    /** So digitos (ex.: 5511999990001). Nulo quando so se conhece o LID. */
+    phone: text("phone").unique(),
+    jidPn: text("jid_pn").unique(),
+    jidLid: text("jid_lid").unique(),
+    createdAt: integer("created_at").notNull(),
+  },
+);
+
+export const conversation = sqliteTable(
+  "conversation",
+  {
+    id: text("id").primaryKey(),
+    /** Uma conversa por contato. */
+    contactId: text("contact_id")
+      .notNull()
+      .unique()
+      .references(() => contact.id, { onDelete: "cascade" }),
+    status: text("status", { enum: CONVERSATION_STATUSES }).notNull().default("aberta"),
+    assigneeId: text("assignee_id").references(() => user.id, { onDelete: "set null" }),
+    lastMessageAt: integer("last_message_at"),
+    lastMessageId: text("last_message_id"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("conversation_last_message_at_idx").on(t.lastMessageAt)],
+);
+
+export const message = sqliteTable(
+  "message",
+  {
+    id: text("id").primaryKey(),
+    /** `message.id` da Uazapi (chave de idempotencia). */
+    externalId: text("external_id").notNull().unique(),
+    /** `message.messageid` do WhatsApp. */
+    whatsappMessageId: text("whatsapp_message_id"),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    direction: text("direction", { enum: ["in"] }).notNull(),
+    type: text("type", { enum: MESSAGE_TYPES }).notNull(),
+    text: text("text"),
+    timestamp: integer("timestamp").notNull(),
+  },
+  (t) => [index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id)],
+);

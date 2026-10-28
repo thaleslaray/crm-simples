@@ -1,0 +1,49 @@
+import { Hono } from "hono";
+import { createDb, schema } from "./db";
+import { eq } from "drizzle-orm";
+import { ingestMessage, type UazapiMessage } from "./ingest";
+import type { AppEnv } from "./middleware";
+
+/** Comparacao em tempo constante: hasheia os dois lados (tamanho fixo) e compara os digests. */
+async function safeEqual(a: unknown, b: string): Promise<boolean> {
+  if (typeof a !== "string") return false;
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  return crypto.subtle.timingSafeEqual(ha, hb);
+}
+
+export const webhook = new Hono<AppEnv>();
+
+webhook.post("/:secret", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const token = body && typeof body === "object" ? (body as { token?: unknown }).token : undefined;
+  // Avalia os dois para nao revelar qual falhou pelo tempo de resposta.
+  const [okSecret, okToken] = await Promise.all([
+    safeEqual(c.req.param("secret"), c.env.WEBHOOK_URL_SECRET),
+    safeEqual(token, c.env.UAZAPI_INSTANCE_TOKEN),
+  ]);
+  if (!okSecret || !okToken) return c.json({ error: "nao_autorizado" }, 401);
+  const { token: _token, ...payload } = body as Record<string, unknown>;
+  const db = createDb(c.env.DB);
+  const eventId = crypto.randomUUID();
+  await db.insert(schema.webhookEvent).values({
+    id: eventId,
+    eventType: typeof payload.EventType === "string" ? payload.EventType : null,
+    payload: JSON.stringify(payload),
+    receivedAt: Date.now(),
+  });
+  // Outros tipos de evento (messages_update, connection...) ficam gravados sem processar: sao de tickets futuros.
+  if (payload.EventType === "messages") {
+    try {
+      await ingestMessage(db, (payload.message ?? {}) as UazapiMessage);
+      await db.update(schema.webhookEvent).set({ processedAt: Date.now() }).where(eq(schema.webhookEvent.id, eventId));
+    } catch (err) {
+      // Nunca logar payload/token: so o tipo do erro e o id do evento. O evento fica sem processedAt.
+      console.error("webhook: falha ao processar evento", { eventId, erro: err instanceof Error ? err.name : "desconhecido" });
+    }
+  }
+  return c.json({ ok: true });
+});

@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from "react-router";
 import { authClient } from "./auth-client";
-import { InboxPage } from "./pages/InboxPage";
+import { ConversationPage } from "./pages/ConversationPage";
+import { InboxPage, NoConversationSelected } from "./pages/InboxPage";
 import { LoginPage } from "./pages/LoginPage";
 
 /** Rota protegida: sem sessao, redireciona para /login. */
@@ -16,7 +17,10 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireSession />}>
-        <Route path="/" element={<InboxPage />} />
+        <Route element={<InboxPage />}>
+          <Route path="/" element={<NoConversationSelected />} />
+          <Route path="/conversas/:id" element={<ConversationPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

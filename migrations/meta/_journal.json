@@ -8,6 +8,13 @@
       "when": 1793146160811,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793149048921,
+      "tag": "0001_fat_whiplash",
+      "breakpoints": true
     }
   ]
 }
