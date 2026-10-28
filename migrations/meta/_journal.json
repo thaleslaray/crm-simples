@@ -15,6 +15,13 @@
       "when": 1793149048921,
       "tag": "0001_fat_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793152052996,
+      "tag": "0002_gorgeous_proteus",
+      "breakpoints": true
     }
   ]
 }

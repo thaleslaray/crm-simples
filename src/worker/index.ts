@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { conversations } from "./conversations";
 import { createAuth } from "./auth";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
+import { media } from "./media";
 import { handleQueue } from "./queue";
 import { handleScheduled } from "./scheduled";
 import { webhook } from "./webhook";
@@ -15,6 +16,7 @@ app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env, c.req.url).handl
 
 app.route("/api/webhook", webhook);
 app.route("/api/conversations", conversations);
+app.route("/api/media", media);
 
 app.get("/api/health", (c) => c.json({ ok: true }));
 

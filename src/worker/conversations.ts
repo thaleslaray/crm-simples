@@ -57,6 +57,41 @@ function decodeCursor(raw: string): { timestamp: number; id: string } | null {
   return { timestamp, id: raw.slice(i + 1) };
 }
 
+type MessageRow = {
+  id: string;
+  direction: "in";
+  type: string;
+  text: string | null;
+  timestamp: number;
+  mediaStatus: "pending" | "available" | "failed" | null;
+  mediaKey: string | null;
+  mediaMime: string | null;
+  mediaSize: number | null;
+  mediaName: string | null;
+  extra: string | null;
+};
+
+/** Mensagem no formato da API. Midia "disponivel" cujo objeto saiu do R2 (regra de 365 dias) aparece como "expired". */
+async function messageView(bucket: R2Bucket, m: MessageRow) {
+  const { mediaStatus, mediaKey, mediaMime, mediaSize, mediaName, extra, ...base } = m;
+  let status: "pending" | "available" | "failed" | "expired" | null = mediaStatus;
+  if (mediaStatus === "available" && (!mediaKey || !(await bucket.head(mediaKey)))) status = "expired";
+  const details = extra ? (JSON.parse(extra) as Record<string, unknown>) : null;
+  return {
+    ...base,
+    media: status ? { status, mime: mediaMime, size: mediaSize, name: mediaName } : null,
+    location: m.type === "location" ? details : null,
+    contact: m.type === "contact" ? contactView(details) : null,
+  };
+}
+
+/** Nome e primeiro telefone do vCard (linha `TEL`, ex.: `TEL;type=CELL;waid=5511...:+55 11 ...`). */
+function contactView(details: Record<string, unknown> | null) {
+  const vcard = typeof details?.vcard === "string" ? details.vcard : "";
+  const tel = /^TEL[^:\n]*:(.+)$/im.exec(vcard)?.[1]?.trim() ?? null;
+  return { name: (details?.name as string | null) ?? null, phone: tel };
+}
+
 conversations.get("/:id/messages", async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
@@ -77,6 +112,12 @@ conversations.get("/:id/messages", async (c) => {
       type: schema.message.type,
       text: schema.message.text,
       timestamp: schema.message.timestamp,
+      mediaStatus: schema.message.mediaStatus,
+      mediaKey: schema.message.mediaKey,
+      mediaMime: schema.message.mediaMime,
+      mediaSize: schema.message.mediaSize,
+      mediaName: schema.message.mediaName,
+      extra: schema.message.extra,
     })
     .from(schema.message)
     .where(
@@ -95,5 +136,6 @@ conversations.get("/:id/messages", async (c) => {
 
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit).reverse(); // mais recentes, em ordem cronologica
-  return c.json({ messages: page, nextBefore: hasMore ? encodeCursor(page[0]!) : null });
+  const messages = await Promise.all(page.map((m) => messageView(c.env.MEDIA, m)));
+  return c.json({ messages, nextBefore: hasMore ? encodeCursor(page[0]!) : null });
 });

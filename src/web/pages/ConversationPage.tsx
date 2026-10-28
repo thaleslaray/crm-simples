@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ApiError, api, type Conversation, type Message } from "../api";
-import { contactLabel, dayLabel, formatPhone, initials, messagePreview, messageTime, sameDay } from "../format";
+import { contactLabel, dayLabel, formatPhone, initials, messageTime, sameDay } from "../format";
+import { MessageBody } from "./MessageBody";
 
 // Distância do topo (px) que dispara o carregamento das mensagens mais antigas.
 const LOAD_OLDER_THRESHOLD = 120;
@@ -47,6 +48,26 @@ export function ConversationPage() {
       anchor.current = null;
     }
   }, [state]);
+
+  // Enquanto houver mídia "carregando", relê as mensagens recentes e atualiza só o estado da mídia.
+  const hasPending = state.kind === "ready" && state.messages.some((m) => m.media?.status === "pending");
+  useEffect(() => {
+    if (!hasPending || !id) return;
+    const timer = setInterval(() => {
+      api
+        .messages(id)
+        .then((page) => {
+          const fresh = new Map(page.messages.map((m) => [m.id, m.media]));
+          setState((s) =>
+            s.kind === "ready" && s.conversation.id === id
+              ? { ...s, messages: s.messages.map((m) => (m.media?.status === "pending" && fresh.get(m.id) ? { ...m, media: fresh.get(m.id)! } : m)) }
+              : s,
+          );
+        })
+        .catch(() => {});
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [hasPending, id]);
 
   const loadOlder = useCallback(async () => {
     if (state.kind !== "ready" || !state.nextBefore || loadingOlder || !id) return;
@@ -123,7 +144,7 @@ export function ConversationPage() {
                 </li>
               )}
               <li className={`bubble bubble--${m.direction}${m.type === "unsupported" ? " is-unsupported" : ""}`}>
-                <p>{messagePreview(m.type, m.text)}</p>
+                <MessageBody message={m} />
                 <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
               </li>
             </Fragment>

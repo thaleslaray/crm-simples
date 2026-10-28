@@ -68,3 +68,14 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
   .back { display: grid; }
   .bubble { max-width: 85%; }
 }
+
+/* Mídia nas bolhas */
+.bubble .media { display: block; max-width: 100%; max-height: 60vh; border-radius: 8px; background: #e8eeed; }
+.bubble .media--sticker { max-width: 160px; background: transparent; }
+.bubble .media-audio { width: 100%; max-width: 280px; }
+.media-note { color: var(--muted); font-style: italic; }
+.media-note--error { color: var(--danger); font-style: normal; }
+.media-doc { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; color: var(--brand); text-decoration: none; min-height: 44px; }
+.media-doc-name { overflow-wrap: anywhere; font-weight: 600; }
+.card-inline { display: grid; gap: 2px; overflow-wrap: anywhere; }
+.card-inline a { color: var(--brand); min-height: 24px; }

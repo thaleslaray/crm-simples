@@ -38,7 +38,7 @@ webhook.post("/:secret", async (c) => {
   // Outros tipos de evento (messages_update, connection...) ficam gravados sem processar: sao de tickets futuros.
   if (payload.EventType === "messages") {
     try {
-      await ingestMessage(db, (payload.message ?? {}) as UazapiMessage);
+      await ingestMessage(db, (payload.message ?? {}) as UazapiMessage, c.env.MEDIA_QUEUE);
       await db.update(schema.webhookEvent).set({ processedAt: Date.now() }).where(eq(schema.webhookEvent.id, eventId));
     } catch (err) {
       // Nunca logar payload/token: so o tipo do erro e o id do evento. O evento fica sem processedAt.

@@ -74,7 +74,9 @@ export const verification = sqliteTable(
 // ---- Caixa de entrada (ticket 02) ----
 
 export const CONVERSATION_STATUSES = ["aberta"] as const; // em_andamento/resolvida entram nos tickets de status
-export const MESSAGE_TYPES = ["text", "unsupported"] as const;
+export const MESSAGE_TYPES = ["text", "image", "video", "audio", "voice", "document", "sticker", "location", "contact", "unsupported"] as const;
+export const MEDIA_STATUSES = ["pending", "available", "failed"] as const;
+export type MediaStatus = (typeof MEDIA_STATUSES)[number];
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
 /** Evento cru do webhook, gravado antes de qualquer processamento. `processedAt` nulo = nao processado. */
@@ -137,6 +139,15 @@ export const message = sqliteTable(
     type: text("type", { enum: MESSAGE_TYPES }).notNull(),
     text: text("text"),
     timestamp: integer("timestamp").notNull(),
+    /** Midia (imagem, video, audio, voz, documento, figurinha): nulo nas demais. "expirada" nao e gravado: sai do R2. */
+    mediaStatus: text("media_status", { enum: MEDIA_STATUSES }),
+    /** Chave do objeto no R2 (so quando disponivel). */
+    mediaKey: text("media_key"),
+    mediaMime: text("media_mime"),
+    mediaSize: integer("media_size"),
+    mediaName: text("media_name"),
+    /** Localizacao e contato recebidos: JSON `{lat,lng,name,address}` ou `{name,vcard}`. */
+    extra: text("extra"),
   },
   (t) => [index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id)],
 );

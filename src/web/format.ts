@@ -17,8 +17,28 @@ export function initials(label: string): string {
   return (words[0]![0]! + (words.length > 1 ? words.at(-1)![0]! : "")).toUpperCase();
 }
 
+const TYPE_LABEL: Record<Exclude<MessageType, "text">, string> = {
+  image: "Imagem",
+  video: "Vídeo",
+  audio: "Áudio",
+  voice: "Nota de voz",
+  document: "Documento",
+  sticker: "Figurinha",
+  location: "Localização",
+  contact: "Contato",
+  unsupported: "Tipo de mensagem não suportado ainda",
+};
+
+/** Prévia de uma linha: o texto/legenda quando houver, senão o nome do tipo. */
 export function messagePreview(type: MessageType, text: string | null): string {
-  return type === "text" ? (text ?? "") : "Tipo de mensagem não suportado ainda";
+  if (type === "text") return text ?? "";
+  return text ? `${TYPE_LABEL[type]}: ${text}` : TYPE_LABEL[type];
+}
+
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
 }
 
 function startOfDay(d: Date): number {
