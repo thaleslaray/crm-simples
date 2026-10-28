@@ -32,7 +32,21 @@ export interface FindMessagesPage {
   hasMore: boolean;
 }
 
+/** Instancia como a Uazapi lista. O `token` e so do servidor: nunca sai nas respostas da API do CRM. */
+export interface UazapiInstance {
+  id: string;
+  name: string;
+  token: string;
+  status: string;
+  profileName: string;
+  profilePicUrl: string;
+}
+
 export interface UazapiClient {
+  /** Admin (header `admintoken`): `GET /instance/all`, todas as instancias do servidor. */
+  listInstances(): Promise<UazapiInstance[]>;
+  /** Admin: `POST /instance/create`. A instancia nasce desconectada. */
+  createInstance(name: string): Promise<UazapiInstance>;
   /** `/message/find`: uma pagina de mensagens da instancia, para a reconciliacao (formato nao validado com a Uazapi real). */
   findMessages(input: { limit: number; offset: number }): Promise<FindMessagesPage>;
   getInstanceStatus(): Promise<InstanceStatus>;
@@ -89,7 +103,24 @@ export interface UazapiClientOptions {
   random?: () => number;
 }
 
-type UazapiEnv = Pick<Cloudflare.Env, "UAZAPI_BASE_URL" | "UAZAPI_INSTANCE_TOKEN"> & { UAZAPI_TIMEOUT_MS?: string };
+/** `UAZAPI_ADMIN_TOKEN` so e preciso para `listInstances`/`createInstance`; o resto usa o token da instancia. */
+type UazapiEnv = Pick<Cloudflare.Env, "UAZAPI_BASE_URL" | "UAZAPI_INSTANCE_TOKEN"> & { UAZAPI_TIMEOUT_MS?: string; UAZAPI_ADMIN_TOKEN?: string };
+
+type Auth = "instance" | "admin" | "none";
+
+const text = (v: unknown) => (typeof v === "string" ? v : "");
+
+function toInstance(raw: unknown, fallbackToken = ""): UazapiInstance {
+  const i = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    id: text(i.id),
+    name: text(i.name),
+    token: text(i.token) || fallbackToken,
+    status: text(i.status),
+    profileName: text(i.profileName),
+    profilePicUrl: text(i.profilePicUrl),
+  };
+}
 
 const BACKOFF_BASE_MS = 500;
 /** Teto de espera por tentativa, para o envio nao estourar o tempo do request. */
@@ -112,10 +143,10 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
   const baseUrl = env.UAZAPI_BASE_URL.replace(/\/+$/, "");
 
   /** Uma chamada HTTP; `429` repete com backoff. Timeout e demais erros propagam sem repetir. */
-  async function request(path: string, init: RequestInit = {}, authenticated = true): Promise<Response> {
+  async function request(path: string, init: RequestInit = {}, auth: Auth = "instance"): Promise<Response> {
     for (let attempt = 0; ; attempt++) {
       try {
-        return await requestOnce(path, init, authenticated);
+        return await requestOnce(path, init, auth);
       } catch (err) {
         if (!(err instanceof UazapiHttpError) || err.status !== 429 || attempt >= maxRetries) throw err;
         // Retry-After e piso; jitter soma ate 25% (ou backoff exponencial com jitter total sem o header).
@@ -128,13 +159,19 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     }
   }
 
-  async function requestOnce(path: string, init: RequestInit, authenticated: boolean): Promise<Response> {
+  async function requestOnce(path: string, init: RequestInit, auth: Auth): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await doFetch(authenticated ? `${baseUrl}${path}` : path, {
+      const credentials: Record<string, string> =
+        auth === "instance"
+          ? { token: env.UAZAPI_INSTANCE_TOKEN, accept: "application/json" }
+          : auth === "admin"
+            ? { admintoken: env.UAZAPI_ADMIN_TOKEN ?? "", accept: "application/json" }
+            : {};
+      const res = await doFetch(auth === "none" ? path : `${baseUrl}${path}`, {
         ...init,
-        headers: { ...(authenticated ? { token: env.UAZAPI_INSTANCE_TOKEN, accept: "application/json" } : {}), ...init.headers },
+        headers: { ...credentials, ...init.headers },
         signal: controller.signal,
       });
       if (!res.ok) {
@@ -169,6 +206,21 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
   }
 
   return {
+    async listInstances() {
+      const body = await (await request("/instance/all", {}, "admin")).json();
+      return (Array.isArray(body) ? body : []).map((raw) => toInstance(raw)).filter((i) => i.id);
+    },
+    async createInstance(name) {
+      const res = await request(
+        "/instance/create",
+        { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) },
+        "admin",
+      );
+      const body = (await res.json()) as { instance?: unknown; token?: unknown };
+      const instance = toInstance(body.instance, text(body.token));
+      if (!instance.id || !instance.token) throw new Error("Uazapi nao devolveu a instancia criada");
+      return instance;
+    },
     async findMessages({ limit, offset }) {
       const res = await postJson("/message/find", { limit, offset });
       const body = (await res.json()) as { messages?: UazapiMessage[]; hasMore?: boolean };
@@ -207,7 +259,7 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
       return { url: body.fileURL, mimetype: body.mimetype ?? null };
     },
     // O timeout vale ate os headers chegarem; o corpo segue em stream sem limite de tempo proprio.
-    openFile: (url) => request(url, {}, false),
+    openFile: (url) => request(url, {}, "none"),
     async markRead(messageIds) {
       const res = await request("/message/markread", {
         method: "POST",

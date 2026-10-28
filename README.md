@@ -65,10 +65,16 @@ O deploy é pelo GitHub (Workers Builds): cada push no `main` de `thaleslaray/cr
 Secrets do Worker (fora do repositório): `BETTER_AUTH_SECRET` e `WEBHOOK_URL_SECRET`. Para trocar um:
 `pnpm exec wrangler secret put <NOME>`.
 
-Uazapi: o admin informa o endereço do servidor e o token da instância em Configurações › Conexão do número. O token
-fica cifrado no D1 (AES-GCM, chave derivada do `BETTER_AUTH_SECRET`) e nunca volta ao navegador. **Trocar o
-`BETTER_AUTH_SECRET` invalida o token guardado**: a tela volta a pedir os dados. Sem dados no banco, valem os secrets
-opcionais `UAZAPI_BASE_URL` e `UAZAPI_INSTANCE_TOKEN` (usados por testes e por quem já os tem configurados).
+Uazapi: em Configurações › Conexão do número o admin informa o endereço do servidor e o **admin token** (na Uazapi, é o
+`admintoken` do servidor, o mesmo usado para criar instâncias; não é o token de uma instância). O CRM confere o admin
+token listando as instâncias (`GET /instance/all`), mostra a lista (nome, status, perfil do WhatsApp) e o admin escolhe
+qual usar ("Usar esta") ou cria uma nova pelo nome. O token da instância escolhida é obtido pelo servidor, que também
+cadastra o webhook dela; o navegador só manda o id. Admin token e token da instância ficam cifrados no D1 (AES-GCM,
+chave derivada do `BETTER_AUTH_SECRET`) e nunca voltam ao navegador (só `••••` + 4 últimos do admin token).
+**Trocar o `BETTER_AUTH_SECRET` invalida os tokens guardados**: a tela volta a pedir os dados. Prioridade: instância
+escolhida na tela, depois o token de instância salvo pela versão anterior da tela, depois os secrets opcionais
+`UAZAPI_BASE_URL` e `UAZAPI_INSTANCE_TOKEN` (usados por testes e por quem já os tem configurados).
+`DELETE /api/admin/uazapi` (só admin) apaga os dados salvos pela tela e volta a valer o ambiente.
 
 Primeiro admin: `pnpm bootstrap:admin --remote --email ... --name ... --password ...` (precisa de `pnpm exec wrangler login`).
 

@@ -1,10 +1,24 @@
 // Sobe a Uazapi falsa (a mesma dos testes de borda) para o E2E. Controle: http://127.0.0.1:4010/__fake/*
 import { startFakeUazapi } from "../test/fake-uazapi/server";
-import { E2E_UAZAPI_PORT } from "./e2e-env";
+import { E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const fake = await startFakeUazapi({
   port: E2E_UAZAPI_PORT,
   defaults: [
+    // Admin: lista de instancias. A primeira usa o token do ambiente do E2E, para o webhook seguir valendo se ela ficar escolhida.
+    {
+      method: "GET",
+      path: "/instance/all",
+      responses: [
+        {
+          body: [
+            { id: "inst-loja", name: "Loja Centro", token: E2E_WEBHOOK.instanceToken, status: "disconnected", profileName: "", profilePicUrl: "" },
+            { id: "inst-suporte", name: "Suporte", token: "token-suporte-e2e", status: "connected", profileName: "Suporte Laray", profilePicUrl: "" },
+          ],
+        },
+      ],
+    },
+    { method: "POST", path: "/webhook", responses: [{ body: [] }] },
     {
       method: "GET",
       path: "/instance/status",

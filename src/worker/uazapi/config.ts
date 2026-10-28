@@ -20,6 +20,7 @@ export class UazapiNotConfiguredError extends Error {
 }
 
 const ROW_ID = "instance";
+const ADMIN_ROW_ID = "admin";
 // Rotulo proprio: a mesma BETTER_AUTH_SECRET nao deriva a mesma chave para outro uso.
 const HKDF_INFO = "crm-simples/uazapi-token/v1";
 
@@ -55,7 +56,33 @@ async function decryptToken(secret: string, stored: string): Promise<string | nu
   }
 }
 
+/** Instancia escolhida, para a tela: so id e nome (o token fica no servidor). */
+export interface ChosenInstance {
+  id: string;
+  name: string;
+}
+
+/** Acesso admin guardado: endereco, admin token e (se ja escolhida) a instancia. */
+export interface UazapiAdminAccess {
+  baseUrl: string;
+  adminToken: string;
+  instance: (ChosenInstance & { token: string }) | null;
+}
+
+export async function loadAdminAccess(env: Cloudflare.Env, db: Db = createDb(env.DB)): Promise<UazapiAdminAccess | null> {
+  const row = await db.query.uazapiAdmin.findFirst({ where: eq(schema.uazapiAdmin.id, ADMIN_ROW_ID) });
+  if (!row) return null;
+  const adminToken = await decryptToken(env.BETTER_AUTH_SECRET, row.adminTokenEnc);
+  if (!adminToken) return null;
+  const token = row.instanceTokenEnc ? await decryptToken(env.BETTER_AUTH_SECRET, row.instanceTokenEnc) : null;
+  const instance = token && row.instanceId ? { id: row.instanceId, name: row.instanceName ?? "", token } : null;
+  return { baseUrl: row.baseUrl, adminToken, instance };
+}
+
+/** Prioridade: instancia escolhida (admin) -> token de instancia do ticket 01 -> variaveis de ambiente. */
 export async function resolveUazapiConfig(env: Cloudflare.Env, db: Db = createDb(env.DB)): Promise<UazapiConfig | null> {
+  const admin = await loadAdminAccess(env, db);
+  if (admin?.instance) return { baseUrl: admin.baseUrl, token: admin.instance.token, source: "database" };
   const row = await db.query.uazapiSetting.findFirst({ where: eq(schema.uazapiSetting.id, ROW_ID) });
   if (row) {
     const token = await decryptToken(env.BETTER_AUTH_SECRET, row.tokenEnc);
@@ -71,26 +98,82 @@ export async function resolveUazapiConfig(env: Cloudflare.Env, db: Db = createDb
 export async function getUazapiClient(env: Cloudflare.Env, options?: UazapiClientOptions): Promise<UazapiClient> {
   const config = await resolveUazapiConfig(env);
   if (!config) throw new UazapiNotConfiguredError();
+  return createInstanceClient(env, config, options);
+}
+
+/** Cliente com o admin token (listar e criar instancias). */
+export function createAdminClient(env: Cloudflare.Env, access: { baseUrl: string; adminToken: string }, options?: UazapiClientOptions): UazapiClient {
   return createUazapiClient(
-    { UAZAPI_BASE_URL: config.baseUrl, UAZAPI_INSTANCE_TOKEN: config.token, UAZAPI_TIMEOUT_MS: env.UAZAPI_TIMEOUT_MS },
+    { UAZAPI_BASE_URL: access.baseUrl, UAZAPI_INSTANCE_TOKEN: "", UAZAPI_ADMIN_TOKEN: access.adminToken, UAZAPI_TIMEOUT_MS: env.UAZAPI_TIMEOUT_MS },
     options,
   );
 }
 
-/** Resumo seguro para a API: endereco e as ultimas letras do token, nunca o token. */
+/** Cliente de uma instancia especifica (tambem serve para cadastrar o webhook dela antes de gravar a escolha). */
+export function createInstanceClient(env: Cloudflare.Env, input: { baseUrl: string; token: string }, options?: UazapiClientOptions): UazapiClient {
+  return createUazapiClient(
+    { UAZAPI_BASE_URL: input.baseUrl, UAZAPI_INSTANCE_TOKEN: input.token, UAZAPI_TIMEOUT_MS: env.UAZAPI_TIMEOUT_MS },
+    options,
+  );
+}
+
+/** Resumo seguro para a API: nada de token, so o fim do admin token e a instancia escolhida (id e nome). */
 export interface UazapiConfigSummary {
   configured: boolean;
   baseUrl?: string;
-  tokenHint?: string;
+  adminTokenHint?: string;
+  instance?: ChosenInstance | null;
 }
 
-export function summarize(config: UazapiConfig | null): UazapiConfigSummary {
-  if (!config) return { configured: false };
-  return { configured: true, baseUrl: config.baseUrl, tokenHint: `••••${config.token.slice(-4)}` };
+export async function summarize(env: Cloudflare.Env, db: Db): Promise<UazapiConfigSummary> {
+  const [config, admin] = await Promise.all([resolveUazapiConfig(env, db), loadAdminAccess(env, db)]);
+  if (!config && !admin) return { configured: false };
+  return {
+    configured: config !== null,
+    baseUrl: admin?.baseUrl ?? config?.baseUrl,
+    ...(admin ? { adminTokenHint: `••••${admin.adminToken.slice(-4)}` } : {}),
+    instance: admin?.instance ? { id: admin.instance.id, name: admin.instance.name } : null,
+  };
 }
 
-/** Grava (upsert) o endereco e o token cifrado. */
-export async function saveUazapiConfig(env: Cloudflare.Env, db: Db, input: { baseUrl: string; token: string }): Promise<void> {
+/** Grava (upsert) endereco e admin token cifrado. A escolha de instancia so sobrevive se o servidor for o mesmo. */
+export async function saveAdminAccess(env: Cloudflare.Env, db: Db, input: { baseUrl: string; adminToken: string }): Promise<void> {
+  const before = await loadAdminAccess(env, db);
+  const keep = before?.baseUrl === input.baseUrl ? before.instance : null;
+  const row = {
+    id: ADMIN_ROW_ID,
+    baseUrl: input.baseUrl,
+    adminTokenEnc: await encryptToken(env.BETTER_AUTH_SECRET, input.adminToken),
+    adminTokenLast4: input.adminToken.slice(-4),
+    instanceId: keep?.id ?? null,
+    instanceName: keep?.name ?? null,
+    instanceTokenEnc: keep ? await encryptToken(env.BETTER_AUTH_SECRET, keep.token) : null,
+    updatedAt: Date.now(),
+  };
+  await db.insert(schema.uazapiAdmin).values(row).onConflictDoUpdate({ target: schema.uazapiAdmin.id, set: row });
+}
+
+/** Grava a instancia escolhida (token cifrado) no acesso admin ja existente. */
+export async function saveChosenInstance(env: Cloudflare.Env, db: Db, input: { id: string; name: string; token: string }): Promise<void> {
+  await db
+    .update(schema.uazapiAdmin)
+    .set({
+      instanceId: input.id,
+      instanceName: input.name,
+      instanceTokenEnc: await encryptToken(env.BETTER_AUTH_SECRET, input.token),
+      updatedAt: Date.now(),
+    })
+    .where(eq(schema.uazapiAdmin.id, ADMIN_ROW_ID));
+}
+
+/** Volta ao estado "nao configurado pela tela": apaga tudo; passam a valer as variaveis de ambiente, se houver. */
+export async function clearUazapiConfig(db: Db): Promise<void> {
+  await db.delete(schema.uazapiAdmin);
+  await db.delete(schema.uazapiSetting);
+}
+
+/** Legado do ticket 01 (token de instancia digitado na tela). Nao ha mais tela para isso; fica para quem ja tem a linha e para os testes. */
+export async function saveLegacyInstanceToken(env: Cloudflare.Env, db: Db, input: { baseUrl: string; token: string }): Promise<void> {
   const row = {
     id: ROW_ID,
     baseUrl: input.baseUrl,

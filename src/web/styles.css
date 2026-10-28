@@ -126,6 +126,20 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .uazapi-line { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; overflow-wrap: anywhere; }
 .uazapi-line button { width: auto; padding: 4px 12px; font-size: 0.9rem; }
 .conn-status--disconnected { color: var(--danger); }
+.inst { display: grid; gap: 12px; }
+.inst-title { margin: 0; font-size: 1rem; }
+.inst-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.inst-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.inst-item.is-current { border-color: var(--brand); }
+.inst-info { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.inst-name { font-weight: 600; overflow-wrap: anywhere; }
+.inst-profile { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+.inst-pic { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
+.inst-pill { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--st-resolvida-bg); color: var(--st-resolvida-fg); }
+.inst-pill--connected { background: var(--st-andamento-bg); color: var(--st-andamento-fg); }
+.inst-pill--connecting { background: var(--st-aberta-bg); color: var(--st-aberta-fg); }
+.inst-current { color: var(--brand); font-weight: 600; font-size: 0.9rem; }
+.inst-item button { width: auto; min-height: 36px; padding: 6px 14px; font-size: 0.9rem; }
 .qr { display: grid; gap: 12px; justify-items: center; text-align: center; }
 .qr img { width: 100%; max-width: 280px; height: auto; aspect-ratio: 1; image-rendering: pixelated; background: #fff; border: 1px solid var(--border); border-radius: 8px; }
 .qr p { margin: 0; font-size: 0.9rem; }

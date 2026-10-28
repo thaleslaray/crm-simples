@@ -127,6 +127,21 @@ export const uazapiSetting = sqliteTable("uazapi_setting", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+/**
+ * Acesso admin da Uazapi (uma unica linha, id "admin"): endereco, admin token e a instancia escolhida.
+ * Tokens cifrados (AES-GCM, ver uazapi/config.ts); nada daqui volta ao navegador alem dos 4 ultimos do admin token.
+ */
+export const uazapiAdmin = sqliteTable("uazapi_admin", {
+  id: text("id").primaryKey(),
+  baseUrl: text("base_url").notNull(),
+  adminTokenEnc: text("admin_token_enc").notNull(),
+  adminTokenLast4: text("admin_token_last4").notNull(),
+  instanceId: text("instance_id"),
+  instanceName: text("instance_name"),
+  instanceTokenEnc: text("instance_token_enc"),
+  updatedAt: integer("updated_at").notNull(),
+});
+
 /** Reconciliacao (ticket 19): uma unica linha (id "inbox") com o inicio da ultima conferencia bem-sucedida. */
 export const reconciliationState = sqliteTable("reconciliation_state", {
   id: text("id").primaryKey(),

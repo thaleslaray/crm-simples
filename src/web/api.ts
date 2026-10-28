@@ -193,7 +193,19 @@ export interface ConnectionWithQr {
 export interface UazapiConfigSummary {
   configured: boolean;
   baseUrl?: string;
-  tokenHint?: string;
+  /** `••••` + 4 últimos do admin token. Ausente = ainda sem admin token. */
+  adminTokenHint?: string;
+  /** Instância em uso (só id e nome; o token nunca vem). */
+  instance?: { id: string; name: string } | null;
+}
+
+/** Instância do servidor da Uazapi, como a tela a mostra. */
+export interface UazapiInstanceItem {
+  id: string;
+  name: string;
+  status: string;
+  profileName: string;
+  profilePicUrl: string;
 }
 
 export class ApiError extends Error {
@@ -216,6 +228,20 @@ async function sendJson<T>(method: string, path: string, body: unknown): Promise
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new ApiError(res.status);
+  return res.json() as Promise<T>;
+}
+
+/** Chamada das rotas da Uazapi: quando recusa, rejeita com `code` (o `error` do corpo) para a tela escolher a mensagem. */
+async function adminCall<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    credentials: "same-origin",
+    ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw Object.assign(new ApiError(res.status), { code: data.error });
+  }
   return res.json() as Promise<T>;
 }
 
@@ -372,22 +398,16 @@ export const api = {
   connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
   /** Só admin: consulta a Uazapi e devolve o QR code atual. */
   connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),
-  /** Só admin: dados da Uazapi guardados (endereço e fim do token; o token inteiro nunca volta). */
+  /** Só admin: dados da Uazapi guardados (endereço, fim do admin token, instância em uso; nenhum token inteiro volta). */
   uazapiConfig: () => getJson<UazapiConfigSummary>("/api/admin/uazapi"),
-  /** Só admin: grava os dados da Uazapi. Token vazio mantém o atual. Rejeita com `code` quando recusado (400). */
-  saveUazapiConfig: async (baseUrl: string, token: string): Promise<UazapiConfigSummary> => {
-    const res = await fetch("/api/admin/uazapi", {
-      method: "PUT",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ baseUrl, token }),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw Object.assign(new ApiError(res.status), { code: body.error });
-    }
-    return res.json() as Promise<UazapiConfigSummary>;
-  },
+  /** Só admin: grava endereço e admin token. Admin token vazio mantém o atual. Rejeita com `code` quando recusado (400). */
+  saveUazapiConfig: (baseUrl: string, adminToken: string) => adminCall<UazapiConfigSummary>("PUT", "/api/admin/uazapi", { baseUrl, adminToken }),
+  /** Só admin: instâncias do servidor (sem tokens). */
+  uazapiInstances: () => adminCall<{ instances: UazapiInstanceItem[] }>("GET", "/api/admin/uazapi/instances"),
+  /** Só admin: usa esta instância (o servidor pega o token dela; aqui só vai o id). */
+  chooseUazapiInstance: (id: string) => adminCall<UazapiConfigSummary>("PUT", "/api/admin/uazapi/instance", { id }),
+  /** Só admin: cria uma instância pelo nome e já a usa. */
+  createUazapiInstance: (name: string) => adminCall<UazapiConfigSummary>("POST", "/api/admin/uazapi/instances", { name }),
   /** Só admin: inicia o pareamento. */
   connect: () => sendJson<ConnectionWithQr>("POST", "/api/connection/connect", {}),
   conversation: (id: string) => getJson<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`),
