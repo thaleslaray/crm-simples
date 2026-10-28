@@ -15,6 +15,13 @@
       "when": 1793149048921,
       "tag": "0001_fat_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793152245754,
+      "tag": "0002_glorious_ted_forrester",
+      "breakpoints": true
     }
   ]
 }

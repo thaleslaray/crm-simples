@@ -69,6 +69,7 @@ export function ConversationPage() {
         if (event.conversation.id === id) append([event.message]);
         return;
       }
+      if (event.type !== "reconnected") return;
       const last = lastSeen.current;
       if (!last) return load(() => alive); // conversa vazia ou ainda carregando: busca tudo de novo
       api

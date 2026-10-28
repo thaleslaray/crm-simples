@@ -24,6 +24,8 @@ export default defineConfig({
   ],
   test: {
     include: ["test/**/*.test.ts"],
+    // A Uazapi falsa e uma so (estado global: regras e chamadas); arquivos em paralelo se atropelariam no reset.
+    fileParallelism: false,
     globalSetup: ["./test/fake-uazapi/global-setup.ts"],
     setupFiles: ["./test/setup.ts"],
   },

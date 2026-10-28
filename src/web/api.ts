@@ -18,6 +18,19 @@ export interface Message {
   timestamp: number;
 }
 
+/** Conexão do número do WhatsApp. `unknown` = ainda sem informação (nenhum aviso é mostrado). */
+export interface ConnectionState {
+  status: "connected" | "connecting" | "disconnected" | "unknown";
+  temporaryBan: boolean;
+  lastDisconnectReason: string | null;
+  updatedAt: number | null;
+}
+
+export interface ConnectionWithQr {
+  connection: ConnectionState;
+  qrcode?: string;
+}
+
 export class ApiError extends Error {
   constructor(readonly status: number) {
     super(`Falha na API (${status})`);
@@ -30,7 +43,23 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function postJson<T>(path: string): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) throw new ApiError(res.status);
+  return res.json() as Promise<T>;
+}
+
 export const api = {
+  connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
+  /** Só admin: consulta a Uazapi e devolve o QR code atual. */
+  connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),
+  /** Só admin: inicia o pareamento. */
+  connect: () => postJson<ConnectionWithQr>("/api/connection/connect"),
   conversations: () => getJson<{ conversations: Conversation[] }>("/api/conversations"),
   conversation: (id: string) => getJson<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`),
   messages: (id: string, before?: string) => {

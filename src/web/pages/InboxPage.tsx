@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { NavLink, Outlet, useMatch, useNavigate } from "react-router";
+import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { api, type Conversation } from "../api";
 import { authClient } from "../auth-client";
 import { contactLabel, initials, listTime, messagePreview } from "../format";
-import { onRealtime, useRealtimeConnection } from "../realtime";
+import { onRealtime } from "../realtime";
 
 /** Caixa de entrada: lista à esquerda e conversa aberta à direita (no celular, uma tela de cada vez). */
 export function InboxPage() {
@@ -12,8 +12,6 @@ export function InboxPage() {
   const detailOpen = useMatch("/conversas/:id") !== null;
   const [conversations, setConversations] = useState<Conversation[] | null>(null);
   const [failed, setFailed] = useState(false);
-
-  useRealtimeConnection();
 
   const load = useCallback(() => {
     api
@@ -26,6 +24,7 @@ export function InboxPage() {
     load();
     return onRealtime((event) => {
       if (event.type === "reconnected") return load(); // pode ter perdido eventos: busca a lista de novo
+      if (event.type !== "message.created") return;
       // Mensagem nova: a conversa (nova ou existente) vai para o topo com a prévia atualizada.
       setConversations((list) => [event.conversation, ...(list ?? []).filter((c) => c.id !== event.conversation.id)]);
     });
@@ -41,6 +40,11 @@ export function InboxPage() {
       <header className="topbar">
         <h1>Caixa de entrada</h1>
         <div className="user">
+          {(data?.user as { role?: string } | undefined)?.role === "admin" && (
+            <Link to="/conexao" className="link">
+              Conexão
+            </Link>
+          )}
           <span data-testid="user-name">{data?.user.name}</span>
           <button type="button" className="secondary" onClick={signOut}>
             Sair
