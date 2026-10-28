@@ -177,6 +177,8 @@ export const message = sqliteTable(
     mediaName: text("media_name"),
     /** Localizacao e contato recebidos: JSON `{lat,lng,name,address}` ou `{name,vcard}`. */
     extra: text("extra"),
+    /** `messageid` do WhatsApp da mensagem citada (resposta com citacao, de entrada ou saida). */
+    quotedId: text("quoted_id"),
   },
   (t) => [
     index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id),

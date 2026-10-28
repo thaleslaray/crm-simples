@@ -50,6 +50,13 @@
       "when": 1793152876956,
       "tag": "0006_marvelous_centennial",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793153016966,
+      "tag": "0007_famous_fenris",
+      "breakpoints": true
     }
   ]
 }
