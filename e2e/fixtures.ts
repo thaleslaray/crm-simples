@@ -20,8 +20,3 @@ export const test = base.extend<{ prints: void }>({
   ],
 });
 export { expect };
-
-/** Abre o menu ⋮ do cabeçalho da caixa de entrada (Perfil e Sair). */
-export async function openUserMenu(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "Mais opções" }).click();
-}

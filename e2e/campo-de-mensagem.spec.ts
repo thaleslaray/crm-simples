@@ -1,7 +1,7 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { backToInbox, openSettingsItem } from "./navegacao";
-import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
+import { backToInbox, openSettingsItem, signInAsAdmin } from "./navegacao";
+import { E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
 
@@ -69,12 +69,7 @@ test("campo de mensagem: nota não vai ao cliente, / filtra e insere, microfone 
   await receive(request, run, `55119${String(Date.now()).slice(-8)}`);
   await request.post(`${FAKE}/reset`);
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-
-  // Uma resposta rápida para o "/" achar
+  await signInAsAdmin(page);// Uma resposta rápida para o "/" achar
   await openSettingsItem(page, /Respostas rápidas/);
   await page.getByLabel("Atalho (sem espaços)").fill(shortcut);
   await page

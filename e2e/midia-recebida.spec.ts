@@ -1,6 +1,7 @@
 import type { APIRequestContext } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
+import { signInAsAdmin } from "./navegacao";
+import { E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}`;
 const SVG =
@@ -60,11 +61,7 @@ test("mídia recebida: carregando, imagem, documento e localização, sem estour
     },
   });
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.getByRole("link", { name: new RegExp(`Midia ${run}`) }).click();
+  await signInAsAdmin(page);await page.getByRole("link", { name: new RegExp(`Midia ${run}`) }).click();
   const conversation = page.getByRole("article", {
     name: `Conversa com Midia ${run}`,
   });

@@ -1,10 +1,9 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router";
+import { Navigate } from "react-router";
 import { authClient } from "../auth-client";
 import { useCompanyName } from "../workspace";
 
 export function LoginPage() {
-  const navigate = useNavigate();
   const companyName = useCompanyName();
   useEffect(() => {
     document.title = companyName;
@@ -30,7 +29,7 @@ export function LoginPage() {
       setError(invalid ? "E-mail ou senha incorretos." : "Não foi possível entrar agora. Tente de novo em instantes.");
       return;
     }
-    navigate("/", { replace: true });
+    // Sem navigate: quando a sessão chega, o <Navigate> acima leva para "/". Ir antes passaria por /login de novo.
   }
 
   return (

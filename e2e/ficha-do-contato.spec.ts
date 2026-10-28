@@ -1,6 +1,7 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
+import { signInAsAdmin } from "./navegacao";
+import { E2E_WEBHOOK } from "./e2e-env";
 
 async function clientWrites(
   request: APIRequestContext,
@@ -65,11 +66,7 @@ for (const scheme of ["light", "dark"] as const) {
       `55116${String(Date.now() + 1).slice(-8)}`,
     );
 
-    await page.goto("/login");
-    await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-    await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-    await page.getByRole("button", { name: "Entrar" }).click();
-    await page.getByRole("navigation", { name: "Conversas" }).waitFor();
+    await signInAsAdmin(page);await page.getByRole("navigation", { name: "Conversas" }).waitFor();
     await page.evaluate(() => localStorage.removeItem("crm.fichaAberta"));
 
     let conversation = await openConversation(page, first);

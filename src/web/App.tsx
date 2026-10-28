@@ -22,7 +22,8 @@ import { useRealtimeConnection } from "./realtime";
 /** Rota protegida: sem sessão, redireciona para /login. Com sessão, tempo real e faixa de conexão valem para todas as telas. */
 function RequireSession() {
   const { data, isPending } = authClient.useSession();
-  if (isPending) return <p className="center muted">Carregando…</p>;
+  // Só a primeira busca da sessão mostra "Carregando…": uma nova busca com sessão em mãos não desmonta a área logada.
+  if (isPending && !data) return <p className="center muted">Carregando…</p>;
   if (!data) return <Navigate to="/login" replace />;
   return <SignedInLayout />;
 }

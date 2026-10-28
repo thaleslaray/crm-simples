@@ -1,6 +1,6 @@
 // Estado da conexão do número, compartilhado por todas as telas: busca ao abrir, acompanha o tempo real
 // e se atualiza ao reconectar (pode ter perdido um evento). A faixa vermelha e a tela de conexão leem daqui.
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { api, type ConnectionState } from "./api";
 import { authClient } from "./auth-client";
@@ -13,26 +13,34 @@ const ConnectionContext = createContext<{ state: ConnectionState | null; set: (s
 
 export function ConnectionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ConnectionState | null>(null);
+  // Cada busca e cada evento tomam um número; só vale a resposta da busca que ainda é a mais nova (a velha não desfaz o evento).
+  const version = useRef(0);
+  const set = useCallback((s: ConnectionState) => {
+    version.current++;
+    setState(s);
+  }, []);
 
   useEffect(() => {
     let alive = true;
-    const load = () =>
+    const load = () => {
+      const mine = ++version.current;
       api
         .connection()
-        .then((r) => alive && setState(r.connection))
+        .then((r) => alive && mine === version.current && setState(r.connection))
         .catch(() => undefined);
+    };
     load();
     const off = onRealtime((event) => {
-      if (event.type === "connection.changed") setState(event.connection);
+      if (event.type === "connection.changed") set(event.connection);
       else if (event.type === "reconnected") load();
     });
     return () => {
       alive = false;
       off();
     };
-  }, []);
+  }, [set]);
 
-  return <ConnectionContext.Provider value={{ state, set: setState }}>{children}</ConnectionContext.Provider>;
+  return <ConnectionContext.Provider value={{ state, set }}>{children}</ConnectionContext.Provider>;
 }
 
 export const useConnection = () => useContext(ConnectionContext);
@@ -44,10 +52,10 @@ export function ConnectionBanner() {
   const isAdmin = (data?.user as { role?: string } | undefined)?.role === "admin";
   if (!state || state.status === "connected" || state.status === "unknown") return null;
   const text = state.temporaryBan
-    ? "O WhatsApp baniu o número temporariamente. Mensagens não estão chegando nem saindo."
+    ? "WhatsApp baniu o número temporariamente: as mensagens não estão chegando."
     : state.status === "connecting"
-      ? "Número conectando ao WhatsApp. Mensagens não estão chegando nem saindo."
-      : "Número do WhatsApp desconectado. Mensagens não estão chegando nem saindo.";
+      ? "WhatsApp conectando: as mensagens não estão chegando."
+      : "WhatsApp desconectado: as mensagens não estão chegando.";
   return (
     <div className="conn-banner" role="alert">
       <span>{text}</span>

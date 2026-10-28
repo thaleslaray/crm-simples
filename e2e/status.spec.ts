@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { signInAsAdmin } from "./navegacao";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
@@ -56,12 +57,7 @@ test("atendente assume, responde, o cliente volta, resolve e filtra a caixa", as
     },
   });
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-
-  const item = page
+  await signInAsAdmin(page);const item = page
     .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
     .first();
   await expect(item).toContainText("Aberta");

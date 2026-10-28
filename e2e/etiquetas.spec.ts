@@ -1,7 +1,7 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { backToInbox, openSettingsItem } from "./navegacao";
-import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
+import { backToInbox, openSettingsItem, signInAsAdmin } from "./navegacao";
+import { E2E_WEBHOOK } from "./e2e-env";
 
 async function clientWrites(
   request: APIRequestContext,
@@ -58,12 +58,7 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   const phone = `55117${String(Date.now()).slice(-8)}`;
   await clientWrites(request, run, phone);
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-
-  // Cadastro (admin)
+  await signInAsAdmin(page);// Cadastro (admin)
   await openSettingsItem(page, /Etiquetas/);
   await page.getByLabel("Nome da etiqueta").fill(labelName);
   await page.getByRole("button", { name: "Adicionar" }).click();

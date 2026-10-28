@@ -1,5 +1,5 @@
-import { expect, openUserMenu, test } from "./fixtures";
-import { openSettingsItem } from "./navegacao";
+import { expect, test } from "./fixtures";
+import { openSettingsItem, openUserMenu, signInAsAdmin } from "./navegacao";
 import { E2E_ADMIN } from "./e2e-env";
 
 test("admin gera um convite, o convidado aceita e entra; o link nao serve de novo", async ({
@@ -9,11 +9,7 @@ test("admin gera um convite, o convidado aceita e entra; o link nao serve de nov
   const email = `convidado-${stamp}@exemplo.com`;
   const name = `Convidado ${stamp}`;
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await openSettingsItem(page, /Equipe/);
+  await signInAsAdmin(page);await openSettingsItem(page, /Equipe/);
 
   await page.getByRole("button", { name: "Gerar link de convite" }).click();
   const url = await page.getByLabel("Link gerado").inputValue();

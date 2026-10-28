@@ -1,18 +1,8 @@
 import path from "node:path";
 import type { APIRequestContext, Page } from "@playwright/test";
-import { expect, openUserMenu, test } from "./fixtures";
-import { openSettingsItem } from "./navegacao";
-import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
-
-async function signInAsAdmin(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Atendimento" }),
-  ).toBeVisible();
-}
+import { expect, test } from "./fixtures";
+import { openSettingsItem, signInAsAdmin } from "./navegacao";
+import { E2E_WEBHOOK } from "./e2e-env";
 
 // Com E2E_PRINTS, guarda um print nomeado (claro/escuro) além do print automático de cada teste.
 async function print(page: Page, project: string, name: string) {

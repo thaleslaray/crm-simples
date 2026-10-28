@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { backToInbox, openSettingsItem } from "./navegacao";
+import { backToInbox, openSettingsItem, signInAsAdmin } from "./navegacao";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
@@ -66,12 +66,7 @@ test("atendente responde com assinatura, reenvia o que falhou, preserva o rascun
   await receive(request, `${run}b`, other);
   await request.post(`${FAKE}/reset`);
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-
-  // O D1 é compartilhado: garante a assinatura ligada antes de começar
+  await signInAsAdmin(page);// O D1 é compartilhado: garante a assinatura ligada antes de começar
   await openSettingsItem(page, /Perfil/);
   const signature = page.getByLabel("Assinar minhas mensagens com meu nome");
   await expect(signature).toBeEnabled();

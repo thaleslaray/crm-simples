@@ -1,5 +1,5 @@
 // Tempo real: um WebSocket com o hub da caixa de entrada, que se reconecta sozinho.
-// Quem usa assina com `onRealtime`; ao reconectar, `reconnected` avisa para buscar pela API o que se perdeu.
+// Quem usa assina com `onRealtime`; ao abrir (inclusive a primeira vez), `reconnected` avisa para buscar pela API o que se perdeu.
 import { useEffect } from "react";
 import type { ConnectionState, Contact, Conversation, Message, Note, SendStatus, TimelineEvent } from "./api";
 
@@ -30,9 +30,6 @@ const PING_MS = 25_000;
 const PONG_TIMEOUT_MS = 10_000;
 const MAX_BACKOFF_MS = 15_000;
 
-// Fora do hook: se a área logada remonta, o novo socket ainda conta como reconexão e as telas buscam o que perderam no intervalo.
-let everConnected = false;
-
 /** Mantém a conexão aberta enquanto o componente estiver montado (use uma vez, na caixa de entrada). */
 export function useRealtimeConnection() {
   useEffect(() => {
@@ -62,9 +59,8 @@ export function useRealtimeConnection() {
       ws = socket;
       socket.onopen = () => {
         attempt = 0;
-        // Na primeira conexão a tela acabou de carregar; nas seguintes pode ter perdido eventos.
-        if (everConnected) emit({ type: "reconnected" });
-        everConnected = true;
+        // Toda abertura rebusca: a tela pode ter buscado o estado antes de o socket abrir e perdido o que mudou no meio.
+        emit({ type: "reconnected" });
         ping = setInterval(() => {
           if (socket.readyState !== WebSocket.OPEN) return;
           socket.send("ping");

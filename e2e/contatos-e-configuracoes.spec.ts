@@ -3,16 +3,7 @@ import type { APIRequestContext, Page } from "@playwright/test";
 import { signInAsNewAttendant } from "./atendente";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 import { expect, test } from "./fixtures";
-
-async function signInAsAdmin(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(
-    page.getByRole("navigation", { name: "Conversas" }),
-  ).toBeVisible();
-}
+import { signInAsAdmin } from "./navegacao";
 
 async function receiveFrom(
   request: APIRequestContext,

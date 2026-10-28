@@ -7,6 +7,8 @@ export const DEFAULT_COMPANY_NAME = "Atendimento";
 
 let name = DEFAULT_COMPANY_NAME;
 let inFlight = false;
+// Cada troca (evento) invalida a busca que saiu antes dela: a resposta velha não desfaz o nome novo.
+let version = 0;
 const subscribers = new Set<() => void>();
 
 function set(next: string) {
@@ -18,9 +20,10 @@ function set(next: string) {
 function load() {
   if (inFlight) return;
   inFlight = true;
+  const mine = version;
   api
     .workspace()
-    .then((r) => set(r.companyName))
+    .then((r) => mine === version && set(r.companyName))
     .catch(() => undefined)
     .finally(() => {
       inFlight = false;
@@ -28,7 +31,10 @@ function load() {
 }
 
 onRealtime((event) => {
-  if (event.type === "workspace.changed") set(event.companyName);
+  if (event.type === "workspace.changed") {
+    version++;
+    set(event.companyName);
+  }
   else if (event.type === "reconnected") load();
 });
 

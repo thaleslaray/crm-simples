@@ -1,22 +1,11 @@
-import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { E2E_ADMIN } from "./e2e-env";
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(
-    page.getByRole("button", { name: "Nova conversa" }),
-  ).toBeVisible();
-}
+import { signInAsAdmin } from "./navegacao";
 
 test("atendente inicia conversa com um número novo; número inválido é recusado antes do envio", async ({
   page,
 }) => {
   const phone = `55119${String(Date.now()).slice(-8)}`;
-  await login(page);
+  await signInAsAdmin(page);
 
   await page.getByRole("button", { name: "Nova conversa" }).click();
   const dialog = page.getByRole("dialog", { name: "Nova conversa" });
@@ -46,7 +35,7 @@ test("a ficha tem a ação de iniciar conversa com o contato", async ({
   page,
 }) => {
   const phone = `55118${String(Date.now()).slice(-8)}`;
-  await login(page);
+  await signInAsAdmin(page);
   await page.getByRole("button", { name: "Nova conversa" }).click();
   const dialog = page.getByRole("dialog", { name: "Nova conversa" });
   await dialog.getByLabel("Contato ou número").fill(phone);

@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { signInAsAdmin } from "./navegacao";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
@@ -90,11 +91,7 @@ test("conversa no estilo do WhatsApp: botão de ação por status, autor só no 
   await clientWrites(request, run, phone, 1, "Oi, vocês entregam?");
   await clientWrites(request, run, phone, 2, "Quero saber o prazo");
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page
+  await signInAsAdmin(page);await page
     .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
     .first()
     .click();

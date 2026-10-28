@@ -1,7 +1,12 @@
 import type { APIRequestContext } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { openSettingsItem } from "./navegacao";
-import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
+import {
+  openSettingsItem,
+  signInAsAdmin,
+  spyOnSockets,
+  waitForRealtime,
+} from "./navegacao";
+import { E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const UAZAPI = `http://127.0.0.1:${E2E_UAZAPI_PORT}`;
 // PNG 1x1: basta para o <img> carregar; o teste distingue um QR do outro pelo src.
@@ -36,23 +41,16 @@ test("admin vê a faixa vermelha quando o número cai, reconecta pelo QR code e 
   page,
   request,
 }) => {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(
-    page.getByRole("navigation", { name: "Conversas" }),
-  ).toBeVisible();
+  await spyOnSockets(page);
+  await signInAsAdmin(page);
+  await waitForRealtime(page);
 
   // O número cai: a faixa aparece sem recarregar
-  // Logo depois do login o tempo real pode ainda estar reabrindo e perder o evento: reenvia até a faixa aparecer.
-  const banner = page.getByText("Número do WhatsApp desconectado");
-  await expect(async () => {
-    expect(
-      (await connectionEvent(request, "disconnected", "Disconnected")).status(),
-    ).toBe(200);
-    await expect(banner).toBeVisible({ timeout: 2000 });
-  }).toPass();
+  const banner = page.getByText(
+    "WhatsApp desconectado: as mensagens não estão chegando.",
+  );
+  expect((await connectionEvent(request, "disconnected", "Disconnected")).status()).toBe(200);
+  await expect(banner).toBeVisible();
 
   // Tela de conexão: faixa continua no topo e há o botão de conectar
   await openSettingsItem(page, /Conexão do número/);
@@ -85,9 +83,7 @@ test("admin vê a faixa vermelha quando o número cai, reconecta pelo QR code e 
   await connectionEvent(request, "connected");
   await expect(page.getByTestId("connection-status")).toHaveText("Conectado");
   await expect(banner).toBeHidden();
-  await expect(
-    page.getByText("Mensagens não estão chegando nem saindo"),
-  ).toBeHidden();
+  await expect(page.getByText("as mensagens não estão chegando")).toBeHidden();
 
   // Sem horizontal scroll em nenhum viewport
   expect(
@@ -100,22 +96,17 @@ test("admin vê a faixa vermelha quando o número cai, reconecta pelo QR code e 
 });
 
 test("TemporaryBan aparece como tal na faixa", async ({ page, request }) => {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
+  await spyOnSockets(page);
+  await signInAsAdmin(page);
+  await waitForRealtime(page);
+
+  await connectionEvent(request, "disconnected", "TemporaryBan");
   await expect(
-    page.getByRole("navigation", { name: "Conversas" }),
+    page.getByText("WhatsApp baniu o número temporariamente"),
   ).toBeVisible();
 
-  // Logo depois do login o tempo real pode ainda estar reabrindo e perder o evento: reenvia até a faixa aparecer.
-  await expect(async () => {
-    await connectionEvent(request, "disconnected", "TemporaryBan");
-    await expect(page.getByText("baniu o número temporariamente")).toBeVisible({
-      timeout: 2000,
-    });
-  }).toPass();
-
   await connectionEvent(request, "connected");
-  await expect(page.getByText("baniu o número temporariamente")).toBeHidden();
+  await expect(
+    page.getByText("WhatsApp baniu o número temporariamente"),
+  ).toBeHidden();
 });

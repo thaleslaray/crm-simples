@@ -1,5 +1,6 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { signInAsAdmin } from "./navegacao";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
 async function clientWrites(
@@ -53,17 +54,20 @@ test("chips filtram, contagens batem e a terceira linha mostra status, responsá
     `55119${String(Date.now()).slice(-7)}${n}`.slice(0, 13);
   const names = { a: `A${run}`, b: `B${run}`, c: `C${run}` };
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-
+  await signInAsAdmin(page);
   const semDono = page.getByRole("button", { name: /^Sem dono/ });
   const naoLidas = page.getByRole("button", { name: /^Não lidas/ });
   await expect(page.getByRole("button", { name: "Tudo" })).toBeVisible();
-  await page.waitForTimeout(800); // as contagens chegam depois da lista
-  const semDono0 = await countOf(semDono);
-  const naoLidas0 = await countOf(naoLidas);
+  // Contagens de partida vêm da API (o banco do E2E não começa vazio); os chips têm de chegar nelas.
+  const before = (await (await page.request.get("/api/conversations")).json()) as {
+    conversations: { assigneeId: string | null; status: string; unreadCount: number }[];
+  };
+  const semDono0 = before.conversations.filter(
+    (c) => c.assigneeId === null && c.status !== "resolvida",
+  ).length;
+  const naoLidas0 = before.conversations.filter((c) => c.unreadCount > 0).length;
+  await expect.poll(() => countOf(semDono)).toBe(semDono0);
+  await expect.poll(() => countOf(naoLidas)).toBe(naoLidas0);
 
   // A: aberta, sem dono, 3 etiquetas. B: assumida pelo admin. C: assumida e resolvida.
   const phones = { a: phone(1), b: phone(2), c: phone(3) };

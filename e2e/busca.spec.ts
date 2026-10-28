@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures";
-import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
+import { signInAsAdmin } from "./navegacao";
+import { E2E_WEBHOOK } from "./e2e-env";
 
 // O D1 do E2E é compartilhado entre desktop e celular: nome, telefone e termo únicos por execução.
 test("busca por texto leva à conversa posicionada na mensagem e por nome acha o contato", async ({
@@ -33,12 +34,7 @@ test("busca por texto leva à conversa posicionada na mensagem e por nome acha o
     expect(res.status()).toBe(200);
   }
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-
-  const search = page.getByRole("searchbox", { name: "Buscar" });
+  await signInAsAdmin(page);const search = page.getByRole("searchbox", { name: "Buscar" });
 
   // Por nome: o contato aparece
   await search.fill(`Busca ${run}`);

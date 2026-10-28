@@ -1,9 +1,7 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { openSettingsItem } from "./navegacao";
-import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
-
-type WithSockets = { __sockets: WebSocket[] };
+import { openSettingsItem, signInAsAdmin, spyOnSockets, waitForRealtime } from "./navegacao";
+import { E2E_WEBHOOK } from "./e2e-env";
 
 async function clientWrites(
   request: APIRequestContext,
@@ -49,38 +47,6 @@ async function noHorizontalOverflow(page: Page) {
         document.documentElement.clientWidth,
     ),
   ).toBe(false);
-}
-
-/** Guarda os WebSockets do tempo real para saber quando um esta realmente aberto (padrao de avisos.spec.ts). */
-async function trackSockets(page: Page) {
-  await page.addInitScript(() => {
-    const w = window as unknown as WithSockets;
-    w.__sockets = [];
-    const RealWebSocket = window.WebSocket;
-    window.WebSocket = class extends RealWebSocket {
-      constructor(url: string | URL, protocols?: string | string[]) {
-        super(url, protocols);
-        w.__sockets.push(this);
-      }
-    };
-  });
-}
-
-const realtimeOpen = (page: Page) =>
-  page.waitForFunction(() =>
-    (window as unknown as WithSockets).__sockets.some(
-      (s) => s.readyState === WebSocket.OPEN,
-    ),
-  );
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Atendimento" }),
-  ).toBeVisible();
 }
 
 /** Arrasta o card pela alca ate o centro da coluna: mouse no desktop, toque (CDP) no celular. */
@@ -137,8 +103,8 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   const clientName = `Cliente ${run}`;
   await clientWrites(request, run, phone);
 
-  await trackSockets(page);
-  await login(page);
+  await spyOnSockets(page);
+  await signInAsAdmin(page);
 
   // Cadastro (admin): funil e tres etapas
   await openSettingsItem(page, /Funis e etapas/);
@@ -177,8 +143,8 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   // Um colega com o mesmo quadro aberto em outra sessao
   const colleagueCtx = await browser.newContext(info.project.use);
   const colleague = await colleagueCtx.newPage();
-  await trackSockets(colleague);
-  await login(colleague);
+  await spyOnSockets(colleague);
+  await signInAsAdmin(colleague);
   await colleague.goto("/funis");
   await colleague
     .getByRole("button", { name: funnelName, exact: true })
@@ -186,8 +152,8 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await expect(
     colleague.getByRole("region", { name: "Etapa Novo" }).getByText(clientName),
   ).toBeVisible();
-  await realtimeOpen(colleague);
-  await realtimeOpen(page);
+  await waitForRealtime(colleague);
+  await waitForRealtime(page);
 
   // Arrasta Novo -> Fechado
   await dragCard(

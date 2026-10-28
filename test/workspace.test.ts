@@ -10,15 +10,22 @@ describe("Empresa: nome", () => {
     expect(await getWorkspace()).toEqual({ status: 200, companyName: "Atendimento" });
   });
 
-  it("o admin troca o nome, qualquer um le e o hub avisa os clientes", async () => {
+  it("o admin troca o nome e qualquer um le o novo, ate sem login", async () => {
     const admin = await loginAsAdmin();
-    const atendente = await loginAsAtendente();
-    const socket = await connectRealtime(atendente);
 
     const res = await setCompanyName(admin, "  Loja da Ana ");
 
     expect(res.status).toBe(200);
     expect(await getWorkspace()).toEqual({ status: 200, companyName: "Loja da Ana" });
+  });
+
+  it("a troca do nome avisa os clientes conectados pelo hub", async () => {
+    const admin = await loginAsAdmin();
+    const atendente = await loginAsAtendente();
+    const socket = await connectRealtime(atendente);
+
+    await setCompanyName(admin, "Loja da Ana");
+
     expect(await socket.next()).toEqual({ type: "workspace.changed", companyName: "Loja da Ana" });
     socket.close();
   });

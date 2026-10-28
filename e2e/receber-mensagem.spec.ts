@@ -1,6 +1,7 @@
 import type { APIRequestContext } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
+import { signInAsAdmin } from "./navegacao";
+import { E2E_WEBHOOK } from "./e2e-env";
 
 // O D1 do E2E é compartilhado entre desktop e celular: ids e telefone únicos por execução.
 function webhookMessage(
@@ -45,12 +46,7 @@ test("mensagem recebida aparece na caixa de entrada e o histórico carrega as an
   for (let n = 1; n <= 80; n++)
     await receive(request, webhookMessage(run, n, phone, base + n * 60_000));
 
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-
-  // Na caixa: nome do WhatsApp e prévia da última mensagem, no topo da lista
+  await signInAsAdmin(page);// Na caixa: nome do WhatsApp e prévia da última mensagem, no topo da lista
   const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}`) });
   await expect(item).toContainText("Mensagem 80");
   await expect(

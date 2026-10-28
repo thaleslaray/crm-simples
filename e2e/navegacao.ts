@@ -1,4 +1,5 @@
-import type { Page } from "@playwright/test";
+import { expect, type Browser, type Page, type TestInfo } from "@playwright/test";
+import { E2E_ADMIN } from "./e2e-env";
 
 /** Abre um item das Configurações pela barra de ícones (computador) ou pela aba "Mais" (celular), sem recarregar a página. */
 export async function openSettingsItem(page: Page, item: string | RegExp) {
@@ -19,4 +20,64 @@ export async function openSettingsItem(page: Page, item: string | RegExp) {
 /** Volta para a caixa de entrada pelo link Conversas da barra de ícones ou das abas. */
 export async function backToInbox(page: Page) {
   await page.getByRole("link", { name: /^Conversas/ }).click();
+}
+
+/** Abre o menu ⋮ do cabeçalho da caixa de entrada (Perfil e Sair). */
+export async function openUserMenu(page: Page) {
+  await page.getByRole("button", { name: "Mais opções" }).click();
+}
+
+/** Entra como admin pela tela de login e espera a caixa de entrada aparecer. */
+export async function signInAsAdmin(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
+  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(
+    page.getByRole("navigation", { name: "Conversas" }),
+  ).toBeVisible();
+}
+
+declare global {
+  interface Window {
+    __sockets: WebSocket[];
+  }
+}
+
+/** Guarda os WebSockets que a página abre (chame antes do goto). O evento "websocket" do Playwright dispara na criação, não na abertura. */
+export async function spyOnSockets(page: Page) {
+  await page.addInitScript(() => {
+    window.__sockets = [];
+    const Real = window.WebSocket;
+    window.WebSocket = class extends Real {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols);
+        window.__sockets.push(this);
+      }
+    };
+  });
+}
+
+/** Espera o tempo real estar aberto (precisa de spyOnSockets antes), para o evento do teste não passar antes. */
+export async function waitForRealtime(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.__sockets.some(
+          (s) =>
+            s.url.endsWith("/api/realtime") && s.readyState === WebSocket.OPEN,
+        ),
+      ),
+    )
+    .toBe(true);
+}
+
+/** Uma sessão de admin num contexto próprio (cookies separados), como uma segunda pessoa; com o tempo real aberto. */
+export async function loggedInPage(browser: Browser, info: TestInfo) {
+  const context = await browser.newContext(info.project.use);
+  const page = await context.newPage();
+  await spyOnSockets(page);
+  await signInAsAdmin(page);
+  await waitForRealtime(page);
+  return { context, page };
 }

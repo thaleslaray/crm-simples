@@ -1,6 +1,6 @@
-import type { Browser, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
+import { loggedInPage } from "./navegacao";
+import { E2E_WEBHOOK } from "./e2e-env";
 
 // O D1 do E2E é compartilhado entre desktop e celular: ids e telefone únicos por execução.
 function webhookMessage(run: string, n: number, phone: string) {
@@ -20,20 +20,6 @@ function webhookMessage(run: string, n: number, phone: string) {
       messageTimestamp: Date.now() + n,
     },
   };
-}
-
-/** Uma sessão logada num contexto próprio (cookies separados), como uma segunda pessoa. */
-async function loggedInPage(browser: Browser, info: TestInfo) {
-  const context = await browser.newContext(info.project.use);
-  const page = await context.newPage();
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(
-    page.getByRole("navigation", { name: "Conversas" }),
-  ).toBeVisible();
-  return { context, page };
 }
 
 test("mensagem recebida aparece para duas sessões, na lista e na conversa aberta, sem recarregar", async ({

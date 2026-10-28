@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { signInAsAdmin, spyOnSockets, waitForRealtime } from "./navegacao";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 declare global {
@@ -12,26 +13,16 @@ declare global {
     }[];
     __beeps: number;
     __permissionAsks: number;
-    __sockets: WebSocket[];
   }
 }
 
 /** Aba "sem foco" e navegador com Notification e WebAudio falsos, para observar o que o app faz. */
 async function fakeBrowserAlerts(page: Page) {
+  await spyOnSockets(page);
   await page.addInitScript(() => {
     window.__notifications = [];
     window.__beeps = 0;
     window.__permissionAsks = 0;
-    // O React em dev monta o efeito duas vezes: o primeiro socket do tempo real fecha logo. Guardo todos para
-    // saber quando ha um realmente aberto (o evento "websocket" do Playwright dispara na criacao, nao na abertura).
-    window.__sockets = [];
-    const RealWebSocket = window.WebSocket;
-    window.WebSocket = class extends RealWebSocket {
-      constructor(url: string | URL, protocols?: string | string[]) {
-        super(url, protocols);
-        window.__sockets.push(this);
-      }
-    };
     document.hasFocus = () => false;
     class FakeNotification {
       static permission = "default";
@@ -115,23 +106,8 @@ async function clientWrites(
 
 /** Entra como admin; o clique em "Entrar" é o gesto que libera som e pede a permissão. Só devolve com o tempo real aberto. */
 async function loginWithRealtime(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
-  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(
-    page.getByRole("navigation", { name: "Conversas" }),
-  ).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        window.__sockets.some(
-          (s) =>
-            s.url.endsWith("/api/realtime") && s.readyState === WebSocket.OPEN,
-        ),
-      ),
-    )
-    .toBe(true);
+  await signInAsAdmin(page);
+  await waitForRealtime(page);
   await page.mouse.click(5, 5);
   await expect.poll(() => page.evaluate(() => window.__permissionAsks)).toBe(1);
 }
