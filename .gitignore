@@ -5,3 +5,7 @@ dist/
 .dev.vars
 test-results/
 playwright-report/
+
+# Claude Code: só as skills do projeto vão para o git (o resto é local de cada máquina)
+.claude/*
+!.claude/skills/

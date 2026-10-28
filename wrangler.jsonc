@@ -1,7 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "crm-simples",
-  "account_id": "4a1961760bc2292fab3733dc2b3c811c",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -13,12 +12,12 @@
     "run_worker_first": ["/api/*"]
   },
 
-  // Recursos da conta "Thales Laray" (criados com o cf em 2026-10-28).
+  // Sem IDs de proposito: o `wrangler deploy` reaproveita os recursos com estes nomes na conta logada
+  // ou cria os que faltam (provisionamento automatico). Assim o repositorio serve para qualquer conta.
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "crm-simples",
-      "database_id": "6b799034-10bc-405a-9470-8a2033e13b6e",
       "migrations_dir": "migrations"
     }
   ],

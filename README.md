@@ -33,9 +33,30 @@ leva você do clone ao CRM no ar, com o seu número conectado.
 
 ## Instalar na sua Cloudflare
 
-Os comandos abaixo rodam na pasta do projeto. Cada bloco é um passo.
+### Jeito fácil: com o Claude Code
 
-### 1. Baixar o projeto
+```bash
+git clone https://github.com/thaleslaray/crm-simples.git
+```
+
+```bash
+cd crm-simples && claude
+```
+
+Dentro do Claude Code, digite:
+
+```text
+/instalar
+```
+
+Ele confere o seu computador, entra na sua Cloudflare, publica o CRM, grava os segredos e te entrega o comando para
+criar o seu admin. No fim, mostra o endereço do seu CRM.
+
+### Jeito manual
+
+Os comandos rodam na pasta do projeto, um bloco por vez.
+
+**1. Baixar o projeto**
 
 ```bash
 git clone https://github.com/thaleslaray/crm-simples.git
@@ -45,32 +66,30 @@ git clone https://github.com/thaleslaray/crm-simples.git
 cd crm-simples && pnpm install
 ```
 
-### 2. Entrar na Cloudflare
+**2. Entrar na Cloudflare**
 
 ```bash
 pnpm exec wrangler login
 ```
 
-Abre o navegador para você autorizar. Se você tem mais de uma conta, o Wrangler pergunta qual usar nos próximos passos.
+Abre o navegador para você autorizar. Se você tem mais de uma conta, o Wrangler pergunta qual usar.
 
-### 3. Criar o banco, o armazenamento de mídia e as filas
-
-```bash
-pnpm exec wrangler d1 create crm-simples
-```
-
-Esse comando mostra um `database_id`. Guarde: ele vai no passo 4.
+**3. Publicar**
 
 ```bash
-pnpm exec wrangler r2 bucket create crm-simples-media
+pnpm build
 ```
 
 ```bash
-pnpm exec wrangler queues create crm-simples-media
+pnpm exec wrangler deploy
 ```
 
+Na primeira vez, o deploy **cria sozinho** o banco (D1 `crm-simples`), o armazenamento de mídia (R2
+`crm-simples-media`) e as filas, com os nomes que estão no `wrangler.jsonc`. Nas próximas, reaproveita os mesmos. No
+fim, mostra o endereço do seu CRM, algo como `https://crm-simples.SEU-SUBDOMINIO.workers.dev`.
+
 ```bash
-pnpm exec wrangler queues create crm-simples-media-dlq
+pnpm exec wrangler d1 migrations apply DB --remote
 ```
 
 Opcional: apagar fotos, vídeos e áudios com mais de 1 ano (a conversa passa a mostrar "mídia expirada").
@@ -79,34 +98,7 @@ Opcional: apagar fotos, vídeos e áudios com mais de 1 ano (a conversa passa a 
 pnpm exec wrangler r2 bucket lifecycle add crm-simples-media expire-365d --expire-days 365
 ```
 
-### 4. Apontar o projeto para a sua conta
-
-Abra o arquivo `wrangler.jsonc` e troque duas coisas:
-
-- **`account_id`**: apague essa linha, ou ponha o ID da sua conta (aparece no painel da Cloudflare, na barra lateral
-  de Workers & Pages).
-- **`database_id`**: ponha o ID que o passo 3 mostrou.
-
-Os nomes (`crm-simples`, `crm-simples-media` e as filas) já batem com os que você criou. Se escolheu outros nomes,
-troque também no `wrangler.jsonc`.
-
-### 5. Publicar
-
-```bash
-pnpm build
-```
-
-```bash
-pnpm exec wrangler d1 migrations apply DB --remote
-```
-
-```bash
-pnpm exec wrangler deploy
-```
-
-No fim, o Wrangler mostra o endereço do seu CRM, algo como `https://crm-simples.SEU-SUBDOMINIO.workers.dev`.
-
-### 6. Gravar os dois segredos
+**4. Gravar os dois segredos**
 
 São valores aleatórios que só o seu CRM conhece. Os comandos geram e gravam direto, sem mostrar na tela.
 
@@ -122,15 +114,16 @@ openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET
   todo mundo e obriga a informar a Uazapi de novo.
 - `WEBHOOK_URL_SECRET` entra no endereço que o CRM cadastra na Uazapi para receber as mensagens.
 
-### 7. Criar o seu usuário admin
+**5. Criar o seu usuário admin**
 
-Não existe tela de cadastro aberta: o primeiro admin nasce por este comando. Troque o e-mail, o nome e a senha.
+Não existe tela de cadastro aberta: o primeiro admin nasce por este comando. Troque o e-mail, o nome e a senha
+(mínimo de 12 caracteres).
 
 ```bash
-pnpm bootstrap:admin --remote --email voce@empresa.com --name "Seu Nome" --password 'uma-senha-forte'
+pnpm bootstrap:admin --remote --email voce@empresa.com --name "Seu Nome" --password 'uma-senha-forte-de-verdade'
 ```
 
-Pronto: abra o endereço do passo 5 e entre.
+Pronto: abra o endereço do passo 3 e entre.
 
 ---
 
@@ -152,18 +145,17 @@ Pronto: abra o endereço do passo 5 e entre.
 
 Se o seu código está num repositório seu no GitHub, a Cloudflare pode publicar a cada push no `main`:
 
-1. No painel: Workers & Pages › **Create** › **Import a repository** (Continue with GitHub) e escolha o repositório.
+1. No painel: Workers & Pages › **crm-simples** › Settings › **Builds** › **Connect**, e escolha o repositório.
 2. Preencha:
-   - **Project name:** `crm-simples` (o mesmo `name` do `wrangler.jsonc`)
    - **Build command:** `pnpm run build`
    - **Deploy command:** `pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy`
-3. Clique em **Deploy**. Daí em diante, cada push no `main` publica sozinho e aplica as migrações novas do banco.
+3. Salve. Daí em diante, cada push no `main` publica sozinho e aplica as migrações novas do banco.
 
-Os segredos do passo 6 continuam valendo; não precisa gravar de novo.
+Os segredos do passo 4 continuam valendo; não precisa gravar de novo.
 
 ## Atualizar à mão
 
-Puxou uma versão nova do código? Repita o passo 5 (build, migrações e deploy).
+Puxou uma versão nova do código? Repita o passo 3 (build, deploy e migrações).
 
 ---
 
@@ -178,7 +170,7 @@ pnpm db:migrate:local
 ```
 
 ```bash
-pnpm bootstrap:admin --local --email voce@exemplo.com --name "Seu Nome" --password 'uma-senha-forte'
+pnpm bootstrap:admin --local --email voce@exemplo.com --name "Seu Nome" --password 'uma-senha-forte-de-verdade'
 ```
 
 ```bash
