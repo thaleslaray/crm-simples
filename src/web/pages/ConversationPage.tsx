@@ -1,13 +1,15 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
-import { ApiError, api, type Conversation, type Member, type Message, type Note, type QuickReply, type SendStatus, type TimelineEvent } from "../api";
-import { authClient } from "../auth-client";
+import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { ApiError, api, type Conversation, type Message, type Note, type QuickReply, type TimelineEvent } from "../api";
 import { fillName, filterQuickReplies, slashQuery } from "../quick-replies";
 import { getDraft, setDraft } from "../drafts";
-import { contactLabel, dayLabel, eventText, formatPhone, formatSize, initials, messagePreview, messageTime, sameDay, STATUS_LABEL } from "../format";
+import { contactLabel, dayLabel, eventText, formatSize, messagePreview, messageTime, sameDay } from "../format";
 import { onRealtime } from "../realtime";
 import { ContactPanel } from "./ContactPanel";
-import { MessageBody } from "./MessageBody";
+import { ChatHeader } from "../components/ChatHeader";
+import { EventPill } from "../components/EventPill";
+import { MessageBubble } from "../components/MessageBubble";
+import { NoteBubble } from "../components/NoteBubble";
 import { VoiceRecorder } from "./VoiceRecorder";
 
 /** Miniatura do anexo: a própria imagem, ou um ícone para os demais tipos. */
@@ -32,14 +34,6 @@ const TEMP = "tmp-";
 const quoteOf = (m: Message | null): Message["quote"] =>
   m ? { id: m.id, type: m.type, text: m.text, direction: m.direction, authorName: m.authorName ?? null } : null;
 
-/** Entrega das mensagens enviadas: ✓ enviada, ✓✓ entregue, ✓✓ lida. */
-const DELIVERY_LABEL: Partial<Record<SendStatus, string>> = {
-  sent: "✓ Enviada",
-  delivered: "✓✓ Entregue",
-  read: "✓✓ Lida",
-  played: "✓✓ Reproduzida",
-};
-
 type State =
   | { kind: "loading" }
   | { kind: "not-found" }
@@ -51,6 +45,7 @@ export function ConversationPage() {
   // ?m=<id da mensagem>: aberta a partir de um resultado de busca, posicionada nela.
   const [searchParams, setSearchParams] = useSearchParams();
   const target = searchParams.get("m");
+  const navigate = useNavigate();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [loadingOlder, setLoadingOlder] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
@@ -452,6 +447,13 @@ export function ConversationPage() {
     [id, replaceMessage, refreshConversation],
   );
 
+  // A busca de mensagens é a da caixa de entrada (resultados abrem a conversa posicionada): leva o foco até ela.
+  function focusSearch() {
+    navigate("/");
+    const focus = () => document.querySelector<HTMLInputElement>('input[type="search"][aria-label="Buscar"]')?.focus();
+    requestAnimationFrame(() => requestAnimationFrame(focus));
+  }
+
   if (state.kind === "loading") return <p className="empty">Carregando…</p>;
   if (state.kind === "not-found")
     return (
@@ -473,30 +475,17 @@ export function ConversationPage() {
 
   return (
     <article className="conversation" aria-label={`Conversa com ${label}`}>
-      <header className="conv-header">
-        <Link to="/" className="back" aria-label="Voltar à caixa de entrada">
-          ‹
-        </Link>
-        <span className="avatar" aria-hidden="true">
-          {initials(label)}
-        </span>
-        <div className="conv-header-text">
-          <h2>{label}</h2>
-          {conversation.contact.name && conversation.contact.phone && (
-            <p className="muted">{formatPhone(conversation.contact.phone)}</p>
-          )}
-        </div>
-        <button type="button" className="secondary ficha-toggle" aria-pressed={fichaOpen} onClick={() => setFichaOpen((o) => !o)}>
-          Ficha
-        </button>
-      </header>
-      <div className={`conv-body${fichaOpen ? " conv-body--ficha" : ""}`}>
-      <div className="conv-col">
-      <ConversationActions
+      <ChatHeader
         conversation={conversation}
+        fichaOpen={fichaOpen}
+        onToggleFicha={() => setFichaOpen((o) => !o)}
+        onSearch={focusSearch}
         onChanged={(c) => setState((s) => (s.kind === "ready" ? { ...s, conversation: c } : s))}
         onReload={refreshConversation}
       />
+      <div className={`conv-body${fichaOpen ? " conv-body--ficha" : ""}`}>
+      <div className="conv-col">
+      <div className="chat-surface">
       <div
         className="messages"
         ref={scroller}
@@ -509,77 +498,48 @@ export function ConversationPage() {
         )}
         <ol>
           {items.map((item, i) => {
-            const m = item.kind === "message" ? item.message : null;
+            const prev = items[i - 1];
+            const newDay = !prev || !sameDay(prev.ts, item.ts);
+            const key = item.kind === "message" ? item.message.id : item.kind === "note" ? `note-${item.note.id}` : `ev-${item.event.id}`;
+            let body: ReactNode = null;
+            if (item.kind === "event") {
+              body = (
+                <EventPill testId="system-event">
+                  {eventText(item.event)} · <time dateTime={new Date(item.ts).toISOString()}>{messageTime(item.ts)}</time>
+                </EventPill>
+              );
+            } else if (item.kind === "note") {
+              body = <NoteBubble note={item.note} />;
+            } else {
+              const m = item.message;
+              // Sequência = mensagens seguidas do mesmo lado no mesmo dia; o autor se repete quando muda a pessoa.
+              const before = !newDay && prev?.kind === "message" ? prev.message : null;
+              const first = !before || before.direction !== m.direction;
+              const sameAuthor = !!before && before.direction === "out" && (before.sentById ?? before.authorName) === (m.sentById ?? m.authorName);
+              body = (
+                <MessageBubble
+                  message={m}
+                  clientLabel={label}
+                  first={first}
+                  showAuthor={m.direction === "out" && !!m.authorName && !sameAuthor}
+                  found={m.id === target}
+                  isTemp={m.id.startsWith(TEMP)}
+                  onOpenQuote={goToQuoted}
+                  onReply={setReplyingTo}
+                  onResend={(x) => void resend(x)}
+                />
+              );
+            }
             return (
-            <Fragment key={item.kind === "message" ? item.message.id : item.kind === "note" ? `note-${item.note.id}` : `ev-${item.event.id}`}>
-              {(i === 0 || !sameDay(items[i - 1]!.ts, item.ts)) && (
-                <li className="day-sep">
-                  <span>{dayLabel(item.ts)}</span>
-                </li>
-              )}
-              {item.kind === "event" && (
-                <li className="system-event" data-testid="system-event">
-                  <span>
-                    {eventText(item.event)} · <time dateTime={new Date(item.ts).toISOString()}>{messageTime(item.ts)}</time>
-                  </span>
-                </li>
-              )}
-              {item.kind === "note" && (
-                <li className="note" data-testid="internal-note">
-                  <span className="note-tag">Nota interna · só a equipe vê</span>
-                  <p>{item.note.text}</p>
-                  <span className="note-meta">
-                    {item.note.authorName ?? "Membro removido"} · <time dateTime={new Date(item.ts).toISOString()}>{messageTime(item.ts)}</time>
-                  </span>
-                </li>
-              )}
-              {m && (<li
-                data-message-id={m.id}
-                className={`bubble bubble--${m.direction}${m.type === "unsupported" ? " is-unsupported" : ""}${m.status ? ` is-${m.status}` : ""}${m.id === target ? " is-found" : ""}`}
-              >
-                {m.direction === "out" && m.authorName && <span className="bubble-author">{m.authorName}</span>}
-                {m.quote && (
-                  <button type="button" className="quote" onClick={() => goToQuoted(m.quote!.id)} aria-label="Ver mensagem citada">
-                    <span className="quote-author">{m.quote.direction === "out" ? (m.quote.authorName ?? "Equipe") : label}</span>
-                    <span className="quote-text">{messagePreview(m.quote.type, m.quote.text)}</span>
-                  </button>
-                )}
-                <MessageBody message={m} />
-                <span className="bubble-meta">
-                  {m.status === "failed" && (
-                    <>
-                      <span className="bubble-status" role="status">
-                        Falhou
-                      </span>
-                      <button type="button" className="link" onClick={() => void resend(m)}>
-                        Reenviar
-                      </button>
-                    </>
-                  )}
-                  {m.status === "uncertain" && (
-                    <span className="bubble-status" role="status">
-                      Incerto: o WhatsApp não confirmou. Confira antes de enviar de novo.
-                    </span>
-                  )}
-                  {m.status === "sending" && <span className="bubble-status">Enviando…</span>}
-                  {!m.id.startsWith(TEMP) && m.status !== "failed" && m.status !== "sending" && (
-                    <button type="button" className="link" onClick={() => setReplyingTo(m)}>
-                      Responder
-                    </button>
-                  )}
-                  {m.status && DELIVERY_LABEL[m.status] && (
-                    <span className={`bubble-delivery${m.status === "read" || m.status === "played" ? " is-read" : ""}`} data-delivery={m.status}>
-                      {DELIVERY_LABEL[m.status]}
-                    </span>
-                  )}
-                  <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
-                </span>
-              </li>)}
-            </Fragment>
+              <Fragment key={key}>
+                {newDay && <EventPill variant="date">{dayLabel(item.ts)}</EventPill>}
+                {body}
+              </Fragment>
             );
           })}
         </ol>
         {nextAfter && <p className="messages-edge muted">{loadingNewer ? "Carregando mensagens recentes…" : " "}</p>}
+      </div>
       </div>
       <form
         className="composer"
@@ -740,103 +700,4 @@ function timeline(messages: Message[], events: TimelineEvent[], notes: Note[], m
   ];
   const rank = { message: 0, event: 1, note: 2 };
   return all.sort((a, b) => a.ts - b.ts || rank[a.kind] - rank[b.kind]);
-}
-
-/** Status, responsável e ações (assumir, atribuir/transferir, resolver) no topo da conversa. */
-function ConversationActions({
-  conversation,
-  onChanged,
-  onReload,
-}: {
-  conversation: Conversation;
-  onChanged: (c: Conversation) => void;
-  onReload: () => Promise<void>;
-}) {
-  const { data } = authClient.useSession();
-  const me = data?.user as { id: string; role?: string } | undefined;
-  const isAdmin = me?.role === "admin";
-  const isOwner = !!me && conversation.assigneeId === me.id;
-  const [members, setMembers] = useState<Member[]>([]);
-  const [target, setTarget] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const canMove = isAdmin || isOwner;
-  useEffect(() => {
-    if (canMove) api.members().then((r) => setMembers(r.members)).catch(() => undefined);
-  }, [canMove]);
-  useEffect(() => {
-    setTarget("");
-    setError(null);
-  }, [conversation.id]);
-
-  async function run(action: () => Promise<{ conversation: Conversation }>) {
-    setBusy(true);
-    setError(null);
-    try {
-      onChanged((await action()).conversation);
-      await onReload();
-    } catch (e) {
-      // 409 = outra pessoa mexeu antes: relê para mostrar o estado real.
-      setError(e instanceof ApiError && e.status === 409 ? "Outra pessoa acabou de alterar esta conversa." : "Não foi possível concluir. Tente de novo.");
-      await onReload();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const open = conversation.status === "aberta" && conversation.assigneeId === null;
-  // Qualquer membro resolve (não só o responsável); transferir continua com o responsável ou o admin.
-  const resolvable = conversation.status === "em_andamento" || conversation.status === "aguardando_cliente";
-  const others = members.filter((m) => m.id !== conversation.assigneeId);
-
-  return (
-    <div className="conv-actions" role="group" aria-label="Status e responsável">
-      <div className="conv-status">
-        <span className={`badge badge--${conversation.status}`} data-testid="conversation-status">
-          {STATUS_LABEL[conversation.status]}
-        </span>
-        <span className="muted" data-testid="conversation-assignee">
-          {conversation.assigneeName ? `Responsável: ${conversation.assigneeName}` : "Sem responsável"}
-        </span>
-      </div>
-      <div className="conv-buttons">
-        {open && (
-          <button type="button" disabled={busy} onClick={() => void run(() => api.assume(conversation.id))}>
-            Assumir
-          </button>
-        )}
-        {canMove && others.length > 0 && (
-          <>
-            <select aria-label="Transferir para" value={target} onChange={(e) => setTarget(e.target.value)}>
-              <option value="">{conversation.assigneeId ? "Transferir para…" : "Atribuir a…"}</option>
-              {others.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="secondary"
-              disabled={busy || !target}
-              onClick={() => void run(() => api.assign(conversation.id, target)).then(() => setTarget(""))}
-            >
-              {conversation.assigneeId ? "Transferir" : "Atribuir"}
-            </button>
-          </>
-        )}
-        {resolvable && (
-          <button type="button" className="secondary" disabled={busy} onClick={() => void run(() => api.resolve(conversation.id))}>
-            Resolver
-          </button>
-        )}
-      </div>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
 }

@@ -48,13 +48,13 @@ test("atendente escreve nota interna, ve a ficha, edita o contato e nada disso v
   await conversation.getByRole("button", { name: "Salvar nota" }).click();
   const note = conversation.getByTestId("internal-note");
   await expect(note).toContainText("Cliente pediu desconto de 10%");
-  await expect(note).toContainText("só a equipe vê");
+  await expect(note).toContainText("o cliente não vê");
   await expect(note).toContainText(E2E_ADMIN.name);
   await noHorizontalOverflow(page);
 
   // Ficha: abre (no celular e uma aba), mostra foto, telefone somente leitura e a nota
-  const toggle = conversation.getByRole("button", { name: "Ficha", exact: true });
-  if ((await toggle.getAttribute("aria-pressed")) !== "true") await toggle.click();
+  const toggle = conversation.getByRole("button", { name: "Ficha do contato" });
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   const ficha = page.getByRole("complementary", { name: "Ficha do contato" });
   await expect(ficha.getByRole("img", { name: `Foto de Cliente ${run}` })).toBeVisible();
   await expect(ficha.getByLabel("Telefone")).toHaveAttribute("readonly", "");
@@ -69,8 +69,8 @@ test("atendente escreve nota interna, ve a ficha, edita o contato e nada disso v
   await expect(ficha.getByText("Salvo.")).toBeVisible();
   await noHorizontalOverflow(page);
   await page.reload();
-  const toggleAgain = page.getByRole("article", { name: `Conversa com Cliente ${run}` }).getByRole("button", { name: "Ficha", exact: true });
-  if ((await toggleAgain.getAttribute("aria-pressed")) !== "true") await toggleAgain.click();
+  const toggleAgain = page.getByRole("article", { name: `Conversa com Cliente ${run}` }).getByRole("button", { name: "Ficha do contato" });
+  if ((await toggleAgain.getAttribute("aria-expanded")) !== "true") await toggleAgain.click();
   const again = page.getByRole("complementary", { name: "Ficha do contato" });
   await expect(again.getByLabel("Empresa")).toHaveValue("Loja do E2E");
   await expect(again.getByLabel("E-mail")).toHaveValue("cliente@loja.com");

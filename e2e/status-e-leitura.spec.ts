@@ -65,15 +65,15 @@ test("não lidas aparecem na lista e zeram ao abrir; a mensagem enviada mostra e
   // Envia e acompanha enviada -> entregue -> lida
   await conversation.getByLabel("Mensagem").fill(`Resposta ${run}`);
   await conversation.getByRole("button", { name: "Enviar" }).click();
-  await expect(conversation.getByText("✓ Enviada")).toBeVisible();
+  await expect(conversation.getByRole("img", { name: "Enviada" })).toBeVisible();
 
   const update = (state: string) =>
     webhook(request, { EventType: "messages_update", state, event: { MessageIDs: [`st-out-${run}`], Timestamp: Math.floor(Date.now() / 1000) } });
   await update("Delivered");
-  await expect(conversation.getByText("✓✓ Entregue")).toBeVisible();
+  await expect(conversation.getByRole("img", { name: "Entregue" })).toBeVisible();
   await update("Read");
-  await expect(conversation.getByText("✓✓ Lida")).toBeVisible();
+  await expect(conversation.getByRole("img", { name: "Lida" })).toBeVisible();
   await update("Delivered"); // não regride
-  await expect(conversation.getByText("✓✓ Lida")).toBeVisible();
+  await expect(conversation.getByRole("img", { name: "Lida" })).toBeVisible();
   await noHorizontalOverflow(page);
 });

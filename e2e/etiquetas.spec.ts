@@ -58,8 +58,8 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   // Aplica pela ficha
   await page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first().click();
   const conversation = page.getByRole("article", { name: `Conversa com Cliente ${run}` });
-  const toggle = conversation.getByRole("button", { name: "Ficha", exact: true });
-  if ((await toggle.getAttribute("aria-pressed")) !== "true") await toggle.click();
+  const toggle = conversation.getByRole("button", { name: "Ficha do contato" });
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   const ficha = page.getByRole("complementary", { name: "Ficha do contato" });
   await ficha.getByLabel("Adicionar etiqueta").selectOption({ label: labelName });
   await expect(ficha.getByRole("list").getByText(labelName)).toBeVisible();
