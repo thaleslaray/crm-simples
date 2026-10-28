@@ -5,6 +5,7 @@ import { ingestMessage, type UazapiMessage } from "./ingest";
 import { normalizeStatus, recordConnection } from "./connection";
 import { loadConversation, loadMessage } from "./conversations";
 import type { AppEnv } from "./middleware";
+import { applyStatusUpdate } from "./delivery";
 import { publish } from "./realtime";
 
 /** Comparacao em tempo constante: hasheia os dois lados (tamanho fixo) e compara os digests. */
@@ -54,7 +55,6 @@ webhook.post("/:secret", async (c) => {
       console.error("webhook: falha ao processar evento", { eventId, erro: err instanceof Error ? err.name : "desconhecido" });
     }
   }
-  // Outros tipos de evento (messages_update...) ficam gravados sem processar: sao de tickets futuros.
   if (payload.EventType === "messages") {
     try {
       const ingested = await ingestMessage(db, (payload.message ?? {}) as UazapiMessage, c.env.MEDIA_QUEUE);
@@ -69,6 +69,16 @@ webhook.post("/:secret", async (c) => {
       }
     } catch (err) {
       // Nunca logar payload/token: so o tipo do erro e o id do evento. O evento fica sem processedAt.
+      console.error("webhook: falha ao processar evento", { eventId, erro: err instanceof Error ? err.name : "desconhecido" });
+    }
+  }
+  if (payload.EventType === "messages_update") {
+    try {
+      const event = (payload.event ?? {}) as { MessageIDs?: unknown };
+      const changes = await applyStatusUpdate(db, payload.state, event.MessageIDs);
+      await db.update(schema.webhookEvent).set({ processedAt: Date.now() }).where(eq(schema.webhookEvent.id, eventId));
+      for (const change of changes) await publish(c.env, { type: "message.status", ...change });
+    } catch (err) {
       console.error("webhook: falha ao processar evento", { eventId, erro: err instanceof Error ? err.name : "desconhecido" });
     }
   }

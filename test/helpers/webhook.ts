@@ -115,6 +115,16 @@ export function contactMessageEvent(input: TextMessageInput & { displayName: str
   };
 }
 
+/** Evento `messages_update` (status de entrega); `Timestamp` em SEGUNDOS, como a Uazapi manda. */
+export function statusUpdateEvent(messageIds: string[], state: string, timestampSeconds = 1_700_000_100) {
+  return {
+    EventType: "messages_update",
+    token: env.UAZAPI_INSTANCE_TOKEN,
+    state,
+    event: { MessageIDs: messageIds, Timestamp: timestampSeconds },
+  };
+}
+
 /** Evento `connection` no formato da Uazapi. */
 export function connectionEvent(input: { status: string; type?: string; lastDisconnectReason?: string; token?: string }) {
   return {

@@ -1,4 +1,4 @@
-import { and, eq, isNull, lte, or } from "drizzle-orm";
+import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
 import type { Db } from "./db";
 import { schema } from "./db";
 
@@ -172,6 +172,10 @@ export async function ingestMessage(
     .returning({ id: schema.message.id });
   if (inserted.length === 0) return null; // corrida com outro request: ja ingerida
 
+  await db
+    .update(schema.conversation)
+    .set({ unreadCount: sql`${schema.conversation.unreadCount} + 1` })
+    .where(eq(schema.conversation.id, conversationId));
   // So avanca o "ultimo" se esta for a mais recente (evento atrasado nao volta a previa).
   await db
     .update(schema.conversation)

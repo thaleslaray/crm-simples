@@ -131,3 +131,6 @@ button.quote { display: grid; gap: 1px; text-align: left; width: 100%; min-heigh
 .reply-bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-left: 3px solid var(--brand); border-radius: 6px; background: rgba(0, 0, 0, 0.05); }
 .reply-bar-text { display: grid; gap: 1px; flex: 1; min-width: 0; }
 .reply-bar button.link { min-width: 44px; min-height: 44px; text-decoration: none; }
+.unread-badge { flex: none; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--brand); color: var(--brand-fg); font-size: 0.75rem; font-weight: 600; display: inline-grid; place-items: center; }
+.bubble-delivery { font-size: 0.75rem; }
+.bubble-delivery.is-read { color: #0b57d0; font-weight: 600; }
