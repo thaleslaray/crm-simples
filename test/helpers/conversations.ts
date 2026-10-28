@@ -7,6 +7,7 @@ export interface InboxConversation {
   id: string;
   status: string;
   assigneeId: string | null;
+  assigneeName: string | null;
   contact: { id: string; name: string | null; phone: string | null };
   lastMessage: { type: string; text: string | null; timestamp: number } | null;
   unreadCount: number;
@@ -104,4 +105,48 @@ export function setSignature(cookie: string, enabled: boolean) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ signatureEnabled: enabled }),
   });
+}
+
+// ---- Status e responsavel ----
+
+export interface TimelineEvent {
+  id: string;
+  type: "assumida" | "atribuida" | "transferida" | "resolvida" | "reaberta";
+  timestamp: number;
+  actorName: string | null;
+  toName: string | null;
+  fromName: string | null;
+}
+
+/** O cliente escreve de novo (webhook), como a Uazapi entregaria. */
+export async function clientWritesAgain(phone = "5511900000010", text = "voltei") {
+  await postWebhook(textMessageEvent({ sender: `${phone}@s.whatsapp.net`, text, senderName: "Cliente" }));
+}
+
+export function assume(cookie: string, conversationId: string) {
+  return postJson(`/api/conversations/${conversationId}/assume`, {}, { cookie });
+}
+
+/** Atribui (conversa sem responsavel) ou transfere (com responsavel) para um membro. */
+export function assign(cookie: string, conversationId: string, userId: string) {
+  return postJson(`/api/conversations/${conversationId}/assign`, { userId }, { cookie });
+}
+
+export function resolve(cookie: string, conversationId: string) {
+  return postJson(`/api/conversations/${conversationId}/resolve`, {}, { cookie });
+}
+
+export async function events(cookie: string, conversationId: string): Promise<TimelineEvent[]> {
+  const res = await api(`/api/conversations/${conversationId}/events`, { cookie });
+  return ((await res.json()) as { events: TimelineEvent[] }).events;
+}
+
+export async function conversationOf(cookie: string, conversationId: string): Promise<InboxConversation> {
+  const res = await api(`/api/conversations/${conversationId}`, { cookie });
+  return ((await res.json()) as { conversation: InboxConversation }).conversation;
+}
+
+export async function inboxFiltered(cookie: string, query: string): Promise<InboxConversation[]> {
+  const res = await api(`/api/conversations?${query}`, { cookie });
+  return ((await res.json()) as { conversations: InboxConversation[] }).conversations;
 }

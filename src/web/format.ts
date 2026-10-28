@@ -1,5 +1,29 @@
 // Formatação de exibição (pt-BR).
-import type { Conversation, MessageType } from "./api";
+import type { Conversation, ConversationStatus, MessageType, TimelineEvent } from "./api";
+
+export const STATUS_LABEL: Record<ConversationStatus, string> = {
+  aberta: "Aberta",
+  em_andamento: "Em andamento",
+  aguardando_cliente: "Aguardando cliente",
+  resolvida: "Resolvida",
+};
+
+/** Frase do evento de sistema na linha do tempo ("Ana transferiu a conversa de Ana para Beto"). */
+export function eventText(e: TimelineEvent): string {
+  const who = e.actorName ?? "Alguém";
+  switch (e.type) {
+    case "assumida":
+      return `${who} assumiu a conversa`;
+    case "atribuida":
+      return `${who} atribuiu a conversa a ${e.toName ?? "um membro removido"}`;
+    case "transferida":
+      return `${who} transferiu a conversa de ${e.fromName ?? "um membro removido"} para ${e.toName ?? "um membro removido"}`;
+    case "resolvida":
+      return `${who} resolveu a conversa`;
+    case "reaberta":
+      return e.toName ? `O cliente escreveu de novo: conversa reaberta com ${e.toName}` : "O cliente escreveu de novo: conversa reaberta sem responsável";
+  }
+}
 
 /** "+55 11 98765-4321" para números brasileiros; outros ficam só com o "+". */
 export function formatPhone(phone: string): string {

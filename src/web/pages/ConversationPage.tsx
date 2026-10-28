@@ -1,9 +1,10 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { ApiError, api, type Conversation, type Message, type QuickReply, type SendStatus } from "../api";
+import { ApiError, api, type Conversation, type Member, type Message, type QuickReply, type SendStatus, type TimelineEvent } from "../api";
+import { authClient } from "../auth-client";
 import { fillName, filterQuickReplies, slashQuery } from "../quick-replies";
 import { getDraft, setDraft } from "../drafts";
-import { contactLabel, dayLabel, formatPhone, formatSize, initials, messagePreview, messageTime, sameDay } from "../format";
+import { contactLabel, dayLabel, eventText, formatPhone, formatSize, initials, messagePreview, messageTime, sameDay, STATUS_LABEL } from "../format";
 import { onRealtime } from "../realtime";
 import { MessageBody } from "./MessageBody";
 import { VoiceRecorder } from "./VoiceRecorder";
@@ -38,7 +39,7 @@ type State =
   | { kind: "loading" }
   | { kind: "not-found" }
   | { kind: "error" }
-  | { kind: "ready"; conversation: Conversation; messages: Message[]; nextBefore: string | null; nextAfter: string | null };
+  | { kind: "ready"; conversation: Conversation; messages: Message[]; events: TimelineEvent[]; nextBefore: string | null; nextAfter: string | null };
 
 export function ConversationPage() {
   const { id } = useParams<{ id: string }>();
@@ -67,13 +68,14 @@ export function ConversationPage() {
       const history = opts.around
         ? api.messagesAround(id, opts.around)
         : api.messages(id).then((m) => ({ ...m, nextAfter: null }));
-      Promise.all([api.conversation(id), history])
-        .then(([c, m]) => {
+      Promise.all([api.conversation(id), history, api.events(id)])
+        .then(([c, m, e]) => {
           if (alive())
             setState({
               kind: "ready",
               conversation: c.conversation,
               messages: m.messages,
+              events: e.events,
               nextBefore: m.nextBefore,
               nextAfter: m.nextAfter,
             });
@@ -108,12 +110,27 @@ export function ConversationPage() {
         stickToBottom.current = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         return { ...s, messages: [...s.messages, ...fresh] };
       });
+    const refreshStatus = () =>
+      Promise.all([api.conversation(id), api.events(id)])
+        .then(([c, e]) => alive && setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, conversation: c.conversation, events: e.events } : s)))
+        .catch(() => undefined);
     const off = onRealtime((event) => {
       if (event.type === "message.created") {
         if (event.conversation.id === id) {
           append([event.message]);
+          setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, conversation: event.conversation } : s));
           if (event.message.direction === "in") api.markRead(id).catch(() => undefined); // está olhando: já conta como lida
         }
+        return;
+      }
+      if (event.type === "conversation.updated") {
+        if (event.conversation.id !== id) return;
+        setState((s) => {
+          if (s.kind !== "ready" || s.conversation.id !== id) return s;
+          const novo = event.event;
+          const events = novo && !s.events.some((e) => e.id === novo.id) ? [...s.events, novo] : s.events;
+          return { ...s, conversation: event.conversation, events };
+        });
         return;
       }
       if (event.type === "message.status") {
@@ -126,6 +143,7 @@ export function ConversationPage() {
         return;
       }
       if (event.type !== "reconnected") return;
+      void refreshStatus();
       const last = lastSeen.current;
       if (hasNewerGap.current) return; // janela de busca: o que falta vem ao rolar
       if (!last) return load(() => alive, { around: target }); // conversa vazia ou ainda carregando: busca tudo de novo
@@ -266,6 +284,17 @@ export function ConversationPage() {
     });
   }, []);
 
+  // O envio pode mudar status e responsável: relê a conversa (o tempo real também avisa, mas pode estar fora do ar).
+  const refreshConversation = useCallback(async () => {
+    if (!id) return;
+    try {
+      const [c, e] = await Promise.all([api.conversation(id), api.events(id)]);
+      setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, conversation: c.conversation, events: e.events } : s));
+    } catch {
+      // Fica como está; o próximo evento de tempo real corrige.
+    }
+  }, [id]);
+
   const sendDraft = useCallback(async () => {
     const text = draft.trim();
     if (!id || !text) return;
@@ -283,6 +312,7 @@ export function ConversationPage() {
     setReplyingTo(null);
     try {
       replaceMessage(tempId, (await api.sendText(id, text, quoting?.id)).message);
+      void refreshConversation();
     } catch {
       // Nem chegou ao servidor: tira a bolha e devolve o texto ao campo.
       replaceMessage(tempId, null);
@@ -291,7 +321,7 @@ export function ConversationPage() {
       setReplyingTo(quoting);
       setSendError(true);
     }
-  }, [draft, id, replaceMessage, replyingTo]);
+  }, [draft, id, replaceMessage, replyingTo, refreshConversation]);
 
   // Vai até a mensagem original: se já está na tela, rola até ela; senão reabre a conversa posicionada nela (como a busca).
   const goToQuoted = useCallback(
@@ -371,8 +401,9 @@ export function ConversationPage() {
       } catch {
         replaceMessage(m.id, { ...m, status: "failed" });
       }
+      void refreshConversation();
     },
-    [id, replaceMessage],
+    [id, replaceMessage, refreshConversation],
   );
 
   if (state.kind === "loading") return <p className="empty">Carregando…</p>;
@@ -390,7 +421,8 @@ export function ConversationPage() {
       </p>
     );
 
-  const { conversation, messages, nextBefore, nextAfter } = state;
+  const { conversation, messages, nextBefore, nextAfter, events } = state;
+  const items = timeline(messages, events, nextBefore !== null, nextAfter !== null);
   const label = contactLabel(conversation.contact);
 
   return (
@@ -409,6 +441,11 @@ export function ConversationPage() {
           )}
         </div>
       </header>
+      <ConversationActions
+        conversation={conversation}
+        onChanged={(c) => setState((s) => (s.kind === "ready" ? { ...s, conversation: c } : s))}
+        onReload={refreshConversation}
+      />
       <div
         className="messages"
         ref={scroller}
@@ -420,14 +457,23 @@ export function ConversationPage() {
           messages.length > 0 && <p className="messages-edge muted">Início da conversa</p>
         )}
         <ol>
-          {messages.map((m, i) => (
-            <Fragment key={m.id}>
-              {(i === 0 || !sameDay(messages[i - 1]!.timestamp, m.timestamp)) && (
+          {items.map((item, i) => {
+            const m = item.kind === "message" ? item.message : null;
+            return (
+            <Fragment key={item.kind === "message" ? item.message.id : `ev-${item.event.id}`}>
+              {(i === 0 || !sameDay(items[i - 1]!.ts, item.ts)) && (
                 <li className="day-sep">
-                  <span>{dayLabel(m.timestamp)}</span>
+                  <span>{dayLabel(item.ts)}</span>
                 </li>
               )}
-              <li
+              {item.kind === "event" && (
+                <li className="system-event" data-testid="system-event">
+                  <span>
+                    {eventText(item.event)} · <time dateTime={new Date(item.ts).toISOString()}>{messageTime(item.ts)}</time>
+                  </span>
+                </li>
+              )}
+              {m && (<li
                 data-message-id={m.id}
                 className={`bubble bubble--${m.direction}${m.type === "unsupported" ? " is-unsupported" : ""}${m.status ? ` is-${m.status}` : ""}${m.id === target ? " is-found" : ""}`}
               >
@@ -468,9 +514,10 @@ export function ConversationPage() {
                   )}
                   <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
                 </span>
-              </li>
+              </li>)}
             </Fragment>
-          ))}
+            );
+          })}
         </ol>
         {nextAfter && <p className="messages-edge muted">{loadingNewer ? "Carregando mensagens recentes…" : " "}</p>}
       </div>
@@ -599,5 +646,120 @@ export function ConversationPage() {
         )}
       </form>
     </article>
+  );
+}
+
+type TimelineItem = ({ kind: "message"; message: Message } | { kind: "event"; event: TimelineEvent }) & { ts: number };
+
+/**
+ * Mensagens e eventos de sistema por horário. Com histórico parcial (há páginas antigas ou novas por carregar),
+ * só entram os eventos dentro da janela de mensagens já carregada.
+ */
+function timeline(messages: Message[], events: TimelineEvent[], moreBefore: boolean, moreAfter: boolean): TimelineItem[] {
+  const first = messages[0]?.timestamp ?? -Infinity;
+  const last = messages.at(-1)?.timestamp ?? Infinity;
+  const visible = events.filter((e) => (!moreBefore || e.timestamp >= first) && (!moreAfter || e.timestamp <= last));
+  const all: TimelineItem[] = [
+    ...messages.map((message): TimelineItem => ({ kind: "message", message, ts: message.timestamp })),
+    ...visible.map((event): TimelineItem => ({ kind: "event", event, ts: event.timestamp })),
+  ];
+  return all.sort((a, b) => a.ts - b.ts || (a.kind === b.kind ? 0 : a.kind === "message" ? -1 : 1));
+}
+
+/** Status, responsável e ações (assumir, atribuir/transferir, resolver) no topo da conversa. */
+function ConversationActions({
+  conversation,
+  onChanged,
+  onReload,
+}: {
+  conversation: Conversation;
+  onChanged: (c: Conversation) => void;
+  onReload: () => Promise<void>;
+}) {
+  const { data } = authClient.useSession();
+  const me = data?.user as { id: string; role?: string } | undefined;
+  const isAdmin = me?.role === "admin";
+  const isOwner = !!me && conversation.assigneeId === me.id;
+  const [members, setMembers] = useState<Member[]>([]);
+  const [target, setTarget] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canMove = isAdmin || isOwner;
+  useEffect(() => {
+    if (canMove) api.members().then((r) => setMembers(r.members)).catch(() => undefined);
+  }, [canMove]);
+  useEffect(() => {
+    setTarget("");
+    setError(null);
+  }, [conversation.id]);
+
+  async function run(action: () => Promise<{ conversation: Conversation }>) {
+    setBusy(true);
+    setError(null);
+    try {
+      onChanged((await action()).conversation);
+      await onReload();
+    } catch (e) {
+      // 409 = outra pessoa mexeu antes: relê para mostrar o estado real.
+      setError(e instanceof ApiError && e.status === 409 ? "Outra pessoa acabou de alterar esta conversa." : "Não foi possível concluir. Tente de novo.");
+      await onReload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const open = conversation.status === "aberta" && conversation.assigneeId === null;
+  const resolvable = (conversation.status === "em_andamento" || conversation.status === "aguardando_cliente") && (isAdmin || isOwner);
+  const others = members.filter((m) => m.id !== conversation.assigneeId);
+
+  return (
+    <div className="conv-actions" role="group" aria-label="Status e responsável">
+      <div className="conv-status">
+        <span className={`badge badge--${conversation.status}`} data-testid="conversation-status">
+          {STATUS_LABEL[conversation.status]}
+        </span>
+        <span className="muted" data-testid="conversation-assignee">
+          {conversation.assigneeName ? `Responsável: ${conversation.assigneeName}` : "Sem responsável"}
+        </span>
+      </div>
+      <div className="conv-buttons">
+        {open && (
+          <button type="button" disabled={busy} onClick={() => void run(() => api.assume(conversation.id))}>
+            Assumir
+          </button>
+        )}
+        {canMove && others.length > 0 && (
+          <>
+            <select aria-label="Transferir para" value={target} onChange={(e) => setTarget(e.target.value)}>
+              <option value="">{conversation.assigneeId ? "Transferir para…" : "Atribuir a…"}</option>
+              {others.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy || !target}
+              onClick={() => void run(() => api.assign(conversation.id, target)).then(() => setTarget(""))}
+            >
+              {conversation.assigneeId ? "Transferir" : "Atribuir"}
+            </button>
+          </>
+        )}
+        {resolvable && (
+          <button type="button" className="secondary" disabled={busy} onClick={() => void run(() => api.resolve(conversation.id))}>
+            Resolver
+          </button>
+        )}
+      </div>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

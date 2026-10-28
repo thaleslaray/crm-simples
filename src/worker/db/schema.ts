@@ -95,7 +95,8 @@ export const reconciliationState = sqliteTable("reconciliation_state", {
 
 // ---- Caixa de entrada (ticket 02) ----
 
-export const CONVERSATION_STATUSES = ["aberta"] as const; // em_andamento/resolvida entram nos tickets de status
+export const CONVERSATION_STATUSES = ["aberta", "em_andamento", "aguardando_cliente", "resolvida"] as const;
+export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number];
 export const MESSAGE_TYPES = ["text", "image", "video", "audio", "voice", "document", "sticker", "location", "contact", "unsupported"] as const;
 export const MEDIA_STATUSES = ["pending", "available", "failed"] as const;
 export type MediaStatus = (typeof MEDIA_STATUSES)[number];
@@ -198,4 +199,27 @@ export const message = sqliteTable(
     // Parcial: so as pendentes entram, a reconciliacao acha as presas sem varrer a tabela.
     index("message_media_pending_idx").on(t.timestamp).where(sql`${t.mediaStatus} = 'pending'`),
   ],
+);
+
+/** Eventos de sistema da linha do tempo: quem mudou o status/responsavel e quando (o vaivem automatico nao entra). */
+export const EVENT_TYPES = ["assumida", "atribuida", "transferida", "resolvida", "reaberta"] as const;
+export type EventType = (typeof EVENT_TYPES)[number];
+
+export const conversationEvent = sqliteTable(
+  "conversation_event",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    type: text("type", { enum: EVENT_TYPES }).notNull(),
+    /** Quem fez; nulo quando foi o cliente (reabertura). */
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    /** Responsavel depois do evento (assumida, atribuida, transferida). */
+    toUserId: text("to_user_id").references(() => user.id, { onDelete: "set null" }),
+    /** Responsavel antes (transferida). */
+    fromUserId: text("from_user_id").references(() => user.id, { onDelete: "set null" }),
+    timestamp: integer("timestamp").notNull(),
+  },
+  (t) => [index("conversation_event_conv_ts_idx").on(t.conversationId, t.timestamp)],
 );

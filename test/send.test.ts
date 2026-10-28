@@ -113,6 +113,8 @@ describe("Responder com texto", () => {
 
     await sendText(ana, conversa, "Já te respondo");
 
+    // A primeira resposta torna Ana responsável (conversa.updated) antes do aviso da mensagem.
+    expect(await outra.next()).toMatchObject({ type: "conversation.updated" });
     expect(await outra.next()).toMatchObject({
       type: "message.created",
       conversation: { id: conversa, lastMessage: { type: "text", text: "Já te respondo" } },

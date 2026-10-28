@@ -7,6 +7,7 @@ import { loadConversation, loadMessage } from "./conversations";
 import type { AppEnv } from "./middleware";
 import { applyStatusUpdate } from "./delivery";
 import { publish } from "./realtime";
+import { publishUpdate } from "./status";
 
 /** Comparacao em tempo constante: hasheia os dois lados (tamanho fixo) e compara os digests. */
 async function safeEqual(a: unknown, b: string): Promise<boolean> {
@@ -61,6 +62,7 @@ webhook.post("/:secret", async (c) => {
       await db.update(schema.webhookEvent).set({ processedAt: Date.now() }).where(eq(schema.webhookEvent.id, eventId));
       // Mensagem nova (nao duplicada): avisa o hub. Depois de gravar tudo; falha de publicacao nao some com a mensagem.
       if (ingested) {
+        if (ingested.reopened) await publishUpdate(c.env, db, ingested.conversationId, ingested.reopened.eventId);
         const [conversation, message] = await Promise.all([
           loadConversation(db, ingested.conversationId),
           loadMessage(db, c.env.MEDIA, ingested.messageId),

@@ -2,11 +2,36 @@
 
 export interface Conversation {
   id: string;
-  status: "aberta";
+  status: ConversationStatus;
   assigneeId: string | null;
+  assigneeName: string | null;
   unreadCount: number;
   contact: { id: string; name: string | null; phone: string | null };
   lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
+}
+
+export type ConversationStatus = "aberta" | "em_andamento" | "aguardando_cliente" | "resolvida";
+
+/** Evento de sistema da linha do tempo (assumir, atribuir, transferir, resolver, reabrir). */
+export interface TimelineEvent {
+  id: string;
+  type: "assumida" | "atribuida" | "transferida" | "resolvida" | "reaberta";
+  timestamp: number;
+  actorName: string | null;
+  toName: string | null;
+  fromName: string | null;
+}
+
+export interface Member {
+  id: string;
+  name: string;
+  role: "admin" | "atendente";
+}
+
+/** Filtros da caixa: status e responsável ("me", "none" ou o id do membro). */
+export interface InboxFilter {
+  status: ConversationStatus | "";
+  assignee: string;
 }
 
 export type MessageType =
@@ -123,12 +148,25 @@ export const api = {
   preferences: () => getJson<{ signatureEnabled: boolean }>("/api/me/preferences"),
   setSignature: (signatureEnabled: boolean) =>
     sendJson<{ signatureEnabled: boolean }>("PATCH", "/api/me/preferences", { signatureEnabled }),
+  conversations: (filter?: InboxFilter) => {
+    const qs = new URLSearchParams();
+    if (filter?.status) qs.set("status", filter.status);
+    if (filter?.assignee) qs.set("assignee", filter.assignee);
+    return getJson<{ conversations: Conversation[] }>(`/api/conversations${qs.size ? `?${qs}` : ""}`);
+  },
+  members: () => getJson<{ members: Member[] }>("/api/members"),
+  events: (id: string) => getJson<{ events: TimelineEvent[] }>(`/api/conversations/${encodeURIComponent(id)}/events`),
+  assume: (id: string) =>
+    sendJson<{ conversation: Conversation }>("POST", `/api/conversations/${encodeURIComponent(id)}/assume`, {}),
+  assign: (id: string, userId: string) =>
+    sendJson<{ conversation: Conversation }>("POST", `/api/conversations/${encodeURIComponent(id)}/assign`, { userId }),
+  resolve: (id: string) =>
+    sendJson<{ conversation: Conversation }>("POST", `/api/conversations/${encodeURIComponent(id)}/resolve`, {}),
   connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
   /** Só admin: consulta a Uazapi e devolve o QR code atual. */
   connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),
   /** Só admin: inicia o pareamento. */
   connect: () => sendJson<ConnectionWithQr>("POST", "/api/connection/connect", {}),
-  conversations: () => getJson<{ conversations: Conversation[] }>("/api/conversations"),
   conversation: (id: string) => getJson<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`),
   messages: (id: string, before?: string) => {
     const qs = before ? `?before=${encodeURIComponent(before)}` : "";

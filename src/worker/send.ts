@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { loadConversation, loadMessage, type Message } from "./conversations";
 import { createDb, schema } from "./db";
 import { publish } from "./realtime";
+import { markReplied } from "./status";
 import type { MessageType, SendStatus } from "./db/schema";
 import { signedFileUrl } from "./signed-files";
 import { createUazapiClient, UazapiHttpError } from "./uazapi/client";
@@ -147,6 +148,10 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
     // Id da Uazapi ja usado por outra mensagem (unicidade): o envio aconteceu, entao o estado nao pode ficar "sending".
     await db.update(schema.message).set({ status }).where(eq(schema.message.id, messageId));
   }
+  // Ponto unico da transicao para "aguardando cliente": todo envio ao cliente que nao falhou passa por aqui
+  // (texto e reenvio; midia, citacao e resposta rapida entram por esta mesma funcao). Antes de carregar a
+  // conversa, para o aviso de mensagem nova ja trazer o status novo.
+  if (status !== "failed") await markReplied(env, db, conv.id, author.id);
   const message = await loadMessage(db, env.MEDIA, messageId);
   if (!message) return null;
   // Reenvio nao cria mensagem nova: so a primeira tentativa avisa as outras sessoes.
