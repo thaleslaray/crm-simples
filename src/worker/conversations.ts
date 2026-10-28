@@ -3,7 +3,9 @@ import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
 import type { SendStatus } from "./db/schema";
 import { type AppEnv, requireAuth } from "./middleware";
+import { publish } from "./realtime";
 import { sendOutgoingText } from "./send";
+import { createUazapiClient } from "./uazapi/client";
 
 export const conversations = new Hono<AppEnv>();
 conversations.use("*", requireAuth);
@@ -23,6 +25,7 @@ export async function selectConversations(db: Db, where?: SQL) {
       id: schema.conversation.id,
       status: schema.conversation.status,
       assigneeId: schema.conversation.assigneeId,
+      unreadCount: schema.conversation.unreadCount,
       contactId: schema.contact.id,
       contactName: schema.contact.name,
       contactPhone: schema.contact.phone,
@@ -40,6 +43,7 @@ export async function selectConversations(db: Db, where?: SQL) {
     id: r.id,
     status: r.status,
     assigneeId: r.assigneeId,
+    unreadCount: r.unreadCount,
     contact: { id: r.contactId, name: r.contactName, phone: r.contactPhone },
     lastMessage:
       r.msgType && r.msgTimestamp != null ? { type: r.msgType, text: r.msgText, timestamp: r.msgTimestamp } : null,
@@ -212,6 +216,36 @@ conversations.get("/:id/messages", async (c) => {
 
   const older = await loadOlder(db, id, limit, before ?? undefined);
   return c.json({ messages: await views(c.env.MEDIA, older.page), nextBefore: older.more ? encodeCursor(older.page[0]!) : null });
+});
+
+// Abrir a conversa: zera o contador e marca no WhatsApp as mensagens do cliente que ainda nao tinham sido vistas.
+conversations.post("/:id/read", async (c) => {
+  const db = createDb(c.env.DB);
+  const id = c.req.param("id");
+  const conv = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { unreadCount: true } });
+  if (!conv) return c.json({ error: "nao_encontrado" }, 404);
+  if (conv.unreadCount > 0) {
+    // As `unreadCount` mais recentes do cliente sao as nao vistas.
+    const unread = await db
+      .select({ externalId: schema.message.externalId })
+      .from(schema.message)
+      .where(and(eq(schema.message.conversationId, id), eq(schema.message.direction, "in")))
+      .orderBy(desc(schema.message.timestamp), desc(schema.message.id))
+      .limit(conv.unreadCount);
+    // Zera antes de falar com a Uazapi: falha de la nao deixa o contador preso.
+    await db.update(schema.conversation).set({ unreadCount: 0 }).where(eq(schema.conversation.id, id));
+    const ids = unread.flatMap((m) => (m.externalId ? [m.externalId] : []));
+    if (ids.length > 0) {
+      try {
+        await createUazapiClient(c.env).markRead(ids);
+      } catch (err) {
+        console.error("conversa: falha ao marcar como lida na Uazapi", { erro: err instanceof Error ? err.name : "desconhecido" });
+      }
+    }
+    const conversation = await loadConversation(db, id);
+    if (conversation) await publish(c.env, { type: "conversation.updated", conversation });
+  }
+  return c.json({ ok: true });
 });
 
 const MAX_TEXT_LENGTH = 4096;

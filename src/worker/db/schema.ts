@@ -78,8 +78,11 @@ export const MESSAGE_TYPES = ["text", "image", "video", "audio", "voice", "docum
 export const MEDIA_STATUSES = ["pending", "available", "failed"] as const;
 export type MediaStatus = (typeof MEDIA_STATUSES)[number];
 export type MessageType = (typeof MESSAGE_TYPES)[number];
-/** Estado de envio das mensagens do atendente: sending (gravada, aguardando a Uazapi), sent, failed (recusa), uncertain (timeout). */
-export const SEND_STATUSES = ["sending", "sent", "failed", "uncertain"] as const;
+/**
+ * Estado das mensagens do atendente: sending (gravada, aguardando a Uazapi), sent, failed (recusa), uncertain (timeout);
+ * depois, pelo webhook `messages_update`: delivered, read, played.
+ */
+export const SEND_STATUSES = ["sending", "sent", "delivered", "read", "played", "failed", "uncertain"] as const;
 export type SendStatus = (typeof SEND_STATUSES)[number];
 
 /** Evento cru do webhook, gravado antes de qualquer processamento. `processedAt` nulo = nao processado. */
@@ -122,6 +125,8 @@ export const conversation = sqliteTable(
     assigneeId: text("assignee_id").references(() => user.id, { onDelete: "set null" }),
     lastMessageAt: integer("last_message_at"),
     lastMessageId: text("last_message_id"),
+    /** Mensagens do cliente ainda nao vistas; zerado ao abrir a conversa. */
+    unreadCount: integer("unread_count").notNull().default(0),
     createdAt: integer("created_at").notNull(),
   },
   (t) => [index("conversation_last_message_at_idx").on(t.lastMessageAt)],

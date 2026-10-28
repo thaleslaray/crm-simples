@@ -1,0 +1,1 @@
+ALTER TABLE `conversation` ADD `unread_count` integer DEFAULT 0 NOT NULL;

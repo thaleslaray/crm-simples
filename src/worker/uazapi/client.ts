@@ -29,6 +29,8 @@ export interface UazapiClient {
   openFile(url: string): Promise<Response>;
   /** Envia texto. Lanca UazapiHttpError (recusa) ou UazapiTimeoutError (resultado incerto). */
   sendText(input: { number: string; text: string }): Promise<SentText>;
+  /** `/message/markread`: marca mensagens recebidas (`id` = `message.id` da Uazapi) como lidas no WhatsApp. */
+  markRead(messageIds: string[]): Promise<void>;
 }
 
 export class UazapiHttpError extends Error {
@@ -138,6 +140,14 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     },
     // O timeout vale ate os headers chegarem; o corpo segue em stream sem limite de tempo proprio.
     openFile: (url) => request(url, {}, false),
+    async markRead(messageIds) {
+      const res = await request("/message/markread", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: messageIds }),
+      });
+      await res.body?.cancel();
+    },
     async sendText({ number, text }) {
       const res = await request("/send/text", {
         method: "POST",

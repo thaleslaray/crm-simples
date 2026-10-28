@@ -4,6 +4,7 @@ export interface Conversation {
   id: string;
   status: "aberta";
   assigneeId: string | null;
+  unreadCount: number;
   contact: { id: string; name: string | null; phone: string | null };
   lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
 }
@@ -23,7 +24,7 @@ export interface Message {
   direction: "in" | "out";
   type: MessageType;
   text: string | null;
-  /** Só mensagens de saída: enviando, enviada, falhou (recusa) ou incerto (timeout). */
+  /** Só mensagens de saída: enviando, enviada, entregue, lida, reproduzida, falhou (recusa) ou incerto (timeout). */
   status?: SendStatus | null;
   authorName?: string | null;
   timestamp: number;
@@ -32,7 +33,7 @@ export interface Message {
   contact: { name: string | null; phone: string | null } | null;
 }
 
-export type SendStatus = "sending" | "sent" | "failed" | "uncertain";
+export type SendStatus = "sending" | "sent" | "delivered" | "read" | "played" | "failed" | "uncertain";
 
 export class ApiError extends Error {
   constructor(readonly status: number) {
@@ -66,6 +67,8 @@ export const api = {
       `/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/resend`,
       {},
     ),
+  /** Abrir a conversa: zera as não lidas e marca como lidas no WhatsApp. */
+  markRead: (id: string) => sendJson<{ ok: true }>("POST", `/api/conversations/${encodeURIComponent(id)}/read`, {}),
   preferences: () => getJson<{ signatureEnabled: boolean }>("/api/me/preferences"),
   setSignature: (signatureEnabled: boolean) =>
     sendJson<{ signatureEnabled: boolean }>("PATCH", "/api/me/preferences", { signatureEnabled }),

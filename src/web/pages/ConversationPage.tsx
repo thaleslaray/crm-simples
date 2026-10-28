@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { ApiError, api, type Conversation, type Message } from "../api";
+import { ApiError, api, type Conversation, type Message, type SendStatus } from "../api";
 import { getDraft, setDraft } from "../drafts";
 import { contactLabel, dayLabel, formatPhone, initials, messageTime, sameDay } from "../format";
 import { onRealtime } from "../realtime";
@@ -11,6 +11,14 @@ const LOAD_OLDER_THRESHOLD = 120;
 
 // Prefixo do id da bolha "enviando" que só existe no navegador até a API responder.
 const TEMP = "tmp-";
+
+/** Entrega das mensagens enviadas: ✓ enviada, ✓✓ entregue, ✓✓ lida. */
+const DELIVERY_LABEL: Partial<Record<SendStatus, string>> = {
+  sent: "✓ Enviada",
+  delivered: "✓✓ Entregue",
+  read: "✓✓ Lida",
+  played: "✓✓ Reproduzida",
+};
 
 type State =
   | { kind: "loading" }
@@ -87,9 +95,22 @@ export function ConversationPage() {
       });
     const off = onRealtime((event) => {
       if (event.type === "message.created") {
-        if (event.conversation.id === id) append([event.message]);
+        if (event.conversation.id === id) {
+          append([event.message]);
+          if (event.message.direction === "in") api.markRead(id).catch(() => undefined); // está olhando: já conta como lida
+        }
         return;
       }
+      if (event.type === "message.status") {
+        if (event.conversationId === id)
+          setState((s) =>
+            s.kind === "ready"
+              ? { ...s, messages: s.messages.map((m) => (m.id === event.messageId ? { ...m, status: event.status } : m)) }
+              : s,
+          );
+        return;
+      }
+      if (event.type === "conversation.updated") return;
       const last = lastSeen.current;
       if (hasNewerGap.current) return; // janela de busca: o que falta vem ao rolar
       if (!last) return load(() => alive, { around: target }); // conversa vazia ou ainda carregando: busca tudo de novo
@@ -121,6 +142,12 @@ export function ConversationPage() {
       stickToBottom.current = false;
     }
   }, [state]);
+
+  // Abrir a conversa com mensagens não lidas: zera o contador e marca como lidas no WhatsApp.
+  const unreadOnOpen = state.kind === "ready" ? state.conversation.unreadCount : 0;
+  useEffect(() => {
+    if (id && unreadOnOpen > 0) api.markRead(id).catch(() => undefined);
+  }, [id, unreadOnOpen]);
 
   // Enquanto houver mídia "carregando", relê as mensagens recentes e atualiza só o estado da mídia.
   const hasPending = state.kind === "ready" && state.messages.some((m) => m.media?.status === "pending");
@@ -311,6 +338,11 @@ export function ConversationPage() {
                     </span>
                   )}
                   {m.status === "sending" && <span className="bubble-status">Enviando…</span>}
+                  {m.status && DELIVERY_LABEL[m.status] && (
+                    <span className={`bubble-delivery${m.status === "read" || m.status === "played" ? " is-read" : ""}`} data-delivery={m.status}>
+                      {DELIVERY_LABEL[m.status]}
+                    </span>
+                  )}
                   <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
                 </span>
               </li>

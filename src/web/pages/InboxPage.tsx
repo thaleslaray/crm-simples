@@ -29,6 +29,11 @@ export function InboxPage() {
     load();
     return onRealtime((event) => {
       if (event.type === "reconnected") return load(); // pode ter perdido eventos: busca a lista de novo
+      if (event.type === "message.status") return; // só a conversa aberta mostra o status
+      if (event.type === "conversation.updated") {
+        setConversations((list) => list?.map((c) => (c.id === event.conversation.id ? event.conversation : c)) ?? list);
+        return;
+      }
       // Mensagem nova: a conversa (nova ou existente) vai para o topo com a prévia atualizada.
       setConversations((list) => [event.conversation, ...(list ?? []).filter((c) => c.id !== event.conversation.id)]);
     });
@@ -111,6 +116,11 @@ function ConversationItem({ conversation: c }: { conversation: Conversation }) {
         <span className={`conv-preview${c.lastMessage?.type === "unsupported" ? " is-unsupported" : ""}`}>
           {c.lastMessage ? messagePreview(c.lastMessage.type, c.lastMessage.text) : ""}
         </span>
+        {c.unreadCount > 0 && (
+          <span className="unread-badge" aria-label={`${c.unreadCount} não lida${c.unreadCount > 1 ? "s" : ""}`}>
+            {c.unreadCount > 99 ? "99+" : c.unreadCount}
+          </span>
+        )}
       </span>
     </NavLink>
   );
