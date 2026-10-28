@@ -6,8 +6,8 @@ import { api } from "./api";
 import { authClient } from "./auth-client";
 import { contactLabel, messagePreview } from "./format";
 import { onRealtime } from "./realtime";
+import { getCompanyName, onCompanyName, useCompanyName } from "./workspace";
 
-const BASE_TITLE = "CRM WhatsApp";
 
 let audio: AudioContext | null = null;
 
@@ -41,6 +41,7 @@ const tabInBackground = () => document.hidden || !document.hasFocus();
 
 /** Monte uma vez, na área logada. */
 export function useAlerts() {
+  useCompanyName(); // garante a busca do nome; o título troca pelo `onCompanyName` abaixo
   const navigate = useNavigate();
   const { data } = authClient.useSession();
   const me = data?.user.id;
@@ -84,8 +85,10 @@ export function useAlerts() {
     const render = () => {
       let total = 0;
       for (const n of unread.values()) total += n;
-      document.title = total > 0 ? `(${total > 99 ? "99+" : total}) ${BASE_TITLE}` : BASE_TITLE;
+      const base = getCompanyName();
+      document.title = total > 0 ? `(${total > 99 ? "99+" : total}) ${base}` : base;
     };
+    const offName = onCompanyName(render);
     let alive = true;
     const load = () =>
       api
@@ -107,7 +110,8 @@ export function useAlerts() {
     return () => {
       alive = false;
       off();
-      document.title = BASE_TITLE;
+      offName();
+      document.title = getCompanyName();
     };
   }, []);
 }

@@ -1,9 +1,14 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { authClient } from "../auth-client";
+import { useCompanyName } from "../workspace";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const companyName = useCompanyName();
+  useEffect(() => {
+    document.title = companyName;
+  }, [companyName]);
   const { data: session, isPending } = authClient.useSession();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -31,6 +36,9 @@ export function LoginPage() {
   return (
     <main className="center">
       <form className="card" onSubmit={onSubmit}>
+        <p className="muted" data-testid="company-name-login">
+          {companyName}
+        </p>
         <h1>Entrar</h1>
         <label>
           E-mail

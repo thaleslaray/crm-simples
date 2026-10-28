@@ -27,19 +27,32 @@ async function receive(request: APIRequestContext, run: string, phone: string) {
   expect(res.status()).toBe(200);
 }
 
-async function program(request: APIRequestContext, status: number, body: unknown) {
+async function program(
+  request: APIRequestContext,
+  status: number,
+  body: unknown,
+) {
   await request.post(`${FAKE}/program`, {
     data: { method: "POST", path: "/send/text", responses: [{ status, body }] },
   });
 }
 
 async function sentTexts(request: APIRequestContext): Promise<string[]> {
-  const calls = (await (await request.get(`${FAKE}/calls`)).json()) as { path: string; body: { text: string } }[];
+  const calls = (await (await request.get(`${FAKE}/calls`)).json()) as {
+    path: string;
+    body: { text: string };
+  }[];
   return calls.filter((c) => c.path === "/send/text").map((c) => c.body.text);
 }
 
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
 }
 
 test("atendente responde com assinatura, reenvia o que falhou, preserva o rascunho e desliga a assinatura no perfil", async ({
@@ -65,26 +78,40 @@ test("atendente responde com assinatura, reenvia o que falhou, preserva o rascun
   await signature.check();
   await backToInbox(page);
 
-  const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}$|Cliente ${run} `) }).first();
+  const item = page
+    .getByRole("link", { name: new RegExp(`Cliente ${run}$|Cliente ${run} `) })
+    .first();
   await item.click();
-  const conversation = page.getByRole("article", { name: `Conversa com Cliente ${run}` });
+  const conversation = page.getByRole("article", {
+    name: `Conversa com Cliente ${run}`,
+  });
   const field = conversation.getByLabel("Mensagem");
 
   // Rascunho some da tela ao trocar de conversa e volta ao reabrir
   await field.fill("rascunho que não pode se perder");
-  if (info.project.name === "mobile") await page.getByRole("link", { name: "Voltar à caixa de entrada" }).click();
+  if (info.project.name === "mobile")
+    await page.getByRole("link", { name: "Voltar à caixa de entrada" }).click();
   await page.getByRole("link", { name: new RegExp(`Cliente ${run}b`) }).click();
-  await expect(page.getByRole("article", { name: `Conversa com Cliente ${run}b` }).getByLabel("Mensagem")).toHaveValue("");
-  if (info.project.name === "mobile") await page.getByRole("link", { name: "Voltar à caixa de entrada" }).click();
+  await expect(
+    page
+      .getByRole("article", { name: `Conversa com Cliente ${run}b` })
+      .getByLabel("Mensagem"),
+  ).toHaveValue("");
+  if (info.project.name === "mobile")
+    await page.getByRole("link", { name: "Voltar à caixa de entrada" }).click();
   await item.click();
   await expect(field).toHaveValue("rascunho que não pode se perder");
 
   // Envio com assinatura: o cliente recebe `*Admin E2E:*` + quebra de linha
   await field.fill(`Olá ${run}`);
   await conversation.getByRole("button", { name: "Enviar" }).click();
-  await expect(conversation.getByText(`Olá ${run}`, { exact: true })).toBeVisible();
+  await expect(
+    conversation.getByText(`Olá ${run}`, { exact: true }),
+  ).toBeVisible();
   await expect(field).toHaveValue("");
-  await expect.poll(() => sentTexts(request)).toEqual([`*${E2E_ADMIN.name}:*\nOlá ${run}`]);
+  await expect
+    .poll(() => sentTexts(request))
+    .toEqual([`*${E2E_ADMIN.name}:*\nOlá ${run}`]);
 
   // Recusa: aparece "Falhou"; depois reenvia manualmente
   await program(request, 400, { error: "recusado" });

@@ -3,7 +3,11 @@ import { expect, test } from "./fixtures";
 import { backToInbox, openSettingsItem } from "./navegacao";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
-async function clientWrites(request: APIRequestContext, id: string, phone: string) {
+async function clientWrites(
+  request: APIRequestContext,
+  id: string,
+  phone: string,
+) {
   const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
     data: {
       EventType: "messages",
@@ -28,14 +32,27 @@ async function clientWrites(request: APIRequestContext, id: string, phone: strin
 /** Com E2E_PRINTS, salva um print do passo (revisao visual); sem a variavel nao faz nada. */
 async function snap(page: Page, name: string, project: string) {
   const dir = process.env.E2E_PRINTS;
-  if (dir) await page.screenshot({ path: `${dir}/etiquetas-${name}-${project}.png`, fullPage: true });
+  if (dir)
+    await page.screenshot({
+      path: `${dir}/etiquetas-${name}-${project}.png`,
+      fullPage: true,
+    });
 }
 
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
 }
 
-test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contatos, e apagar a remove", async ({ page, request }, info) => {
+test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contatos, e apagar a remove", async ({
+  page,
+  request,
+}, info) => {
   const run = `${info.project.name}${Date.now()}`;
   const labelName = `VIP${run}`;
   const phone = `55117${String(Date.now()).slice(-8)}`;
@@ -57,24 +74,36 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   await backToInbox(page);
 
   // Aplica pela ficha
-  await page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first().click();
-  const conversation = page.getByRole("article", { name: `Conversa com Cliente ${run}` });
+  await page
+    .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
+    .first()
+    .click();
+  const conversation = page.getByRole("article", {
+    name: `Conversa com Cliente ${run}`,
+  });
   const toggle = conversation.getByRole("button", { name: "Ficha do contato" });
-  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  if ((await toggle.getAttribute("aria-expanded")) !== "true")
+    await toggle.click();
   const ficha = page.getByRole("complementary", { name: "Ficha do contato" });
-  await ficha.getByLabel("Adicionar etiqueta").selectOption({ label: labelName });
+  await ficha
+    .getByLabel("Adicionar etiqueta")
+    .selectOption({ label: labelName });
   await expect(ficha.getByRole("list").getByText(labelName)).toBeVisible();
   await snap(page, "ficha", info.project.name);
   await noHorizontalOverflow(page);
 
   // Aparece na caixa de entrada e filtra
   await page.goto("/");
-  const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first();
+  const item = page
+    .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
+    .first();
   await expect(item.getByText(labelName)).toBeVisible();
   await noHorizontalOverflow(page);
   await page.getByRole("button", { name: "Mais filtros" }).click();
   await page.getByRole("button", { name: labelName }).click();
-  await expect(page.getByRole("link", { name: new RegExp(`Cliente ${run}`) })).toHaveCount(1);
+  await expect(
+    page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }),
+  ).toHaveCount(1);
   await expect(page.locator(".conv-item")).toHaveCount(1);
   await snap(page, "caixa", info.project.name);
 
@@ -97,6 +126,8 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   await expect(page.getByText(labelName)).toHaveCount(0);
   await page.goto("/contatos");
   await page.getByLabel("Buscar contato").fill(phone.slice(-6));
-  await expect(page.getByRole("list", { name: "Contatos" }).getByText(`Cliente ${run}`)).toBeVisible();
+  await expect(
+    page.getByRole("list", { name: "Contatos" }).getByText(`Cliente ${run}`),
+  ).toBeVisible();
   await expect(page.getByText(labelName)).toHaveCount(0);
 });

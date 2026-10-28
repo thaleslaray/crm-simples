@@ -4,7 +4,11 @@ import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
 
-async function clientWrites(request: APIRequestContext, id: string, phone: string) {
+async function clientWrites(
+  request: APIRequestContext,
+  id: string,
+  phone: string,
+) {
   const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
     data: {
       EventType: "messages",
@@ -27,10 +31,19 @@ async function clientWrites(request: APIRequestContext, id: string, phone: strin
 }
 
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
 }
 
-test("atendente escreve nota interna, ve a ficha, edita o contato e nada disso vai ao cliente", async ({ page, request }, info) => {
+test("atendente escreve nota interna, ve a ficha, edita o contato e nada disso vai ao cliente", async ({
+  page,
+  request,
+}, info) => {
   const run = `${info.project.name}${Date.now()}`;
   const phone = `55118${String(Date.now()).slice(-8)}`;
   await clientWrites(request, run, phone);
@@ -39,12 +52,19 @@ test("atendente escreve nota interna, ve a ficha, edita o contato e nada disso v
   await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
   await page.getByLabel("Senha").fill(E2E_ADMIN.password);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first().click();
-  const conversation = page.getByRole("article", { name: `Conversa com Cliente ${run}` });
+  await page
+    .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
+    .first()
+    .click();
+  const conversation = page.getByRole("article", {
+    name: `Conversa com Cliente ${run}`,
+  });
 
   // Nota interna: aparece com visual proprio, autor e horario
   await conversation.getByRole("button", { name: "Nota interna" }).click();
-  await conversation.locator("form.composer textarea").fill("Cliente pediu desconto de 10%");
+  await conversation
+    .locator("form.composer textarea")
+    .fill("Cliente pediu desconto de 10%");
   await conversation.getByRole("button", { name: "Salvar nota" }).click();
   const note = conversation.getByTestId("internal-note");
   await expect(note).toContainText("Cliente pediu desconto de 10%");
@@ -54,12 +74,19 @@ test("atendente escreve nota interna, ve a ficha, edita o contato e nada disso v
 
   // Ficha: abre (no celular e uma aba), mostra foto, telefone somente leitura e a nota
   const toggle = conversation.getByRole("button", { name: "Ficha do contato" });
-  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  if ((await toggle.getAttribute("aria-expanded")) !== "true")
+    await toggle.click();
   const ficha = page.getByRole("complementary", { name: "Ficha do contato" });
-  await expect(ficha.getByRole("img", { name: `Foto de Cliente ${run}` })).toBeVisible();
+  await expect(
+    ficha.getByRole("img", { name: `Foto de Cliente ${run}` }),
+  ).toBeVisible();
   await expect(ficha.getByLabel("Telefone")).toHaveAttribute("readonly", "");
-  await expect(ficha.getByTestId("ficha-note")).toContainText("Cliente pediu desconto de 10%");
-  await expect(ficha.getByRole("region", { name: "Histórico de conversas" })).toContainText("Aberta");
+  await expect(ficha.getByTestId("ficha-note")).toContainText(
+    "Cliente pediu desconto de 10%",
+  );
+  await expect(
+    ficha.getByRole("region", { name: "Histórico de conversas" }),
+  ).toContainText("Aberta");
 
   // Edicao persiste
   await ficha.getByLabel("Empresa").fill("Loja do E2E");
@@ -69,13 +96,23 @@ test("atendente escreve nota interna, ve a ficha, edita o contato e nada disso v
   await expect(ficha.getByText("Salvo.")).toBeVisible();
   await noHorizontalOverflow(page);
   await page.reload();
-  const toggleAgain = page.getByRole("article", { name: `Conversa com Cliente ${run}` }).getByRole("button", { name: "Ficha do contato" });
-  if ((await toggleAgain.getAttribute("aria-expanded")) !== "true") await toggleAgain.click();
+  const toggleAgain = page
+    .getByRole("article", { name: `Conversa com Cliente ${run}` })
+    .getByRole("button", { name: "Ficha do contato" });
+  if ((await toggleAgain.getAttribute("aria-expanded")) !== "true")
+    await toggleAgain.click();
   const again = page.getByRole("complementary", { name: "Ficha do contato" });
   await expect(again.getByLabel("Empresa")).toHaveValue("Loja do E2E");
   await expect(again.getByLabel("E-mail")).toHaveValue("cliente@loja.com");
 
   // Nada foi enviado ao cliente por esta tela
-  const calls = (await (await request.get(`${FAKE}/calls`)).json()) as { path: string; body: { number?: string } }[];
-  expect(calls.filter((c) => c.path.startsWith("/send/") && c.body?.number === phone)).toEqual([]);
+  const calls = (await (await request.get(`${FAKE}/calls`)).json()) as {
+    path: string;
+    body: { number?: string };
+  }[];
+  expect(
+    calls.filter(
+      (c) => c.path.startsWith("/send/") && c.body?.number === phone,
+    ),
+  ).toEqual([]);
 });

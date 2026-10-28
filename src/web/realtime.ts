@@ -12,6 +12,7 @@ export type RealtimeEvent =
   | { type: "labels.changed" }
   | { type: "funnel.changed"; funnelId: string }
   | { type: "connection.changed"; connection: ConnectionState }
+  | { type: "workspace.changed"; companyName: string }
   | { type: "reconnected" };
 
 type Listener = (event: RealtimeEvent) => void;
@@ -29,12 +30,14 @@ const PING_MS = 25_000;
 const PONG_TIMEOUT_MS = 10_000;
 const MAX_BACKOFF_MS = 15_000;
 
+// Fora do hook: se a área logada remonta, o novo socket ainda conta como reconexão e as telas buscam o que perderam no intervalo.
+let everConnected = false;
+
 /** Mantém a conexão aberta enquanto o componente estiver montado (use uma vez, na caixa de entrada). */
 export function useRealtimeConnection() {
   useEffect(() => {
     let ws: WebSocket | null = null;
     let stopped = false;
-    let everConnected = false;
     let attempt = 0;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let ping: ReturnType<typeof setInterval> | undefined;
@@ -72,7 +75,7 @@ export function useRealtimeConnection() {
         if (e.data === "pong") return clearTimeout(pongTimer);
         try {
           const event = JSON.parse(String(e.data)) as RealtimeEvent;
-          if (["message.created", "message.status", "conversation.updated", "note.created", "contact.updated", "labels.changed", "funnel.changed", "connection.changed"].includes(event.type)) emit(event);
+          if (["message.created", "message.status", "conversation.updated", "note.created", "contact.updated", "labels.changed", "funnel.changed", "connection.changed", "workspace.changed"].includes(event.type)) emit(event);
         } catch {
           // Mensagem desconhecida: ignora.
         }

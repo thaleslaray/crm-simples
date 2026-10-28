@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes } from "react-router";
 import { authClient } from "./auth-client";
 import { ConnectionProvider } from "./connection";
 import { AppShell } from "./shell";
+import { CompanyPage } from "./pages/CompanyPage";
 import { ConnectionPage } from "./pages/ConnectionPage";
 import { ContactsPage } from "./pages/ContactsPage";
 import { ConversationPage } from "./pages/ConversationPage";
@@ -66,6 +67,7 @@ export function App() {
             <Route path="/conexao" element={<ConnectionPage />} />
             <Route path="/equipe" element={<TeamPage />} />
             <Route path="/etiquetas" element={<LabelsPage />} />
+            <Route path="/empresa" element={<CompanyPage />} />
             <Route path="/funis/gerenciar" element={<FunnelsAdminPage />} />
           </Route>
         </Route>

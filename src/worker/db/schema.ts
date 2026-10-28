@@ -109,6 +109,13 @@ export const connectionState = sqliteTable("connection_state", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+/** Configuracao da empresa: uma unica linha (id "workspace"). Sem linha = nome padrao. */
+export const workspaceSetting = sqliteTable("workspace_setting", {
+  id: text("id").primaryKey(),
+  companyName: text("company_name").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
 /** Reconciliacao (ticket 19): uma unica linha (id "inbox") com o inicio da ultima conferencia bem-sucedida. */
 export const reconciliationState = sqliteTable("reconciliation_state", {
   id: text("id").primaryKey(),

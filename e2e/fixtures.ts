@@ -11,14 +11,17 @@ export const test = base.extend<{ prints: void }>({
       const dir = process.env.E2E_PRINTS;
       if (!dir || page.isClosed()) return;
       const spec = path.basename(info.file).replace(/\.spec\.ts$/, "");
-      await page.screenshot({ path: path.join(dir, `${spec}-${info.project.name}.png`), fullPage: true });
+      await page.screenshot({
+        path: path.join(dir, `${spec}-${info.project.name}.png`),
+        fullPage: true,
+      });
     },
     { auto: true },
   ],
 });
 export { expect };
 
-/** Abre o menu ⋮ do cabeçalho da caixa de entrada (Perfil, Sair e atalhos de admin). */
+/** Abre o menu ⋮ do cabeçalho da caixa de entrada (Perfil e Sair). */
 export async function openUserMenu(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Mais opções" }).click();
 }

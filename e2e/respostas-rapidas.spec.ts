@@ -28,10 +28,19 @@ async function receive(request: APIRequestContext, run: string, phone: string) {
 }
 
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
 }
 
-test("admin cadastra resposta rápida; atendente digita / e usa com {nome} editável", async ({ page, request }, info) => {
+test("admin cadastra resposta rápida; atendente digita / e usa com {nome} editável", async ({
+  page,
+  request,
+}, info) => {
   const run = `${info.project.name}${Date.now()}`;
   const shortcut = `ola${run}`.toLowerCase();
   await receive(request, run, `55119${String(Date.now()).slice(-8)}`);
@@ -53,12 +62,19 @@ test("admin cadastra resposta rápida; atendente digita / e usa com {nome} edit�
   await backToInbox(page);
 
   // Uso na conversa
-  await page.getByRole("link", { name: new RegExp(`Maria ${run}`) }).first().click();
-  const conversation = page.getByRole("article", { name: `Conversa com Maria ${run}` });
+  await page
+    .getByRole("link", { name: new RegExp(`Maria ${run}`) })
+    .first()
+    .click();
+  const conversation = page.getByRole("article", {
+    name: `Conversa com Maria ${run}`,
+  });
   const field = conversation.getByLabel("Mensagem");
   await field.fill(`/${shortcut.slice(0, 5)}`);
   const menu = conversation.getByRole("listbox", { name: "Respostas rápidas" });
-  await expect(menu.getByRole("option", { name: new RegExp(`/${shortcut}`) })).toBeVisible();
+  await expect(
+    menu.getByRole("option", { name: new RegExp(`/${shortcut}`) }),
+  ).toBeVisible();
   await noHorizontalOverflow(page);
   await menu.getByRole("option", { name: new RegExp(`/${shortcut}`) }).click();
   await expect(field).toHaveValue(`Olá Maria ${run}, tudo bem?`);

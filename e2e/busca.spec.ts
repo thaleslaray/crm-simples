@@ -2,7 +2,10 @@ import { expect, test } from "./fixtures";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
 // O D1 do E2E é compartilhado entre desktop e celular: nome, telefone e termo únicos por execução.
-test("busca por texto leva à conversa posicionada na mensagem e por nome acha o contato", async ({ page, request }, info) => {
+test("busca por texto leva à conversa posicionada na mensagem e por nome acha o contato", async ({
+  page,
+  request,
+}, info) => {
   const run = `${info.project.name}${Date.now()}`;
   const termo = `reembolso${run}`;
   const phone = `55118${String(Date.now()).slice(-8)}`;
@@ -39,27 +42,43 @@ test("busca por texto leva à conversa posicionada na mensagem e por nome acha o
 
   // Por nome: o contato aparece
   await search.fill(`Busca ${run}`);
-  await expect(page.getByRole("region", { name: "Contatos" }).getByRole("link", { name: new RegExp(`Cliente Busca ${run}`) })).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Contatos" })
+      .getByRole("link", { name: new RegExp(`Cliente Busca ${run}`) }),
+  ).toBeVisible();
 
   // Por texto: o resultado mostra o trecho e leva à mensagem
   await search.fill(termo);
-  const resultado = page.getByRole("region", { name: "Mensagens" }).getByRole("link", { name: new RegExp(termo) });
+  const resultado = page
+    .getByRole("region", { name: "Mensagens" })
+    .getByRole("link", { name: new RegExp(termo) });
   await expect(resultado.locator("mark")).toHaveText(termo);
   await resultado.click();
 
-  const conversation = page.getByRole("article", { name: `Conversa com Cliente Busca ${run}` });
+  const conversation = page.getByRole("article", {
+    name: `Conversa com Cliente Busca ${run}`,
+  });
   const achada = conversation.locator(".bubble.is-found");
   await expect(achada).toContainText(termo);
   await expect(achada).toBeInViewport();
   // Só a janela ao redor foi carregada; as mais novas vêm ao rolar até o fim
-  await expect(conversation.getByText("Mensagem 100", { exact: true })).toHaveCount(0);
+  await expect(
+    conversation.getByText("Mensagem 100", { exact: true }),
+  ).toHaveCount(0);
   const scroller = conversation.locator(".messages");
   await expect(async () => {
     await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
-    await expect(conversation.getByText("Mensagem 100", { exact: true })).toBeVisible({ timeout: 500 });
+    await expect(
+      conversation.getByText("Mensagem 100", { exact: true }),
+    ).toBeVisible({ timeout: 500 });
   }).toPass();
 
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  const overflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth >
+      document.documentElement.clientWidth,
+  );
   expect(overflow).toBe(false);
 
   // Celular: voltar leva de novo aos resultados da busca

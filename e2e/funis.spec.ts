@@ -5,7 +5,11 @@ import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
 type WithSockets = { __sockets: WebSocket[] };
 
-async function clientWrites(request: APIRequestContext, id: string, phone: string) {
+async function clientWrites(
+  request: APIRequestContext,
+  id: string,
+  phone: string,
+) {
   const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
     data: {
       EventType: "messages",
@@ -30,11 +34,21 @@ async function clientWrites(request: APIRequestContext, id: string, phone: strin
 /** Com E2E_PRINTS, salva um print do passo (revisao visual); sem a variavel nao faz nada. */
 async function snap(page: Page, name: string, project: string) {
   const dir = process.env.E2E_PRINTS;
-  if (dir) await page.screenshot({ path: `${dir}/funis-${name}-${project}.png`, fullPage: true });
+  if (dir)
+    await page.screenshot({
+      path: `${dir}/funis-${name}-${project}.png`,
+      fullPage: true,
+    });
 }
 
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
 }
 
 /** Guarda os WebSockets do tempo real para saber quando um esta realmente aberto (padrao de avisos.spec.ts). */
@@ -53,18 +67,29 @@ async function trackSockets(page: Page) {
 }
 
 const realtimeOpen = (page: Page) =>
-  page.waitForFunction(() => (window as unknown as WithSockets).__sockets.some((s) => s.readyState === WebSocket.OPEN));
+  page.waitForFunction(() =>
+    (window as unknown as WithSockets).__sockets.some(
+      (s) => s.readyState === WebSocket.OPEN,
+    ),
+  );
 
 async function login(page: Page) {
   await page.goto("/login");
   await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
   await page.getByLabel("Senha").fill(E2E_ADMIN.password);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Caixa de entrada" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Atendimento" }),
+  ).toBeVisible();
 }
 
 /** Arrasta o card pela alca ate o centro da coluna: mouse no desktop, toque (CDP) no celular. */
-async function dragCard(page: Page, grip: Locator, column: Locator, touch: boolean) {
+async function dragCard(
+  page: Page,
+  grip: Locator,
+  column: Locator,
+  touch: boolean,
+) {
   const from = (await grip.boundingBox())!;
   const col = (await column.boundingBox())!;
   const viewport = page.viewportSize()!;
@@ -73,11 +98,20 @@ async function dragCard(page: Page, grip: Locator, column: Locator, touch: boole
   const tx = Math.min(col.x + col.width / 2, viewport.width - 12);
   const ty = col.y + Math.min(col.height / 2, 90);
   const steps = 12;
-  const at = (i: number) => ({ x: sx + ((tx - sx) * i) / steps, y: sy + ((ty - sy) * i) / steps });
+  const at = (i: number) => ({
+    x: sx + ((tx - sx) * i) / steps,
+    y: sy + ((ty - sy) * i) / steps,
+  });
   if (touch) {
     const cdp = await page.context().newCDPSession(page);
-    const send = (type: "touchStart" | "touchMove" | "touchEnd", p?: { x: number; y: number }) =>
-      cdp.send("Input.dispatchTouchEvent", { type, touchPoints: p ? [{ x: p.x, y: p.y }] : [] });
+    const send = (
+      type: "touchStart" | "touchMove" | "touchEnd",
+      p?: { x: number; y: number },
+    ) =>
+      cdp.send("Input.dispatchTouchEvent", {
+        type,
+        touchPoints: p ? [{ x: p.x, y: p.y }] : [],
+      });
     await send("touchStart", at(0));
     for (let i = 1; i <= steps; i++) await send("touchMove", at(i));
     await send("touchEnd");
@@ -90,7 +124,11 @@ async function dragCard(page: Page, grip: Locator, column: Locator, touch: boole
   }
 }
 
-test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a ficha altera a etapa e apagar etapa com cards pede destino", async ({ page, request, browser }, info) => {
+test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a ficha altera a etapa e apagar etapa com cards pede destino", async ({
+  page,
+  request,
+  browser,
+}, info) => {
   const project = info.project.name;
   const touch = project === "mobile";
   const run = `${project}${Date.now()}`;
@@ -110,7 +148,9 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await expect(editor).toBeVisible();
   for (const stage of ["Novo", "Fechado", "Extra"]) {
     await editor.getByLabel(`Nova etapa em ${funnelName}`).fill(stage);
-    await editor.getByRole("button", { name: `Adicionar etapa em ${funnelName}` }).click();
+    await editor
+      .getByRole("button", { name: `Adicionar etapa em ${funnelName}` })
+      .click();
     await expect(editor.getByLabel(`Nome da etapa ${stage}`)).toBeVisible();
   }
   // Reordena: Extra sobe uma posicao e volta
@@ -140,28 +180,47 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await trackSockets(colleague);
   await login(colleague);
   await colleague.goto("/funis");
-  await colleague.getByRole("button", { name: funnelName, exact: true }).click();
-  await expect(colleague.getByRole("region", { name: "Etapa Novo" }).getByText(clientName)).toBeVisible();
+  await colleague
+    .getByRole("button", { name: funnelName, exact: true })
+    .click();
+  await expect(
+    colleague.getByRole("region", { name: "Etapa Novo" }).getByText(clientName),
+  ).toBeVisible();
   await realtimeOpen(colleague);
   await realtimeOpen(page);
 
   // Arrasta Novo -> Fechado
-  await dragCard(page, page.getByRole("button", { name: `Arrastar ${clientName}` }), fechado, touch);
+  await dragCard(
+    page,
+    page.getByRole("button", { name: `Arrastar ${clientName}` }),
+    fechado,
+    touch,
+  );
   await expect(fechado.getByText(clientName)).toBeVisible();
   await expect(novo.getByText(clientName)).toHaveCount(0);
   await snap(page, "movido", project);
   // O colega ve a mudanca sem recarregar
-  await expect(colleague.getByRole("region", { name: "Etapa Fechado" }).getByText(clientName)).toBeVisible();
+  await expect(
+    colleague
+      .getByRole("region", { name: "Etapa Fechado" })
+      .getByText(clientName),
+  ).toBeVisible();
   await snap(colleague, "colega", project);
   await colleagueCtx.close();
   // E ela persiste
   await page.reload();
   await page.getByRole("button", { name: funnelName, exact: true }).click();
-  await expect(page.getByRole("region", { name: "Etapa Fechado" }).getByText(clientName)).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Etapa Fechado" }).getByText(clientName),
+  ).toBeVisible();
 
   // O chip do funil fica marcado e o card abre a conversa
-  await expect(page.getByRole("button", { name: funnelName, exact: true })).toHaveAttribute("aria-pressed", "true");
-  const fechadoCard = page.getByRole("region", { name: "Etapa Fechado" }).getByRole("link", { name: new RegExp(`Abrir conversa de ${clientName}`) });
+  await expect(
+    page.getByRole("button", { name: funnelName, exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  const fechadoCard = page
+    .getByRole("region", { name: "Etapa Fechado" })
+    .getByRole("link", { name: new RegExp(`Abrir conversa de ${clientName}`) });
   await expect(fechadoCard).toContainText("Quero fechar negócio");
   await expect(fechadoCard).toContainText("Aberta");
   await snap(page, "card", project);
@@ -185,20 +244,30 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await page.goto("/funis/gerenciar");
   const editor2 = page.getByRole("region", { name: `Funil ${funnelName}` });
   await editor2.getByRole("button", { name: "Apagar etapa Extra" }).click();
-  const destino = editor2.getByRole("group", { name: "Destino dos cards de Extra" });
+  const destino = editor2.getByRole("group", {
+    name: "Destino dos cards de Extra",
+  });
   await expect(destino).toBeVisible();
   await expect(editor2.getByLabel("Nome da etapa Extra")).toBeVisible();
   await snap(page, "destino", project);
   await noHorizontalOverflow(page);
-  await destino.getByLabel("Mover os cards de Extra para").selectOption({ label: "Novo" });
-  await destino.getByRole("button", { name: "Confirmar apagar etapa Extra" }).click();
+  await destino
+    .getByLabel("Mover os cards de Extra para")
+    .selectOption({ label: "Novo" });
+  await destino
+    .getByRole("button", { name: "Confirmar apagar etapa Extra" })
+    .click();
   await expect(editor2.getByLabel("Nome da etapa Extra")).toHaveCount(0);
 
   // O card foi para o destino; tirar o contato do funil o remove do quadro
   await page.goto("/funis");
   await page.getByRole("button", { name: funnelName, exact: true }).click();
-  await expect(page.getByRole("region", { name: "Etapa Novo" }).getByText(clientName)).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Etapa Novo" }).getByText(clientName),
+  ).toBeVisible();
   await page.getByRole("button", { name: `Ações de ${clientName}` }).click();
-  await page.getByRole("button", { name: `Tirar ${clientName} do funil` }).click();
+  await page
+    .getByRole("button", { name: `Tirar ${clientName} do funil` })
+    .click();
   await expect(page.getByText(clientName)).toHaveCount(0);
 });

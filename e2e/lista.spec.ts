@@ -2,7 +2,11 @@ import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
-async function clientWrites(request: APIRequestContext, id: string, phone: string) {
+async function clientWrites(
+  request: APIRequestContext,
+  id: string,
+  phone: string,
+) {
   const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
     data: {
       EventType: "messages",
@@ -31,12 +35,22 @@ async function countOf(chip: Locator): Promise<number> {
 }
 
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
 }
 
-test("chips filtram, contagens batem e a terceira linha mostra status, responsável e etiquetas", async ({ page, request }, info) => {
+test("chips filtram, contagens batem e a terceira linha mostra status, responsável e etiquetas", async ({
+  page,
+  request,
+}, info) => {
   const run = `${info.project.name}${Date.now()}`;
-  const phone = (n: number) => `55119${String(Date.now()).slice(-7)}${n}`.slice(0, 13);
+  const phone = (n: number) =>
+    `55119${String(Date.now()).slice(-7)}${n}`.slice(0, 13);
   const names = { a: `A${run}`, b: `B${run}`, c: `C${run}` };
 
   await page.goto("/login");
@@ -56,25 +70,55 @@ test("chips filtram, contagens batem e a terceira linha mostra status, responsá
   await clientWrites(request, names.a, phones.a);
   await clientWrites(request, names.b, phones.b);
   await clientWrites(request, names.c, phones.c);
-  const list = (await (await page.request.get("/api/conversations")).json()) as {
+  const list = (await (
+    await page.request.get("/api/conversations")
+  ).json()) as {
     conversations: { id: string; contact: { id: string; phone: string } }[];
   };
-  const byPhone = (p: string) => list.conversations.find((c) => c.contact.phone === p)!;
-  expect((await page.request.post(`/api/conversations/${byPhone(phones.b).id}/assume`)).ok()).toBe(true);
-  expect((await page.request.post(`/api/conversations/${byPhone(phones.c).id}/assume`)).ok()).toBe(true);
-  expect((await page.request.post(`/api/conversations/${byPhone(phones.c).id}/resolve`)).ok()).toBe(true);
+  const byPhone = (p: string) =>
+    list.conversations.find((c) => c.contact.phone === p)!;
+  expect(
+    (
+      await page.request.post(
+        `/api/conversations/${byPhone(phones.b).id}/assume`,
+      )
+    ).ok(),
+  ).toBe(true);
+  expect(
+    (
+      await page.request.post(
+        `/api/conversations/${byPhone(phones.c).id}/assume`,
+      )
+    ).ok(),
+  ).toBe(true);
+  expect(
+    (
+      await page.request.post(
+        `/api/conversations/${byPhone(phones.c).id}/resolve`,
+      )
+    ).ok(),
+  ).toBe(true);
   const tags: string[] = [];
   for (const n of [1, 2, 3]) {
     const name = `Tag${n}${run}`;
-    const res = await page.request.post("/api/labels", { data: { name, color: ["#e91e63", "#2196f3", "#4caf50"][n - 1] } });
+    const res = await page.request.post("/api/labels", {
+      data: { name, color: ["#e91e63", "#2196f3", "#4caf50"][n - 1] },
+    });
     expect(res.status()).toBe(201);
     const { label } = (await res.json()) as { label: { id: string } };
-    expect((await page.request.put(`/api/contacts/${byPhone(phones.a).contact.id}/labels/${label.id}`)).ok()).toBe(true);
+    expect(
+      (
+        await page.request.put(
+          `/api/contacts/${byPhone(phones.a).contact.id}/labels/${label.id}`,
+        )
+      ).ok(),
+    ).toBe(true);
     tags.push(name);
   }
 
   await page.reload();
-  const row = (n: string) => page.getByRole("link", { name: new RegExp(`Cliente ${n}`) });
+  const row = (n: string) =>
+    page.getByRole("link", { name: new RegExp(`Cliente ${n}`) });
 
   // Contagens: sem filtro, só A é "sem dono" (C está resolvida); as três têm não lidas
   await expect.poll(() => countOf(semDono)).toBe(semDono0 + 1);
@@ -117,7 +161,10 @@ test("chips filtram, contagens batem e a terceira linha mostra status, responsá
   if (dir) {
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
-      const shot = (name: string) => page.screenshot({ path: `${dir}/lista-${name}-${scheme}-${info.project.name}.png` });
+      const shot = (name: string) =>
+        page.screenshot({
+          path: `${dir}/lista-${name}-${scheme}-${info.project.name}.png`,
+        });
       await shot("lista");
       await page.getByRole("button", { name: "Mais filtros" }).click();
       await shot("filtros");
@@ -132,7 +179,9 @@ test("chips filtram, contagens batem e a terceira linha mostra status, responsá
   // ▾: status e etiqueta; o filtro ativo aparece no chip
   await page.getByRole("button", { name: "Mais filtros" }).click();
   await page.getByRole("button", { name: "Em andamento", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Mais filtros: Em andamento" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Mais filtros: Em andamento" }),
+  ).toBeVisible();
   await expect(row(names.b)).toBeVisible();
   await expect(row(names.a)).toHaveCount(0);
   await page.getByRole("button", { name: /^Mais filtros/ }).click();
@@ -145,9 +194,14 @@ test("chips filtram, contagens batem e a terceira linha mostra status, responsá
   await page.getByRole("button", { name: tags[2]!, exact: true }).click();
 
   // Estado vazio à direita (só no computador; no celular a lista ocupa a tela)
-  if (info.project.name !== "mobile") await expect(page.getByText("Escolha uma conversa à esquerda")).toBeVisible();
+  if (info.project.name !== "mobile")
+    await expect(
+      page.getByText("Escolha uma conversa à esquerda"),
+    ).toBeVisible();
 
   // "+" abre a nova conversa
   await page.getByRole("button", { name: "Nova conversa" }).click();
-  await expect(page.getByRole("dialog", { name: "Nova conversa" })).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Nova conversa" }),
+  ).toBeVisible();
 });

@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, openUserMenu, test } from "./fixtures";
+import { openSettingsItem } from "./navegacao";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
 async function signInAsAdmin(page: Page) {
@@ -8,13 +9,18 @@ async function signInAsAdmin(page: Page) {
   await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
   await page.getByLabel("Senha").fill(E2E_ADMIN.password);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Caixa de entrada" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Atendimento" }),
+  ).toBeVisible();
 }
 
 // Com E2E_PRINTS, guarda um print nomeado (claro/escuro) além do print automático de cada teste.
 async function print(page: Page, project: string, name: string) {
   const dir = process.env.E2E_PRINTS;
-  if (dir) await page.screenshot({ path: path.join(dir, `casca-${name}-${project}.png`) });
+  if (dir)
+    await page.screenshot({
+      path: path.join(dir, `casca-${name}-${project}.png`),
+    });
 }
 
 const html = (page: Page) => page.locator("html");
@@ -22,7 +28,9 @@ const html = (page: Page) => page.locator("html");
 test.describe("tema escuro do sistema", () => {
   test.use({ colorScheme: "dark" });
 
-  test("segue o tema escuro do sistema no modo automático", async ({ page }, info) => {
+  test("segue o tema escuro do sistema no modo automático", async ({
+    page,
+  }, info) => {
     await signInAsAdmin(page);
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
     await print(page, info.project.name, "inbox-escuro");
@@ -30,7 +38,9 @@ test.describe("tema escuro do sistema", () => {
     await print(page, info.project.name, "perfil-escuro");
   });
 
-  test("a escolha do Perfil vence o sistema e continua depois de recarregar", async ({ page }) => {
+  test("a escolha do Perfil vence o sistema e continua depois de recarregar", async ({
+    page,
+  }) => {
     await signInAsAdmin(page);
     await page.goto("/perfil");
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
@@ -46,7 +56,9 @@ test.describe("tema escuro do sistema", () => {
   });
 });
 
-test("no tema claro do sistema, escolher Escuro no Perfil fixa o escuro", async ({ page }, info) => {
+test("no tema claro do sistema, escolher Escuro no Perfil fixa o escuro", async ({
+  page,
+}, info) => {
   await signInAsAdmin(page);
   await expect(html(page)).toHaveAttribute("data-theme", "light");
   await print(page, info.project.name, "inbox-claro");
@@ -55,19 +67,29 @@ test("no tema claro do sistema, escolher Escuro no Perfil fixa o escuro", async 
   await expect(html(page)).toHaveAttribute("data-theme", "dark");
 });
 
-test("o tema acompanha a troca do sistema enquanto está em automático", async ({ page }) => {
+test("o tema acompanha a troca do sistema enquanto está em automático", async ({
+  page,
+}) => {
   await signInAsAdmin(page);
   await expect(html(page)).toHaveAttribute("data-theme", "light");
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(html(page)).toHaveAttribute("data-theme", "dark");
 });
 
-test("computador: barra de ícones à esquerda com as seções e o item ativo destacado", async ({ page }, info) => {
-  test.skip(info.project.name !== "desktop", "barra de ícones só no computador");
+test("computador: barra de ícones à esquerda com as seções e o item ativo destacado", async ({
+  page,
+}, info) => {
+  test.skip(
+    info.project.name !== "desktop",
+    "barra de ícones só no computador",
+  );
   await signInAsAdmin(page);
   const rail = page.getByRole("navigation", { name: "Seções" });
   await expect(rail).toBeVisible();
-  await expect(rail.getByRole("link", { name: /^Conversas/ })).toHaveAttribute("aria-current", "page");
+  await expect(rail.getByRole("link", { name: /^Conversas/ })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   await expect(rail.getByRole("link", { name: "Contatos" })).toBeVisible();
   await expect(rail.getByRole("link", { name: "Funis" })).toBeVisible();
   await expect(rail.getByRole("link", { name: "Configurações" })).toBeVisible();
@@ -75,14 +97,21 @@ test("computador: barra de ícones à esquerda com as seções e o item ativo de
 
   await rail.getByRole("link", { name: "Contatos" }).click();
   await expect(page).toHaveURL(/\/contatos$/);
-  await expect(rail.getByRole("link", { name: "Contatos" })).toHaveAttribute("aria-current", "page");
+  await expect(rail.getByRole("link", { name: "Contatos" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   await rail.getByRole("link", { name: "Funis" }).click();
   await expect(page).toHaveURL(/\/funis/);
   await rail.getByRole("link", { name: "Configurações" }).click();
   await expect(page).toHaveURL(/\/configuracoes$/);
 });
 
-async function receiveFrom(request: APIRequestContext, run: string, phone: string) {
+async function receiveFrom(
+  request: APIRequestContext,
+  run: string,
+  phone: string,
+) {
   const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
     data: {
       EventType: "messages",
@@ -104,7 +133,10 @@ async function receiveFrom(request: APIRequestContext, run: string, phone: strin
   expect(res.status()).toBe(200);
 }
 
-test("celular: abas embaixo com o total de não lidas, e somem dentro da conversa", async ({ page, request }, info) => {
+test("celular: abas embaixo com o total de não lidas, e somem dentro da conversa", async ({
+  page,
+  request,
+}, info) => {
   test.skip(info.project.name !== "mobile", "abas só no celular");
   const run = `casca${Date.now()}`;
   await receiveFrom(request, run, `55119${String(Date.now()).slice(-8)}`);
@@ -114,7 +146,9 @@ test("celular: abas embaixo com o total de não lidas, e somem dentro da convers
   await expect(tabs).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Seções" })).toBeHidden();
   // O total de não lidas aparece na aba Conversas (o banco do E2E é compartilhado: basta haver pelo menos uma).
-  await expect(tabs.getByRole("link", { name: /^Conversas, \d+ não lida/ })).toBeVisible();
+  await expect(
+    tabs.getByRole("link", { name: /^Conversas, \d+ não lida/ }),
+  ).toBeVisible();
 
   await tabs.getByRole("link", { name: "Contatos" }).click();
   await expect(page).toHaveURL(/\/contatos$/);
@@ -126,24 +160,35 @@ test("celular: abas embaixo com o total de não lidas, e somem dentro da convers
 
   await tabs.getByRole("link", { name: /^Conversas/ }).click();
   await page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).click();
-  await expect(page.getByRole("article", { name: `Conversa com Cliente ${run}` })).toBeVisible();
+  await expect(
+    page.getByRole("article", { name: `Conversa com Cliente ${run}` }),
+  ).toBeVisible();
   await expect(tabs).toBeHidden();
 });
 
-test("faixa de desconexão: admin vê Reconectar, atendente não", async ({ page, request }) => {
+test("faixa de desconexão: admin vê Reconectar, atendente não", async ({
+  page,
+  request,
+}) => {
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const connection = (status: string, type?: string) =>
     request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
-      data: { EventType: "connection", token: E2E_WEBHOOK.instanceToken, instance: { status }, ...(type ? { type } : {}) },
+      data: {
+        EventType: "connection",
+        token: E2E_WEBHOOK.instanceToken,
+        instance: { status },
+        ...(type ? { type } : {}),
+      },
     });
   try {
     await signInAsAdmin(page);
-    await openUserMenu(page);
-    await page.getByRole("link", { name: "Equipe" }).click();
+    await openSettingsItem(page, /Equipe/);
     await page.getByRole("button", { name: "Gerar link de convite" }).click();
     const invite = await page.getByLabel("Link gerado").inputValue();
 
-    expect((await connection("disconnected", "Disconnected")).status()).toBe(200);
+    expect((await connection("disconnected", "Disconnected")).status()).toBe(
+      200,
+    );
     const banner = page.getByRole("alert").filter({ hasText: "desconectado" });
     await expect(banner).toBeVisible();
     await banner.getByRole("link", { name: "Reconectar" }).click();
@@ -157,7 +202,9 @@ test("faixa de desconexão: admin vê Reconectar, atendente não", async ({ page
     await page.getByLabel("E-mail").fill(`atendente-${stamp}@exemplo.com`);
     await page.getByLabel("Senha").fill("senha-do-atendente-1");
     await page.getByRole("button", { name: "Criar acesso e entrar" }).click();
-    await expect(page.getByRole("heading", { name: "Caixa de entrada" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Atendimento" }),
+    ).toBeVisible();
     await expect(banner).toBeVisible();
     await expect(page.getByRole("link", { name: "Reconectar" })).toHaveCount(0);
     await page.goto("/perfil");

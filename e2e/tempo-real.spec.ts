@@ -30,15 +30,22 @@ async function loggedInPage(browser: Browser, info: TestInfo) {
   await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
   await page.getByLabel("Senha").fill(E2E_ADMIN.password);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("navigation", { name: "Conversas" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Conversas" }),
+  ).toBeVisible();
   return { context, page };
 }
 
-test("mensagem recebida aparece para duas sessões, na lista e na conversa aberta, sem recarregar", async ({ browser, request }, info) => {
+test("mensagem recebida aparece para duas sessões, na lista e na conversa aberta, sem recarregar", async ({
+  browser,
+  request,
+}, info) => {
   const run = `${info.project.name}${Date.now()}`;
   const phone = `55119${String(Date.now()).slice(-8)}`;
   const send = async (n: number) => {
-    const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, { data: webhookMessage(run, n, phone) });
+    const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
+      data: webhookMessage(run, n, phone),
+    });
     expect(res.status()).toBe(200);
   };
 
@@ -46,18 +53,25 @@ test("mensagem recebida aparece para duas sessões, na lista e na conversa abert
   await send(1);
   const a = await loggedInPage(browser, info);
   const b = await loggedInPage(browser, info);
-  const item = (p: typeof a.page) => p.getByRole("link", { name: new RegExp(`Cliente ${run}`) });
+  const item = (p: typeof a.page) =>
+    p.getByRole("link", { name: new RegExp(`Cliente ${run}`) });
   await expect(item(a.page)).toContainText("Mensagem ao vivo 1");
   await expect(item(b.page)).toContainText("Mensagem ao vivo 1");
 
   // Sessão A abre a conversa; a B fica só na lista
   await item(a.page).click();
-  const conversationA = a.page.getByRole("article", { name: `Conversa com Cliente ${run}` });
-  await expect(conversationA.getByText("Mensagem ao vivo 1", { exact: true })).toBeVisible();
+  const conversationA = a.page.getByRole("article", {
+    name: `Conversa com Cliente ${run}`,
+  });
+  await expect(
+    conversationA.getByText("Mensagem ao vivo 1", { exact: true }),
+  ).toBeVisible();
 
   // Chega outra mensagem: nenhuma das duas recarrega
   await send(2);
-  await expect(conversationA.getByText("Mensagem ao vivo 2", { exact: true })).toBeVisible();
+  await expect(
+    conversationA.getByText("Mensagem ao vivo 2", { exact: true }),
+  ).toBeVisible();
   if (info.project.name === "mobile") {
     await expect(item(b.page)).toContainText("Mensagem ao vivo 2");
   } else {
@@ -65,7 +79,12 @@ test("mensagem recebida aparece para duas sessões, na lista e na conversa abert
     await expect(item(b.page)).toContainText("Mensagem ao vivo 2");
   }
   // A conversa vai para o topo da lista de B
-  await expect(b.page.getByRole("navigation", { name: "Conversas" }).getByRole("link").first()).toContainText(`Cliente ${run}`);
+  await expect(
+    b.page
+      .getByRole("navigation", { name: "Conversas" })
+      .getByRole("link")
+      .first(),
+  ).toContainText(`Cliente ${run}`);
 
   await a.context.close();
   await b.context.close();

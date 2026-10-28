@@ -314,6 +314,8 @@ export const api = {
   /** A foto quebrou (URL temporária expirada): busca outra. */
   refreshAvatar: (contactId: string) =>
     sendJson<{ contact: Contact }>("POST", `/api/contacts/${encodeURIComponent(contactId)}/avatar/refresh`, {}),
+  workspace: () => getJson<{ companyName: string }>("/api/workspace"),
+  setCompanyName: (companyName: string) => sendJson<{ companyName: string }>("PATCH", "/api/workspace", { companyName }),
   labels: () => getJson<{ labels: Label[] }>("/api/labels"),
   createLabel: (l: Omit<Label, "id">) => sendJson<{ label: Label }>("POST", "/api/labels", l),
   updateLabel: (id: string, l: Partial<Omit<Label, "id">>) =>

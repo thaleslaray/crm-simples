@@ -27,20 +27,39 @@ async function receive(request: APIRequestContext, run: string, phone: string) {
   expect(res.status()).toBe(200);
 }
 
-type MediaCall = { path: string; body: { type: string; text?: string; file: string; docName?: string } };
-async function mediaCalls(request: APIRequestContext): Promise<MediaCall["body"][]> {
-  const calls = (await (await request.get(`${FAKE}/calls`)).json()) as MediaCall[];
+type MediaCall = {
+  path: string;
+  body: { type: string; text?: string; file: string; docName?: string };
+};
+async function mediaCalls(
+  request: APIRequestContext,
+): Promise<MediaCall["body"][]> {
+  const calls = (await (
+    await request.get(`${FAKE}/calls`)
+  ).json()) as MediaCall[];
   return calls.filter((c) => c.path === "/send/media").map((c) => c.body);
 }
 
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
 }
 
 // 1x1 PNG
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
 
-test("atendente anexa uma imagem com legenda e grava uma nota de voz: ouve, descarta, grava de novo e envia", async ({ page, request }, info) => {
+test("atendente anexa uma imagem com legenda e grava uma nota de voz: ouve, descarta, grava de novo e envia", async ({
+  page,
+  request,
+}, info) => {
   const run = `${info.project.name}${Date.now()}`;
   const phone = `55117${String(Date.now()).slice(-8)}`;
   await receive(request, run, phone);
@@ -58,24 +77,41 @@ test("atendente anexa uma imagem com legenda e grava uma nota de voz: ouve, desc
   await signature.check();
   await backToInbox(page);
 
-  await page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first().click();
-  const conversation = page.getByRole("article", { name: `Conversa com Cliente ${run}` });
+  await page
+    .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
+    .first()
+    .click();
+  const conversation = page.getByRole("article", {
+    name: `Conversa com Cliente ${run}`,
+  });
 
   // Imagem com legenda
   await conversation.getByRole("button", { name: "Anexar" }).click();
   const chooser = page.waitForEvent("filechooser");
   await conversation.getByRole("menuitem", { name: "Fotos e vídeos" }).click();
-  await (await chooser).setFiles({ name: "foto.png", mimeType: "image/png", buffer: PNG });
+  await (
+    await chooser
+  ).setFiles({ name: "foto.png", mimeType: "image/png", buffer: PNG });
   await expect(conversation.getByLabel("Anexo")).toContainText("foto.png");
   await conversation.getByLabel("Mensagem").fill(`Legenda ${run}`);
-  await conversation.getByRole("button", { name: "Enviar", exact: true }).click();
+  await conversation
+    .getByRole("button", { name: "Enviar", exact: true })
+    .click();
   await expect(conversation.locator("img.media")).toBeVisible();
-  await expect(conversation.getByText(`Legenda ${run}`, { exact: true })).toBeVisible();
-  await expect.poll(() => mediaCalls(request)).toMatchObject([{ type: "image", text: `*${E2E_ADMIN.name}:*\nLegenda ${run}` }]);
+  await expect(
+    conversation.getByText(`Legenda ${run}`, { exact: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() => mediaCalls(request))
+    .toMatchObject([
+      { type: "image", text: `*${E2E_ADMIN.name}:*\nLegenda ${run}` },
+    ]);
   await noHorizontalOverflow(page);
 
   // Nota de voz: grava, ouve, descarta (nada é enviado), grava de novo e envia
-  await conversation.getByRole("button", { name: "Gravar nota de voz" }).click();
+  await conversation
+    .getByRole("button", { name: "Gravar nota de voz" })
+    .click();
   await expect(conversation.getByRole("status")).toContainText("Gravando");
   await page.waitForTimeout(1500);
   await conversation.getByRole("button", { name: "Parar" }).click();
@@ -85,11 +121,15 @@ test("atendente anexa uma imagem com legenda e grava uma nota de voz: ouve, desc
   await expect(conversation.getByLabel("Mensagem")).toBeVisible();
   expect(await mediaCalls(request)).toHaveLength(1);
 
-  await conversation.getByRole("button", { name: "Gravar nota de voz" }).click();
+  await conversation
+    .getByRole("button", { name: "Gravar nota de voz" })
+    .click();
   await expect(conversation.getByRole("status")).toContainText("Gravando");
   await page.waitForTimeout(1500);
   await conversation.getByRole("button", { name: "Parar" }).click();
-  await conversation.getByRole("button", { name: "Enviar nota de voz" }).click();
+  await conversation
+    .getByRole("button", { name: "Enviar nota de voz" })
+    .click();
   await expect(conversation.getByLabel("Nota de voz")).toBeVisible();
   await expect.poll(async () => (await mediaCalls(request)).length).toBe(2);
   const voice = (await mediaCalls(request))[1]!;
