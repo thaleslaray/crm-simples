@@ -8,7 +8,7 @@ A empresa atende clientes por um único número de WhatsApp, e hoje uma equipe p
 
 ## Solution
 
-Um CRM web interno, usado só pela equipe da empresa, que conecta o número de WhatsApp (via Uazapi) a uma **caixa de entrada compartilhada**. Toda mensagem que chega vira uma **conversa** visível para toda a equipe, em tempo real. Cada conversa tem um **status** (aberta, em andamento, resolvida) e um **responsável**: o atendente assume a conversa ou o admin a atribui. Dentro da conversa, o atendente vê o histórico completo, responde com texto, mídia e nota de voz, cita mensagens, usa respostas rápidas e deixa **notas internas** que o cliente nunca vê. Cada cliente tem uma **ficha do contato** com seus dados, **etiquetas** e posição em um ou mais **funis** (kanban). O admin gerencia a equipe, os funis, as etiquetas, as respostas rápidas e a conexão do número. Funciona bem no computador e no celular.
+Um CRM web interno, usado só pela equipe da empresa, que conecta o número de WhatsApp (via Uazapi) a uma **caixa de entrada compartilhada**. Toda mensagem que chega vira uma **conversa** visível para toda a equipe, em tempo real. Cada conversa tem um **status** (aberta, em andamento, aguardando cliente, resolvida) e um **responsável**: o atendente assume a conversa ou o admin a atribui. Dentro da conversa, o atendente vê o histórico completo, responde com texto, mídia e nota de voz, cita mensagens, usa respostas rápidas e deixa **notas internas** que o cliente nunca vê. Cada cliente tem uma **ficha do contato** com seus dados, **etiquetas** e posição em um ou mais **funis** (kanban). O admin gerencia a equipe, os funis, as etiquetas, as respostas rápidas e a conexão do número. Funciona bem no computador e no celular.
 
 ## User Stories
 
@@ -25,7 +25,7 @@ Um CRM web interno, usado só pela equipe da empresa, que conecta o número de W
 9. Como atendente, quero abrir o link de redefinição e definir uma nova senha, para que eu volte a entrar.
 10. Como admin, quero ver a lista de membros da equipe com nome, e-mail e papel, para que eu saiba quem tem acesso.
 11. Como admin, quero remover um atendente, para que ele perca o acesso imediatamente (sessões encerradas).
-12. Como admin, quero que as conversas em andamento de um atendente removido voltem para "aberta" sem responsável, para que nenhum cliente fique esquecido.
+12. Como admin, quero que as conversas em andamento ou aguardando cliente de um atendente removido voltem para "aberta" sem responsável, para que nenhum cliente fique esquecido.
 13. Como admin, quero mudar o papel de um membro, para que eu promova ou rebaixe alguém.
 14. Como atendente, quero sair da minha conta, para que ninguém use meu acesso num computador compartilhado.
 
@@ -43,7 +43,7 @@ Um CRM web interno, usado só pela equipe da empresa, que conecta o número de W
 21. Como atendente, quero ver todas as conversas individuais do número numa lista única, para que a equipe inteira enxergue o mesmo trabalho.
 22. Como atendente, quero que a lista mostre nome ou telefone do contato, foto, prévia da última mensagem, horário, status, responsável e contador de não lidas, para que eu decida o que abrir primeiro.
 23. Como atendente, quero que a lista seja ordenada pela mensagem mais recente, para que o que acabou de chegar apareça no topo.
-24. Como atendente, quero filtrar a lista por status (aberta, em andamento, resolvida), para que eu foque no que precisa de ação.
+24. Como atendente, quero filtrar a lista por status (aberta, em andamento, aguardando cliente, resolvida), para que eu foque no que precisa de ação.
 25. Como atendente, quero um filtro "minhas", para que eu veja só as conversas pelas quais sou responsável.
 26. Como atendente, quero filtrar por responsável, para que eu veja a fila de um colega.
 27. Como atendente, quero filtrar por etiqueta do contato, para que eu encontre clientes de um segmento.
@@ -101,10 +101,11 @@ Um CRM web interno, usado só pela equipe da empresa, que conecta o número de W
 67. Como atendente, quero transferir uma conversa minha para um colega, para que alguém mais adequado continue o atendimento.
 68. Como admin, quero atribuir ou transferir qualquer conversa para qualquer atendente, para que eu distribua o trabalho.
 69. Como atendente, quero marcar uma conversa como resolvida quando o atendimento terminar, para que ela saia da fila de trabalho.
-70. Como atendente, quero que uma conversa resolvida volte para "em andamento" com o mesmo responsável quando o cliente escrever de novo, para que quem já conhece o caso continue.
+70. Como atendente, quero que uma conversa resolvida ou aguardando cliente volte para "em andamento" com o mesmo responsável quando o cliente escrever de novo, para que quem já conhece o caso continue.
 71. Como atendente, quero que, se o antigo responsável tiver sido removido, a conversa reaberta volte para "aberta" sem dono, para que alguém assuma.
-72. Como atendente, quero ver na linha do tempo da conversa os eventos de atribuição, transferência e mudança de status (quem fez e quando), para que eu entenda o histórico do atendimento.
-73. Como atendente, quero que enviar a primeira resposta numa conversa aberta me torne responsável automaticamente, para que não fique conversa respondida sem dono.
+72. Como atendente, quero ver na linha do tempo da conversa os eventos de atribuição, transferência e mudança de status (quem fez e quando), sem o vaivém automático entre "em andamento" e "aguardando cliente", para que eu entenda o histórico do atendimento sem ruído.
+73. Como atendente, quero que enviar a primeira resposta numa conversa aberta me torne responsável automaticamente e a passe para "aguardando cliente", para que não fique conversa respondida sem dono.
+73a. Como atendente, quero que a conversa passe sozinha para "aguardando cliente" quando eu enviar qualquer mensagem ao cliente (nota interna não conta), para que a fila mostre só as conversas em que a vez é da equipe.
 
 ### Iniciar conversa
 
@@ -189,13 +190,15 @@ Um CRM web interno, usado só pela equipe da empresa, que conecta o número de W
 4. **Envio de mensagens** — o atendente envia pela API do CRM; o CRM grava a mensagem como "enviando", chama a Uazapi e atualiza com o id retornado. Se a Uazapi recusar, vira "falhou" com opção de reenviar manualmente; se der timeout, vira "incerto" e não é reenviada sozinha. Texto ganha o prefixo de assinatura `*Nome:*` + quebra de linha quando a assinatura do atendente estiver ligada (também na legenda de mídia; nota de voz não tem legenda). Mídia enviada pelo atendente é primeiro gravada no R2 e entregue à Uazapi por uma URL temporária assinada servida pelo Worker. Nota de voz gravada no navegador é enviada como `ptt`.
 5. **Status de entrega** — eventos `messages_update` atualizam o status das mensagens enviadas na ordem enviada → entregue → lida/reproduzida, e o status nunca regride. "Falhou" só se aplica a mensagens que ainda não foram entregues.
 6. **Conversas** — uma conversa por contato (o número é um só). Máquina de estados:
-   - `aberta` (sem responsável) → `em_andamento` ao assumir, ao ser atribuída ou quando um atendente envia a primeira resposta.
-   - `em_andamento` → `em_andamento` com outro responsável ao transferir.
-   - `em_andamento` → `resolvida` quando um atendente ou o admin resolve.
-   - `resolvida` → `em_andamento` com o mesmo responsável quando o cliente escreve; se o responsável não existir mais, volta a `aberta` sem dono.
-   - Remover um atendente devolve as conversas `em_andamento` dele para `aberta` sem dono.
+   - `aberta` (sem responsável) → `em_andamento` ao assumir ou ao ser atribuída.
+   - `aberta` → `aguardando_cliente` quando um atendente envia a primeira resposta; ele vira o responsável na mesma operação.
+   - `em_andamento` → `aguardando_cliente` quando um atendente envia qualquer mensagem ao cliente (texto, mídia, nota de voz, resposta rápida, citação). Nota interna não conta; envio recusado pela Uazapi ("falhou") não muda o status.
+   - `em_andamento` ou `aguardando_cliente` → mesmo status com outro responsável ao transferir.
+   - `em_andamento` ou `aguardando_cliente` → `resolvida` quando um atendente ou o admin resolve.
+   - `resolvida` ou `aguardando_cliente` → `em_andamento` com o mesmo responsável quando o cliente escreve; se o responsável não existir mais, volta a `aberta` sem dono.
+   - Remover um atendente devolve as conversas `em_andamento` e `aguardando_cliente` dele para `aberta` sem dono.
    - Assumir é uma operação condicional (só tem efeito se a conversa ainda estiver sem dono) para impedir que dois atendentes assumam ao mesmo tempo.
-   - Cada transição grava um evento de sistema (autor e horário) que aparece na linha do tempo.
+   - Cada transição grava um evento de sistema (autor e horário) que aparece na linha do tempo, exceto o vaivém automático `em_andamento` ↔ `aguardando_cliente` (as próprias mensagens já o mostram). A primeira resposta numa `aberta` grava o evento de quem assumiu.
    - Contador de não lidas por conversa, zerado ao abrir; abrir também marca as mensagens recebidas como lidas na Uazapi.
 7. **Contatos** — identificados pelo telefone. O JID pode chegar como número (`@s.whatsapp.net`) ou como LID (`@lid`); o contato guarda ambos quando conhecidos (`sender_pn` e `sender_lid`) para não duplicar a mesma pessoa. Nome inicial vem de `senderName`; foto via avatar da Uazapi (URL temporária, renovada quando necessário). Campos editáveis fixos: nome, e-mail, empresa, observação. Sem campos personalizados.
 8. **Notas internas** — pertencem a uma conversa (e, por ela, ao contato), com autor e horário; nunca passam pelo cliente Uazapi. A ficha agrega as notas de todas as conversas do contato.
@@ -221,7 +224,7 @@ Um CRM web interno, usado só pela equipe da empresa, que conecta o número de W
 - **Um bom teste exercita só comportamento externo**: entra por onde o sistema é chamado de verdade (HTTP, webhook, fila, cron, WebSocket) e verifica o que um usuário ou a Uazapi observariam (respostas da API, eventos no WebSocket, chamadas feitas à Uazapi, objetos no R2). Não testa funções internas, formato de tabelas ou chamadas do Drizzle.
 - **Costura principal: a borda do Worker.** Testes com `@cloudflare/vitest-plugin` (sucessor do `@cloudflare/vitest-pool-workers`; detalhes em `docs/agents/testing.md`), rodando sobre D1, Durable Object, Queues e R2 reais do Miniflare, chamando os handlers de fetch, queue e scheduled. A Uazapi é substituída por um servidor HTTP falso que grava as chamadas recebidas e devolve respostas programadas (incluindo `429`, timeout e erro).
 - Cobrir pela borda do Worker:
-  - webhook: validação de origem, idempotência (o mesmo evento duas vezes vira uma mensagem), descarte de grupos e de `fromMe`, criação automática de contato e conversa, reabertura de resolvida;
+  - webhook: validação de origem, idempotência (o mesmo evento duas vezes vira uma mensagem), descarte de grupos e de `fromMe`, criação automática de contato e conversa, reabertura de resolvida e de aguardando cliente;
   - pipeline de mídia: sucesso grava no R2, falha temporária faz retry, falha definitiva marca "falhou";
   - envio: assinatura com nome, citação, mídia via URL assinada, "falhou" versus "incerto" e nenhum reenvio automático;
   - status de entrega que não regride;
@@ -249,6 +252,7 @@ Um CRM web interno, usado só pela equipe da empresa, que conecta o número de W
 - Envio de figurinha, localização e contato (são só exibidos quando chegam).
 - Editar ou apagar mensagens enviadas.
 - Disparos em massa e campanhas.
+- Resolver sozinha uma conversa "aguardando cliente" depois de N dias sem resposta, e mostrar há quanto tempo ela aguarda.
 - Campos personalizados na ficha do contato.
 - Envio de e-mail (convites e redefinições são por link copiável).
 - Domínio próprio (fica em `workers.dev` por enquanto).
