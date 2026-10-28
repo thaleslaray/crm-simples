@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, openUserMenu, test } from "./fixtures";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
 async function clientWrites(request: APIRequestContext, id: string, phone: string) {
@@ -46,6 +46,7 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   await page.getByRole("button", { name: "Entrar" }).click();
 
   // Cadastro (admin)
+  await openUserMenu(page);
   await page.getByRole("link", { name: "Etiquetas" }).click();
   await page.getByLabel("Nome da etiqueta").fill(labelName);
   await page.getByRole("button", { name: "Adicionar" }).click();
@@ -71,7 +72,8 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first();
   await expect(item.getByText(labelName)).toBeVisible();
   await noHorizontalOverflow(page);
-  await page.getByLabel("Filtrar por etiqueta").selectOption({ label: labelName });
+  await page.getByRole("button", { name: "Mais filtros" }).click();
+  await page.getByRole("button", { name: labelName }).click();
   await expect(page.getByRole("link", { name: new RegExp(`Cliente ${run}`) })).toHaveCount(1);
   await expect(page.locator(".conv-item")).toHaveCount(1);
   await snap(page, "caixa", info.project.name);

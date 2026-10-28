@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { APIRequestContext, Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, openUserMenu, test } from "./fixtures";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
 async function signInAsAdmin(page: Page) {
@@ -138,6 +138,7 @@ test("faixa de desconexão: admin vê Reconectar, atendente não", async ({ page
     });
   try {
     await signInAsAdmin(page);
+    await openUserMenu(page);
     await page.getByRole("link", { name: "Equipe" }).click();
     await page.getByRole("button", { name: "Gerar link de convite" }).click();
     const invite = await page.getByLabel("Link gerado").inputValue();

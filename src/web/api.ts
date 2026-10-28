@@ -7,7 +7,16 @@ export interface Conversation {
   assigneeName: string | null;
   unreadCount: number;
   contact: { id: string; name: string | null; phone: string | null; labels: Label[] };
-  lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
+  lastMessage: {
+    type: MessageType;
+    text: string | null;
+    timestamp: number;
+    direction: "in" | "out";
+    /** Entrega da última mensagem enviada (nulo se for do cliente). */
+    status: SendStatus | null;
+    authorId: string | null;
+    authorName: string | null;
+  } | null;
 }
 
 /** Etiqueta do contato: nome + cor (hex). */

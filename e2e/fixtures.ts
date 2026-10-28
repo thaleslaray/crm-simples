@@ -17,3 +17,8 @@ export const test = base.extend<{ prints: void }>({
   ],
 });
 export { expect };
+
+/** Abre o menu ⋮ do cabeçalho da caixa de entrada (Perfil, Sair e atalhos de admin). */
+export async function openUserMenu(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Mais opções" }).click();
+}
