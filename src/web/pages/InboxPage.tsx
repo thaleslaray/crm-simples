@@ -80,6 +80,7 @@ export function InboxPage() {
         <h1>Caixa de entrada</h1>
         <div className="user">
           <Link to="/contatos">Contatos</Link>
+          <Link to="/funis">Funis</Link>
           {isAdmin && <Link to="/etiquetas">Etiquetas</Link>}
           {isAdmin && <Link to="/respostas-rapidas">Respostas rápidas</Link>}
           {isAdmin && <Link to="/equipe">Equipe</Link>}

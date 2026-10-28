@@ -4,6 +4,8 @@ import { ConnectionBanner, ConnectionProvider } from "./connection";
 import { ConnectionPage } from "./pages/ConnectionPage";
 import { ContactsPage } from "./pages/ContactsPage";
 import { ConversationPage } from "./pages/ConversationPage";
+import { FunnelsAdminPage } from "./pages/FunnelsAdminPage";
+import { FunnelsPage } from "./pages/FunnelsPage";
 import { InboxPage, NoConversationSelected } from "./pages/InboxPage";
 import { LabelsPage } from "./pages/LabelsPage";
 import { InvitePage, ResetPasswordPage } from "./pages/LinkPages";
@@ -52,6 +54,8 @@ export function App() {
         <Route path="/perfil" element={<ProfilePage />} />
         <Route path="/contatos" element={<ContactsPage />} />
         <Route path="/respostas-rapidas" element={<QuickRepliesPage />} />
+        <Route path="/funis" element={<FunnelsPage />} />
+        <Route path="/funis/:id" element={<FunnelsPage />} />
         <Route element={<InboxPage />}>
           <Route path="/" element={<NoConversationSelected />} />
           <Route path="/conversas/:id" element={<ConversationPage />} />
@@ -60,6 +64,7 @@ export function App() {
           <Route path="/conexao" element={<ConnectionPage />} />
           <Route path="/equipe" element={<TeamPage />} />
           <Route path="/etiquetas" element={<LabelsPage />} />
+          <Route path="/funis/gerenciar" element={<FunnelsAdminPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

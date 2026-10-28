@@ -10,6 +10,7 @@ export type RealtimeEvent =
   | { type: "note.created"; conversationId: string; note: Note }
   | { type: "contact.updated"; contact: Contact }
   | { type: "labels.changed" }
+  | { type: "funnel.changed"; funnelId: string }
   | { type: "connection.changed"; connection: ConnectionState }
   | { type: "reconnected" };
 
@@ -71,7 +72,7 @@ export function useRealtimeConnection() {
         if (e.data === "pong") return clearTimeout(pongTimer);
         try {
           const event = JSON.parse(String(e.data)) as RealtimeEvent;
-          if (["message.created", "message.status", "conversation.updated", "note.created", "contact.updated", "labels.changed", "connection.changed"].includes(event.type)) emit(event);
+          if (["message.created", "message.status", "conversation.updated", "note.created", "contact.updated", "labels.changed", "funnel.changed", "connection.changed"].includes(event.type)) emit(event);
         } catch {
           // Mensagem desconhecida: ignora.
         }

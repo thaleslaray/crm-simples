@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Contact, type Ficha } from "../api";
 import { contactLabel, formatPhone, initials, messageTime, STATUS_LABEL } from "../format";
+import { useFunnels } from "../funnels";
 import { LabelChip, useLabels } from "../labels";
 import { onRealtime } from "../realtime";
 import { NewConversationDialog } from "./NewConversation";
@@ -44,6 +45,10 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
   const [starting, setStarting] = useState(false);
   const allLabels = useLabels();
   const [labelError, setLabelError] = useState(false);
+  const allFunnels = useFunnels();
+  const [pendingFunnel, setPendingFunnel] = useState("");
+  const [pendingStage, setPendingStage] = useState("");
+  const [funnelError, setFunnelError] = useState(false);
 
   const fill = (c: Contact) => setForm({ name: c.name ?? "", email: c.email ?? "", company: c.company ?? "", notes: c.notes ?? "" });
 
@@ -67,7 +72,7 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
     load();
     return onRealtime((event) => {
       if (event.type === "reconnected") return load();
-      if (event.type === "note.created") return load();
+      if (event.type === "note.created" || event.type === "funnel.changed") return load();
       if (event.type === "contact.updated" && event.contact.id === contactId) {
         setFicha((f) => (f ? { ...f, contact: { ...f.contact, ...event.contact } } : f));
         setDirty((d) => (d ? d : (fill(event.contact), false)));
@@ -102,6 +107,18 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
       setLabelError(true);
     }
   }
+
+  async function changeFunnel(action: () => Promise<unknown>) {
+    setFunnelError(false);
+    try {
+      await action();
+      load();
+    } catch {
+      setFunnelError(true);
+    }
+  }
+
+  const freeFunnels = (allFunnels ?? []).filter((f) => f.stages.length > 0 && !ficha?.funnels.some((x) => x.funnelId === f.id));
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -183,6 +200,74 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
             {labelError && (
               <p className="error" role="alert">
                 Não foi possível alterar a etiqueta.
+              </p>
+            )}
+          </section>
+          <section aria-label="Funis do contato">
+            <h3>Funis</h3>
+            <ul className="ficha-list">
+              {ficha.funnels.map((f) => (
+                <li key={f.funnelId} className="ficha-funnel">
+                  <strong>{f.funnelName}</strong>
+                  <div className="ficha-funnel-row">
+                    <select
+                      aria-label={`Etapa em ${f.funnelName}`}
+                      value={f.stageId}
+                      onChange={(e) => void changeFunnel(() => api.moveCard(f.funnelId, contactId, e.target.value))}
+                    >
+                      {(allFunnels?.find((x) => x.id === f.funnelId)?.stages ?? [{ id: f.stageId, name: f.stageName }]).map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label={`Tirar do funil ${f.funnelName}`}
+                      onClick={() => void changeFunnel(() => api.removeCard(f.funnelId, contactId))}
+                    >
+                      Tirar
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {ficha.funnels.length === 0 && <p className="muted">Fora de qualquer funil.</p>}
+            {freeFunnels.length > 0 && (
+              <div className="ficha-funnel-add">
+                <select aria-label="Adicionar a um funil" value={pendingFunnel} onChange={(e) => (setPendingFunnel(e.target.value), setPendingStage(""))}>
+                  <option value="">Adicionar a um funil…</option>
+                  {freeFunnels.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+                {pendingFunnel && (
+                  <>
+                    <select aria-label="Etapa inicial no funil" value={pendingStage} onChange={(e) => setPendingStage(e.target.value)}>
+                      <option value="">Etapa inicial…</option>
+                      {freeFunnels.find((f) => f.id === pendingFunnel)?.stages.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={!pendingStage}
+                      onClick={() => void changeFunnel(() => api.addCard(pendingFunnel, contactId, pendingStage)).then(() => (setPendingFunnel(""), setPendingStage("")))}
+                    >
+                      Adicionar ao funil
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            {funnelError && (
+              <p className="error" role="alert">
+                Não foi possível alterar o funil.
               </p>
             )}
           </section>

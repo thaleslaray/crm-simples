@@ -294,3 +294,46 @@ export const contactLabel = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.contactId, t.labelId] }), index("contact_label_label_idx").on(t.labelId)],
 );
+
+/** Funil (ticket 15): um quadro kanban com etapas ordenadas, criado pelo admin. */
+export const funnel = sqliteTable("funnel", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+/** Etapa do funil; `position` e a ordem das colunas (0, 1, 2...). */
+export const funnelStage = sqliteTable(
+  "funnel_stage",
+  {
+    id: text("id").primaryKey(),
+    funnelId: text("funnel_id")
+      .notNull()
+      .references(() => funnel.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull(),
+  },
+  (t) => [index("funnel_stage_funnel_idx").on(t.funnelId, t.position)],
+);
+
+/** Card = (contato, funil, etapa). No maximo um por contato em cada funil; `position` e a ordem dentro da etapa. */
+export const funnelCard = sqliteTable(
+  "funnel_card",
+  {
+    funnelId: text("funnel_id")
+      .notNull()
+      .references(() => funnel.id, { onDelete: "cascade" }),
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => contact.id, { onDelete: "cascade" }),
+    stageId: text("stage_id")
+      .notNull()
+      .references(() => funnelStage.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.funnelId, t.contactId] }),
+    index("funnel_card_stage_idx").on(t.stageId, t.position),
+    index("funnel_card_contact_idx").on(t.contactId),
+  ],
+);

@@ -31,7 +31,7 @@ export function formatPhone(phone: string): string {
   return m ? `+55 ${m[1]} ${m[2]}-${m[3]}` : `+${phone}`;
 }
 
-export function contactLabel(contact: Conversation["contact"]): string {
+export function contactLabel(contact: { name: string | null; phone: string | null }): string {
   return contact.name?.trim() || (contact.phone ? formatPhone(contact.phone) : "Contato sem nome");
 }
 
