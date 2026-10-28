@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router";
 import { ApiError, api, type Funnel } from "../api";
 import { authClient } from "../auth-client";
 import { useFunnels } from "../funnels";
@@ -29,43 +28,37 @@ export function FunnelsAdminPage() {
   }
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <h1>Gerenciar funis</h1>
-        <Link to="/funis">Voltar</Link>
-      </header>
-      <main className="profile qr-admin funnels-admin">
-        {!isAdmin ? (
-          <p role="alert">Só o admin cadastra funis.</p>
-        ) : (
-          <>
-            <form className="qr-form" onSubmit={(e) => void create(e)}>
-              <label>
-                Nome do funil
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Vendas" maxLength={80} />
-              </label>
-              <div className="qr-actions">
-                <button type="submit" disabled={!name.trim()}>
-                  Criar funil
-                </button>
-              </div>
-            </form>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-            {funnels === null ? (
-              <p className="muted">Carregando…</p>
-            ) : funnels.length === 0 ? (
-              <p className="muted">Nenhum funil ainda.</p>
-            ) : (
-              funnels.map((f) => <FunnelEditor key={f.id} funnel={f} run={run} />)
-            )}
-          </>
-        )}
-      </main>
-    </div>
+    <main className="profile qr-admin funnels-admin">
+      {!isAdmin ? (
+        <p role="alert">Só o admin cadastra funis.</p>
+      ) : (
+        <>
+          <form className="qr-form" onSubmit={(e) => void create(e)}>
+            <label>
+              Nome do funil
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Vendas" maxLength={80} />
+            </label>
+            <div className="qr-actions">
+              <button type="submit" disabled={!name.trim()}>
+                Criar funil
+              </button>
+            </div>
+          </form>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          {funnels === null ? (
+            <p className="muted">Carregando…</p>
+          ) : funnels.length === 0 ? (
+            <p className="muted">Nenhum funil ainda.</p>
+          ) : (
+            funnels.map((f) => <FunnelEditor key={f.id} funnel={f} run={run} />)
+          )}
+        </>
+      )}
+    </main>
   );
 }
 

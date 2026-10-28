@@ -79,7 +79,7 @@ test("computador: barra de ícones à esquerda com as seções e o item ativo de
   await rail.getByRole("link", { name: "Funis" }).click();
   await expect(page).toHaveURL(/\/funis/);
   await rail.getByRole("link", { name: "Configurações" }).click();
-  await expect(page).toHaveURL(/\/perfil$/);
+  await expect(page).toHaveURL(/\/configuracoes$/);
 });
 
 async function receiveFrom(request: APIRequestContext, run: string, phone: string) {
@@ -122,7 +122,7 @@ test("celular: abas embaixo com o total de não lidas, e somem dentro da convers
   await tabs.getByRole("link", { name: "Funis" }).click();
   await expect(page).toHaveURL(/\/funis/);
   await tabs.getByRole("link", { name: "Mais" }).click();
-  await expect(page).toHaveURL(/\/perfil$/);
+  await expect(page).toHaveURL(/\/configuracoes$/);
 
   await tabs.getByRole("link", { name: /^Conversas/ }).click();
   await page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).click();

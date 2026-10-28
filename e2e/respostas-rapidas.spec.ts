@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { backToInbox, openSettingsItem } from "./navegacao";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
@@ -42,14 +43,14 @@ test("admin cadastra resposta rápida; atendente digita / e usa com {nome} edit�
   await page.getByRole("button", { name: "Entrar" }).click();
 
   // Cadastro (admin)
-  await page.getByRole("link", { name: "Respostas rápidas" }).click();
+  await openSettingsItem(page, /Respostas rápidas/);
   await page.getByLabel("Atalho (sem espaços)").fill(shortcut);
   await page.getByLabel("Texto", { exact: true }).fill("Olá {nome}, tudo bem?");
   await page.getByRole("button", { name: "Adicionar" }).click();
   const list = page.getByRole("list", { name: "Respostas cadastradas" });
   await expect(list.getByText(`/${shortcut}`)).toBeVisible();
   await noHorizontalOverflow(page);
-  await page.getByRole("link", { name: "Voltar" }).click();
+  await backToInbox(page);
 
   // Uso na conversa
   await page.getByRole("link", { name: new RegExp(`Maria ${run}`) }).first().click();

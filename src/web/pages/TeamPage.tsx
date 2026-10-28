@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router";
 import { api, type Member, type TeamMember } from "../api";
 import { authClient } from "../auth-client";
 
@@ -69,76 +68,68 @@ export function TeamPage() {
   }
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <h1>Equipe</h1>
-        <Link to="/" className="link">
-          Caixa de entrada
-        </Link>
-      </header>
-      <main className="team-page">
-        <section className="card team-card" aria-label="Convidar">
-          <h2>Convidar alguém</h2>
-          <div className="team-invite">
-            <select aria-label="Papel do convidado" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as Member["role"])}>
-              <option value="atendente">Atendente</option>
-              <option value="admin">Administrador</option>
-            </select>
-            <button type="button" onClick={invite}>
-              Gerar link de convite
+    <main className="team-page">
+      <section className="card team-card" aria-label="Convidar">
+        <h2>Convidar alguém</h2>
+        <div className="team-invite">
+          <select aria-label="Papel do convidado" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as Member["role"])}>
+            <option value="atendente">Atendente</option>
+            <option value="admin">Administrador</option>
+          </select>
+          <button type="button" onClick={invite}>
+            Gerar link de convite
+          </button>
+        </div>
+        {generated && (
+          <div className="team-link" role="status">
+            <strong>{generated.label}</strong>
+            <input readOnly aria-label="Link gerado" value={generated.url} onFocus={(e) => e.currentTarget.select()} />
+            <p className="muted">Uso único. Vale até {new Date(generated.expiresAt).toLocaleString("pt-BR")}.</p>
+            <button type="button" className="secondary" onClick={copy}>
+              {copied ? "Copiado" : "Copiar link"}
             </button>
           </div>
-          {generated && (
-            <div className="team-link" role="status">
-              <strong>{generated.label}</strong>
-              <input readOnly aria-label="Link gerado" value={generated.url} onFocus={(e) => e.currentTarget.select()} />
-              <p className="muted">Uso único. Vale até {new Date(generated.expiresAt).toLocaleString("pt-BR")}.</p>
-              <button type="button" className="secondary" onClick={copy}>
-                {copied ? "Copiado" : "Copiar link"}
-              </button>
-            </div>
-          )}
-        </section>
-
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
         )}
+      </section>
 
-        <ul className="team-list" aria-label="Membros">
-          {(list ?? []).map((m) => {
-            const me = m.id === myId;
-            return (
-              <li key={m.id} data-testid="team-member">
-                <div className="team-who">
-                  <strong>{m.name}</strong>
-                  <span className="muted">{m.email}</span>
-                </div>
-                <div className="team-actions">
-                  <select
-                    aria-label={`Papel de ${m.name}`}
-                    value={m.role}
-                    disabled={me}
-                    onChange={(e) => changeRole(m, e.target.value as Member["role"])}
-                  >
-                    <option value="atendente">Atendente</option>
-                    <option value="admin">Administrador</option>
-                  </select>
-                  <button type="button" className="secondary" onClick={() => resetLink(m)}>
-                    Link de nova senha
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <ul className="team-list" aria-label="Membros">
+        {(list ?? []).map((m) => {
+          const me = m.id === myId;
+          return (
+            <li key={m.id} data-testid="team-member">
+              <div className="team-who">
+                <strong>{m.name}</strong>
+                <span className="muted">{m.email}</span>
+              </div>
+              <div className="team-actions">
+                <select
+                  aria-label={`Papel de ${m.name}`}
+                  value={m.role}
+                  disabled={me}
+                  onChange={(e) => changeRole(m, e.target.value as Member["role"])}
+                >
+                  <option value="atendente">Atendente</option>
+                  <option value="admin">Administrador</option>
+                </select>
+                <button type="button" className="secondary" onClick={() => resetLink(m)}>
+                  Link de nova senha
+                </button>
+                {!me && (
+                  <button type="button" className="secondary danger" onClick={() => remove(m)}>
+                    Remover
                   </button>
-                  {!me && (
-                    <button type="button" className="secondary danger" onClick={() => remove(m)}>
-                      Remover
-                    </button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </main>
-    </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </main>
   );
 }

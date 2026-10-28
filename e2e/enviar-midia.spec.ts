@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { backToInbox, openSettingsItem } from "./navegacao";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
@@ -51,11 +52,11 @@ test("atendente anexa uma imagem com legenda e grava uma nota de voz: ouve, desc
   await page.getByRole("button", { name: "Entrar" }).click();
 
   // Assinatura ligada, para conferir o nome na legenda
-  await page.getByTestId("user-name").click();
+  await openSettingsItem(page, /Perfil/);
   const signature = page.getByLabel("Assinar minhas mensagens com meu nome");
   await expect(signature).toBeEnabled();
   await signature.check();
-  await page.getByRole("link", { name: "Voltar" }).click();
+  await backToInbox(page);
 
   await page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first().click();
   const conversation = page.getByRole("article", { name: `Conversa com Cliente ${run}` });

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
 import { api } from "../api";
 import { authClient } from "../auth-client";
 import { useThemePreference, type ThemePreference } from "../theme";
@@ -41,42 +40,36 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <h1>Meu perfil</h1>
-        <Link to="/">Voltar</Link>
-      </header>
-      <main className="profile">
-        <p>
-          <strong>{data?.user.name}</strong>
-          <br />
-          <span className="muted">{data?.user.email}</span>
+    <main className="profile">
+      <p>
+        <strong>{data?.user.name}</strong>
+        <br />
+        <span className="muted">{data?.user.email}</span>
+      </p>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          checked={signature ?? true}
+          disabled={signature === null}
+          onChange={(e) => void toggle(e.target.checked)}
+        />
+        <span>Assinar minhas mensagens com meu nome</span>
+      </label>
+      <p className="muted">O cliente vê o seu nome no começo de cada mensagem, assim: *{data?.user.name}:*</p>
+      <fieldset className="theme-choice">
+        <legend>Tema</legend>
+        {THEMES.map((t) => (
+          <label key={t.value} className="toggle">
+            <input type="radio" name="theme" value={t.value} checked={theme === t.value} onChange={() => setTheme(t.value)} />
+            <span>{t.label}</span>
+          </label>
+        ))}
+      </fieldset>
+      {error && (
+        <p className="error" role="alert">
+          Não foi possível salvar. Tente de novo.
         </p>
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={signature ?? true}
-            disabled={signature === null}
-            onChange={(e) => void toggle(e.target.checked)}
-          />
-          <span>Assinar minhas mensagens com meu nome</span>
-        </label>
-        <p className="muted">O cliente vê o seu nome no começo de cada mensagem, assim: *{data?.user.name}:*</p>
-        <fieldset className="theme-choice">
-          <legend>Tema</legend>
-          {THEMES.map((t) => (
-            <label key={t.value} className="toggle">
-              <input type="radio" name="theme" value={t.value} checked={theme === t.value} onChange={() => setTheme(t.value)} />
-              <span>{t.label}</span>
-            </label>
-          ))}
-        </fieldset>
-        {error && (
-          <p className="error" role="alert">
-            Não foi possível salvar. Tente de novo.
-          </p>
-        )}
-      </main>
-    </div>
+      )}
+    </main>
   );
 }

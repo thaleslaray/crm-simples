@@ -7,6 +7,7 @@ import { api } from "./api";
 import { authClient } from "./auth-client";
 import { ConnectionBanner } from "./connection";
 import { initials } from "./format";
+import { inSettings } from "./pages/SettingsLayout";
 import { onRealtime } from "./realtime";
 
 const ICON = { size: 24, strokeWidth: 1.75, "aria-hidden": true } as const;
@@ -83,6 +84,7 @@ function Rail() {
   const { pathname } = useLocation();
   const name = data?.user.name ?? "";
   const conversationsActive = inConversations(pathname);
+  const settingsActive = inSettings(pathname);
   return (
     <nav className="rail" aria-label="Seções">
       <div className="rail-group">
@@ -98,9 +100,15 @@ function Rail() {
         </NavLink>
       </div>
       <div className="rail-group">
-        <NavLink to="/perfil" aria-label="Configurações" title="Configurações" className="rail-item">
+        <Link
+          to="/configuracoes"
+          aria-label="Configurações"
+          title="Configurações"
+          className={settingsActive ? "rail-item active" : "rail-item"}
+          aria-current={settingsActive ? "page" : undefined}
+        >
           <Settings {...ICON} />
-        </NavLink>
+        </Link>
         <Link to="/perfil" aria-label={`Meu perfil, ${name}`} title={name} className="rail-avatar">
           {data?.user.image ? <img src={data.user.image} alt="" /> : initials(name)}
         </Link>
@@ -128,10 +136,10 @@ function TabBar() {
         <Kanban {...ICON} />
         <span>Funis</span>
       </NavLink>
-      <NavLink to="/perfil" className="tab">
+      <Link to="/configuracoes" className={inSettings(pathname) ? "tab active" : "tab"} aria-current={inSettings(pathname) ? "page" : undefined}>
         <CircleEllipsis {...ICON} />
         <span>Mais</span>
-      </NavLink>
+      </Link>
     </nav>
   );
 }

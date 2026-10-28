@@ -457,3 +457,70 @@ button.danger { color: var(--danger); }
 
 .bubble-meta button.link { color: var(--text-2); font-size: 0.72rem; min-height: 24px; text-decoration: none; }
 .bubble-meta button.link:hover { text-decoration: underline; }
+
+/* Duas colunas: Contatos e Configurações (ticket design-07) */
+.two-col { flex: 1; min-height: 0; display: flex; }
+.two-col-list { width: clamp(340px, 30%, 440px); flex-shrink: 0; min-height: 0; overflow-y: auto; background: var(--bg-panel); border-right: 1px solid var(--divider); }
+.two-col-detail { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; background: var(--bg-rail); display: flex; flex-direction: column; position: relative; }
+.two-col-title { font-size: 1.4rem; font-weight: 700; padding: 14px 20px 10px; letter-spacing: -0.2px; }
+.two-col-head { display: flex; align-items: center; gap: 12px; padding: 0 20px; min-height: 64px; flex-shrink: 0; background: var(--bg-panel); border-bottom: 1px solid var(--divider); }
+.two-col-head h2 { margin: 0; font-size: 1.25rem; font-weight: 500; }
+.two-col-back { display: none; width: 40px; height: 40px; margin-left: -8px; border-radius: 50%; place-items: center; color: var(--text-2); }
+.two-col-back:hover { background: var(--bg-hover); }
+.two-col-empty { margin: auto; padding: 24px; color: var(--text-2); text-align: center; }
+.two-col-pad { padding: 8px 20px; margin: 0; }
+.search-pill { display: flex; align-items: center; gap: 10px; margin: 0 12px 10px; padding: 0 16px; height: 40px; border-radius: 999px; background: var(--bg-input); color: var(--text-2); }
+.search-pill input { border: 0; background: transparent; padding: 0; min-height: 0; height: 100%; font-size: 15px; color: var(--text); outline: none; }
+.contacts-side .chip-row { padding: 0 12px 10px; }
+.chip[aria-pressed="true"] { background: var(--bg-active); color: var(--text); border-color: transparent; font-weight: 600; }
+.chip-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.contacts-side .contact-list { border: 0; border-radius: 0; background: transparent; padding: 0 6px 12px; }
+.contact-row { display: flex; align-items: center; gap: 13px; padding: 10px 12px; border-radius: 12px; color: inherit; text-decoration: none; }
+.contact-row:hover { background: var(--bg-hover); }
+.contact-row.active { background: var(--bg-active); }
+.contact-row .conv-main { display: grid; gap: 2px; min-width: 0; }
+.contact-row .conv-name { font-size: 1.03rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contact-tags { display: flex; gap: 6px; margin-top: 3px; min-width: 0; overflow: hidden; }
+.label-tag--more { padding: 0 7px; background: var(--bg-active); color: var(--text-2); }
+.btn-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 22px; border-radius: 999px; background: var(--green-strong); color: #fff; font-weight: 600; text-decoration: none; }
+.ficha--page { flex: 1; width: 100%; border-left: 0; position: static; box-shadow: none; max-width: none; }
+.settings-card { display: flex; align-items: center; gap: 14px; margin: 0 12px 8px; padding: 12px 8px; border-bottom: 1px solid var(--divider); }
+.avatar--lg { width: 56px; height: 56px; font-size: 1.1rem; background: #7e57c2; color: #fff; }
+.settings-card-who { display: grid; gap: 2px; min-width: 0; }
+.settings-card-who strong { font-size: 1.06rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-card-who small, .settings-item small { color: var(--text-2); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-list ul { list-style: none; margin: 0; padding: 0 6px 12px; display: grid; gap: 2px; }
+.settings-item { display: flex; align-items: center; gap: 18px; width: 100%; min-height: 56px; padding: 10px 16px; border-radius: 12px; color: var(--text); text-decoration: none; background: transparent; text-align: left; }
+.settings-item svg { flex: none; color: var(--text-2); }
+.settings-item span { display: grid; gap: 1px; min-width: 0; }
+.settings-item strong { font-weight: 400; font-size: 1rem; }
+.settings-item:hover { background: var(--bg-hover); }
+.settings-item.active { background: var(--bg-active); }
+.settings-item--danger, .settings-item--danger svg { color: var(--danger); }
+.settings-body { width: 100%; max-width: 680px; margin: 0 auto; padding: 20px 16px 32px; display: grid; align-content: start; }
+.settings-body > .profile, .settings-body > .conn-page, .settings-body > .team-page { max-width: none; padding: 0; flex: none; overflow: visible; }
+.settings-body > .profile { background: var(--bg-panel); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+.settings-body .qr-list li { background: var(--bg-rail); border-color: transparent; }
+.settings-body .card { max-width: none; box-shadow: var(--shadow); }
+.settings-body .team-page > *, .settings-body .conn-page > * { max-width: none; }
+.settings-body .conn-page { place-items: stretch; }
+@media (min-width: 768px) {
+  .ficha--page .ficha-close { display: none; }
+}
+@media (max-width: 767px) {
+  .two-col-list { width: 100%; border-right: 0; }
+  .two-col--detail .two-col-list, .two-col:not(.two-col--detail) .two-col-detail { display: none; }
+  .two-col-back { display: grid; }
+  .two-col-head { padding: 0 12px; }
+}
+/* Ficha dentro de Contatos: cartões centralizados sobre o fundo da barra */
+.ficha--page { background: var(--bg-rail); }
+.ficha--page .ficha-body { gap: 12px; padding: 0 16px 32px; justify-items: center; }
+.ficha--page .ficha-hero { background: transparent; width: 100%; }
+.ficha--page .ficha-sec { width: 100%; max-width: 640px; border-radius: 12px; box-shadow: var(--shadow); }
+@media (min-width: 768px) {
+  .ficha--page .ficha-head { display: none; }
+}
+@media (max-width: 767px) {
+  .ficha--page .ficha-head { background: var(--bg-panel); border-bottom: 1px solid var(--divider); }
+}

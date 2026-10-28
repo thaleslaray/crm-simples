@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
 import { ApiError, api, type Label } from "../api";
 import { LabelChip, useLabels } from "../labels";
 import { authClient } from "../auth-client";
@@ -56,72 +55,66 @@ export function LabelsPage() {
   }
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <h1>Etiquetas</h1>
-        <Link to="/">Voltar</Link>
-      </header>
-      <main className="profile qr-admin">
-        {!isAdmin ? (
-          <p role="alert">Só o admin cadastra etiquetas.</p>
-        ) : (
-          <>
-            <form className="qr-form" onSubmit={save}>
-              <label>
-                Nome da etiqueta
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="VIP" maxLength={40} />
-              </label>
-              <label>
-                Cor
-                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="color-input" />
-              </label>
-              <div className="qr-actions">
-                <button type="submit" disabled={!name.trim()}>
-                  {editing ? "Salvar alterações" : "Adicionar"}
+    <main className="profile qr-admin">
+      {!isAdmin ? (
+        <p role="alert">Só o admin cadastra etiquetas.</p>
+      ) : (
+        <>
+          <form className="qr-form" onSubmit={save}>
+            <label>
+              Nome da etiqueta
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="VIP" maxLength={40} />
+            </label>
+            <label>
+              Cor
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="color-input" />
+            </label>
+            <div className="qr-actions">
+              <button type="submit" disabled={!name.trim()}>
+                {editing ? "Salvar alterações" : "Adicionar"}
+              </button>
+              {editing && (
+                <button type="button" className="secondary" onClick={reset}>
+                  Cancelar
                 </button>
-                {editing && (
-                  <button type="button" className="secondary" onClick={reset}>
-                    Cancelar
-                  </button>
-                )}
-              </div>
-            </form>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-            {list === null ? (
-              <p className="muted">Carregando…</p>
-            ) : list.length === 0 ? (
-              <p className="muted">Nenhuma etiqueta ainda.</p>
-            ) : (
-              <ul className="qr-list" aria-label="Etiquetas cadastradas">
-                {list.map((l) => (
-                  <li key={l.id}>
-                    <div className="qr-item-text">
-                      <LabelChip label={l} />
-                    </div>
-                    <div className="qr-actions">
-                      <button
-                        type="button"
-                        className="secondary"
-                        aria-label={`Editar ${l.name}`}
-                        onClick={() => (setEditing(l.id), setName(l.name), setColor(l.color))}
-                      >
-                        Editar
-                      </button>
-                      <button type="button" className="secondary" aria-label={`Apagar ${l.name}`} onClick={() => void remove(l)}>
-                        Apagar
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </main>
-    </div>
+              )}
+            </div>
+          </form>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          {list === null ? (
+            <p className="muted">Carregando…</p>
+          ) : list.length === 0 ? (
+            <p className="muted">Nenhuma etiqueta ainda.</p>
+          ) : (
+            <ul className="qr-list" aria-label="Etiquetas cadastradas">
+              {list.map((l) => (
+                <li key={l.id}>
+                  <div className="qr-item-text">
+                    <LabelChip label={l} />
+                  </div>
+                  <div className="qr-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label={`Editar ${l.name}`}
+                      onClick={() => (setEditing(l.id), setName(l.name), setColor(l.color))}
+                    >
+                      Editar
+                    </button>
+                    <button type="button" className="secondary" aria-label={`Apagar ${l.name}`} onClick={() => void remove(l)}>
+                      Apagar
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </main>
   );
 }

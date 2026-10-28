@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { backToInbox, openSettingsItem } from "./navegacao";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
 async function clientWrites(request: APIRequestContext, id: string, phone: string) {
@@ -46,14 +47,14 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   await page.getByRole("button", { name: "Entrar" }).click();
 
   // Cadastro (admin)
-  await page.getByRole("link", { name: "Etiquetas" }).click();
+  await openSettingsItem(page, /Etiquetas/);
   await page.getByLabel("Nome da etiqueta").fill(labelName);
   await page.getByRole("button", { name: "Adicionar" }).click();
   const list = page.getByRole("list", { name: "Etiquetas cadastradas" });
   await expect(list.getByText(labelName)).toBeVisible();
   await snap(page, "cadastro", info.project.name);
   await noHorizontalOverflow(page);
-  await page.getByRole("link", { name: "Voltar" }).click();
+  await backToInbox(page);
 
   // Aplica pela ficha
   await page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first().click();
@@ -83,7 +84,7 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   await expect(contacts.getByText(`Cliente ${run}`)).toBeVisible();
   await expect(contacts.getByText(labelName)).toBeVisible();
   await page.getByLabel("Buscar contato").fill("");
-  await page.getByLabel("Filtrar por etiqueta").selectOption({ label: labelName });
+  await page.getByRole("button", { name: labelName }).click();
   await expect(contacts.locator("li")).toHaveCount(1);
   await snap(page, "contatos", info.project.name);
   await noHorizontalOverflow(page);

@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { backToInbox, openSettingsItem } from "./navegacao";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
@@ -58,11 +59,11 @@ test("atendente responde com assinatura, reenvia o que falhou, preserva o rascun
   await page.getByRole("button", { name: "Entrar" }).click();
 
   // O D1 é compartilhado: garante a assinatura ligada antes de começar
-  await page.getByTestId("user-name").click();
+  await openSettingsItem(page, /Perfil/);
   const signature = page.getByLabel("Assinar minhas mensagens com meu nome");
   await expect(signature).toBeEnabled();
   await signature.check();
-  await page.getByRole("link", { name: "Voltar" }).click();
+  await backToInbox(page);
 
   const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}$|Cliente ${run} `) }).first();
   await item.click();
@@ -104,7 +105,7 @@ test("atendente responde com assinatura, reenvia o que falhou, preserva o rascun
   await page.reload();
   await expect(signature).not.toBeChecked();
   await noHorizontalOverflow(page);
-  await page.getByRole("link", { name: "Voltar" }).click();
+  await backToInbox(page);
   await item.click();
   await field.fill(`Sem nome ${run}`);
   await conversation.getByRole("button", { name: "Enviar" }).click();

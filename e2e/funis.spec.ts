@@ -1,5 +1,6 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { openSettingsItem } from "./navegacao";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
 type WithSockets = { __sockets: WebSocket[] };
@@ -102,8 +103,7 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await login(page);
 
   // Cadastro (admin): funil e tres etapas
-  await page.getByRole("link", { name: "Funis" }).click();
-  await page.getByRole("link", { name: "Gerenciar funis" }).click();
+  await openSettingsItem(page, /Funis e etapas/);
   await page.getByLabel("Nome do funil", { exact: true }).fill(funnelName);
   await page.getByRole("button", { name: "Criar funil" }).click();
   const editor = page.getByRole("region", { name: `Funil ${funnelName}` });
@@ -120,7 +120,7 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await expect(editor.getByLabel(/^Nome da etapa/).nth(2)).toHaveValue("Extra");
   await snap(page, "cadastro", project);
   await noHorizontalOverflow(page);
-  await page.getByRole("link", { name: "Voltar" }).click();
+  await page.getByRole("link", { name: "Funis", exact: true }).click();
 
   // Quadro: adiciona o contato escolhendo a etapa inicial
   await page.getByRole("button", { name: funnelName, exact: true }).click();

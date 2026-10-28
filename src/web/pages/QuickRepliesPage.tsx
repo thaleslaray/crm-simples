@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router";
 import { ApiError, api, type QuickReply } from "../api";
 
 /** Cadastro das respostas rápidas da equipe (só admin; o servidor também barra). */
@@ -53,74 +52,68 @@ export function QuickRepliesPage() {
   }
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <h1>Respostas rápidas</h1>
-        <Link to="/">Voltar</Link>
-      </header>
-      <main className="profile qr-admin">
-        {forbidden ? (
-          <p role="alert">Só o admin cadastra respostas rápidas.</p>
-        ) : (
-          <>
-            <form className="qr-form" onSubmit={save}>
-              <label>
-                Atalho (sem espaços)
-                <input value={shortcut} onChange={(e) => setShortcut(e.target.value)} placeholder="ola" maxLength={40} />
-              </label>
-              <label>
-                Texto
-                <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="Olá {nome}, tudo bem?" />
-              </label>
-              <p className="muted">Use {"{nome}"} para inserir o nome do contato.</p>
-              <div className="qr-actions">
-                <button type="submit" disabled={!shortcut.trim() || !text.trim()}>
-                  {editing ? "Salvar alterações" : "Adicionar"}
+    <main className="profile qr-admin">
+      {forbidden ? (
+        <p role="alert">Só o admin cadastra respostas rápidas.</p>
+      ) : (
+        <>
+          <form className="qr-form" onSubmit={save}>
+            <label>
+              Atalho (sem espaços)
+              <input value={shortcut} onChange={(e) => setShortcut(e.target.value)} placeholder="ola" maxLength={40} />
+            </label>
+            <label>
+              Texto
+              <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="Olá {nome}, tudo bem?" />
+            </label>
+            <p className="muted">Use {"{nome}"} para inserir o nome do contato.</p>
+            <div className="qr-actions">
+              <button type="submit" disabled={!shortcut.trim() || !text.trim()}>
+                {editing ? "Salvar alterações" : "Adicionar"}
+              </button>
+              {editing && (
+                <button type="button" className="secondary" onClick={reset}>
+                  Cancelar
                 </button>
-                {editing && (
-                  <button type="button" className="secondary" onClick={reset}>
-                    Cancelar
-                  </button>
-                )}
-              </div>
-            </form>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-            {list === null ? (
-              <p className="muted">Carregando…</p>
-            ) : list.length === 0 ? (
-              <p className="muted">Nenhuma resposta rápida ainda.</p>
-            ) : (
-              <ul className="qr-list" aria-label="Respostas cadastradas">
-                {list.map((r) => (
-                  <li key={r.id}>
-                    <div className="qr-item-text">
-                      <strong>/{r.shortcut}</strong>
-                      <span>{r.text}</span>
-                    </div>
-                    <div className="qr-actions">
-                      <button
-                        type="button"
-                        className="secondary"
-                        aria-label={`Editar /${r.shortcut}`}
-                        onClick={() => (setEditing(r.id), setShortcut(r.shortcut), setText(r.text))}
-                      >
-                        Editar
-                      </button>
-                      <button type="button" className="secondary" aria-label={`Apagar /${r.shortcut}`} onClick={() => void remove(r)}>
-                        Apagar
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </main>
-    </div>
+              )}
+            </div>
+          </form>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          {list === null ? (
+            <p className="muted">Carregando…</p>
+          ) : list.length === 0 ? (
+            <p className="muted">Nenhuma resposta rápida ainda.</p>
+          ) : (
+            <ul className="qr-list" aria-label="Respostas cadastradas">
+              {list.map((r) => (
+                <li key={r.id}>
+                  <div className="qr-item-text">
+                    <strong>/{r.shortcut}</strong>
+                    <span>{r.text}</span>
+                  </div>
+                  <div className="qr-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label={`Editar /${r.shortcut}`}
+                      onClick={() => (setEditing(r.id), setShortcut(r.shortcut), setText(r.text))}
+                    >
+                      Editar
+                    </button>
+                    <button type="button" className="secondary" aria-label={`Apagar /${r.shortcut}`} onClick={() => void remove(r)}>
+                      Apagar
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </main>
   );
 }

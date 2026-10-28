@@ -13,6 +13,7 @@ import { InvitePage, ResetPasswordPage } from "./pages/LinkPages";
 import { LoginPage } from "./pages/LoginPage";
 import { TeamPage } from "./pages/TeamPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { SettingsLayout } from "./pages/SettingsLayout";
 import { QuickRepliesPage } from "./pages/QuickRepliesPage";
 import { useAlerts } from "./alerts";
 import { useRealtimeConnection } from "./realtime";
@@ -49,20 +50,24 @@ export function App() {
       <Route path="/convite/:token" element={<InvitePage />} />
       <Route path="/redefinir-senha/:token" element={<ResetPasswordPage />} />
       <Route element={<RequireSession />}>
-        <Route path="/perfil" element={<ProfilePage />} />
         <Route path="/contatos" element={<ContactsPage />} />
-        <Route path="/respostas-rapidas" element={<QuickRepliesPage />} />
+        <Route path="/contatos/:contactId" element={<ContactsPage />} />
         <Route path="/funis" element={<FunnelsPage />} />
         <Route path="/funis/:id" element={<FunnelsPage />} />
         <Route element={<InboxPage />}>
           <Route path="/" element={<NoConversationSelected />} />
           <Route path="/conversas/:id" element={<ConversationPage />} />
         </Route>
-        <Route element={<RequireAdmin />}>
-          <Route path="/conexao" element={<ConnectionPage />} />
-          <Route path="/equipe" element={<TeamPage />} />
-          <Route path="/etiquetas" element={<LabelsPage />} />
-          <Route path="/funis/gerenciar" element={<FunnelsAdminPage />} />
+        <Route element={<SettingsLayout />}>
+          <Route path="/configuracoes" element={null} />
+          <Route path="/perfil" element={<ProfilePage />} />
+          <Route path="/respostas-rapidas" element={<QuickRepliesPage />} />
+          <Route element={<RequireAdmin />}>
+            <Route path="/conexao" element={<ConnectionPage />} />
+            <Route path="/equipe" element={<TeamPage />} />
+            <Route path="/etiquetas" element={<LabelsPage />} />
+            <Route path="/funis/gerenciar" element={<FunnelsAdminPage />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

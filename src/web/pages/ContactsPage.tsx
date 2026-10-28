@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
+import { Search } from "lucide-react";
 import { api, type ContactRow } from "../api";
+import { LabelTag } from "../components/LabelTag";
+import { TwoColumnPage } from "../components/TwoColumnPage";
 import { contactLabel, initials } from "../format";
-import { LabelChip, useLabels } from "../labels";
+import { useLabels } from "../labels";
 import { onRealtime } from "../realtime";
+import { ContactPanel, StartConversationButton } from "./ContactPanel";
 
-/** Lista de contatos: busca por nome ou telefone e filtro por etiqueta (inclui quem não está na caixa de entrada). */
+const MAX_TAGS = 2;
+
+/** Contatos em duas colunas: lista com busca e chips de etiqueta; a ficha do contato escolhido fica à direita. */
 export function ContactsPage() {
   const labels = useLabels();
+  const navigate = useNavigate();
+  const { contactId } = useParams();
   const [query, setQuery] = useState("");
   const [label, setLabel] = useState("");
   const [rows, setRows] = useState<ContactRow[] | null>(null);
@@ -31,44 +39,45 @@ export function ContactsPage() {
     };
   }, [query, label]);
 
-  return (
-    <div className="shell">
-      <header className="topbar">
-        <h1>Contatos</h1>
-        <Link to="/">Voltar</Link>
-      </header>
-      <main className="contacts-page">
-        <div className="contacts-filters">
-          <input
-            type="search"
-            aria-label="Buscar contato"
-            placeholder="Buscar por nome ou telefone"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <select aria-label="Filtrar por etiqueta" value={label} onChange={(e) => setLabel(e.target.value)}>
-            <option value="">Todas as etiquetas</option>
-            {labels.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {failed && rows === null ? (
-          <p className="error" role="alert">
-            Não foi possível carregar os contatos.
-          </p>
-        ) : rows === null ? (
-          <p className="muted">Carregando…</p>
-        ) : rows.length === 0 ? (
-          <p className="muted">Nenhum contato encontrado.</p>
-        ) : (
-          <ul className="contact-list" aria-label="Contatos">
-            {rows.map((c) => {
-              const name = contactLabel(c);
-              const body = (
-                <>
+  const list = (
+    <section className="contacts-side" aria-label="Lista de contatos">
+      <h1 className="two-col-title">Contatos</h1>
+      <label className="search-pill">
+        <Search size={18} aria-hidden="true" />
+        <input
+          type="search"
+          aria-label="Buscar contato"
+          placeholder="Buscar por nome ou telefone"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </label>
+      <div className="chip-row" role="group" aria-label="Filtrar por etiqueta">
+        <button type="button" className="chip" aria-pressed={label === ""} onClick={() => setLabel("")}>
+          Todos
+        </button>
+        {labels.map((l) => (
+          <button key={l.id} type="button" className="chip" aria-pressed={label === l.id} onClick={() => setLabel(l.id)}>
+            <i className="chip-dot" style={{ background: l.color }} aria-hidden="true" />
+            {l.name}
+          </button>
+        ))}
+      </div>
+      {failed && rows === null ? (
+        <p className="error two-col-pad" role="alert">
+          Não foi possível carregar os contatos.
+        </p>
+      ) : rows === null ? (
+        <p className="muted two-col-pad">Carregando…</p>
+      ) : rows.length === 0 ? (
+        <p className="muted two-col-pad">Nenhum contato encontrado.</p>
+      ) : (
+        <ul className="contact-list" aria-label="Contatos">
+          {rows.map((c) => {
+            const name = contactLabel(c);
+            return (
+              <li key={c.id}>
+                <Link to={`/contatos/${c.id}`} className={`contact-row${c.id === contactId ? " active" : ""}`} aria-current={c.id === contactId ? "page" : undefined}>
                   <span className="avatar" aria-hidden="true">
                     {initials(name)}
                   </span>
@@ -76,30 +85,43 @@ export function ContactsPage() {
                     <span className="conv-name">{name}</span>
                     {c.phone && c.name?.trim() && <span className="muted">{c.phone}</span>}
                     {c.labels.length > 0 && (
-                      <span className="chips" aria-label="Etiquetas">
-                        {c.labels.map((l) => (
-                          <LabelChip key={l.id} label={l} />
+                      <span className="contact-tags" aria-label="Etiquetas">
+                        {c.labels.slice(0, MAX_TAGS).map((l) => (
+                          <LabelTag key={l.id} label={l} />
                         ))}
+                        {c.labels.length > MAX_TAGS && <span className="label-tag label-tag--more">+{c.labels.length - MAX_TAGS}</span>}
                       </span>
                     )}
                   </span>
-                </>
-              );
-              return (
-                <li key={c.id}>
-                  {c.conversationId ? (
-                    <Link to={`/conversas/${c.conversationId}`} className="conv-item">
-                      {body}
-                    </Link>
-                  ) : (
-                    <div className="conv-item">{body}</div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </main>
-    </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
+
+  const detail = contactId ? (
+    <ContactPanel
+      key={contactId}
+      contactId={contactId}
+      className="ficha--page"
+      onClose={() => navigate("/contatos")}
+      heroAction={(contact) => {
+        const conversationId = rows?.find((r) => r.id === contact.id)?.conversationId;
+        return conversationId ? (
+          <Link to={`/conversas/${conversationId}`} className="btn-link ficha-start">
+            Abrir conversa
+          </Link>
+        ) : (
+          <StartConversationButton contact={contact} />
+        );
+      }}
+    />
+  ) : (
+    <p className="two-col-empty">Escolha um contato para ver a ficha.</p>
+  );
+
+  return <TwoColumnPage list={list} detail={detail} hasDetail={Boolean(contactId)} />;
 }

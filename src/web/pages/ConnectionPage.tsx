@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
 import { api } from "../api";
 import { useConnection } from "../connection";
 
@@ -52,42 +51,34 @@ export function ConnectionPage() {
   }
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <h1>Conexão do número</h1>
-        <Link to="/" className="link">
-          Caixa de entrada
-        </Link>
-      </header>
-      <main className="conn-page">
-        <section className="card conn-card" aria-label="Status do número">
-          <p className={`conn-status conn-status--${status}`} data-testid="connection-status">
-            {statusLabel(status, state?.temporaryBan ?? false)}
+    <main className="conn-page">
+      <section className="card conn-card" aria-label="Status do número">
+        <p className={`conn-status conn-status--${status}`} data-testid="connection-status">
+          {statusLabel(status, state?.temporaryBan ?? false)}
+        </p>
+        {state?.lastDisconnectReason && status !== "connected" && <p className="muted">Motivo: {state.lastDisconnectReason}</p>}
+        {status === "connecting" && (
+          <div className="qr">
+            {qrcode ? (
+              <img src={qrcode.startsWith("data:") ? qrcode : `data:image/png;base64,${qrcode}`} alt="QR code para conectar o WhatsApp" />
+            ) : (
+              <p className="muted">Gerando o QR code…</p>
+            )}
+            <p className="muted">No celular: WhatsApp, Aparelhos conectados, Conectar um aparelho. O código se atualiza sozinho.</p>
+          </div>
+        )}
+        {status !== "connected" && (
+          <button type="button" onClick={connect} disabled={busy}>
+            {status === "connecting" ? "Gerar novo QR code" : "Conectar número"}
+          </button>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
           </p>
-          {state?.lastDisconnectReason && status !== "connected" && <p className="muted">Motivo: {state.lastDisconnectReason}</p>}
-          {status === "connecting" && (
-            <div className="qr">
-              {qrcode ? (
-                <img src={qrcode.startsWith("data:") ? qrcode : `data:image/png;base64,${qrcode}`} alt="QR code para conectar o WhatsApp" />
-              ) : (
-                <p className="muted">Gerando o QR code…</p>
-              )}
-              <p className="muted">No celular: WhatsApp, Aparelhos conectados, Conectar um aparelho. O código se atualiza sozinho.</p>
-            </div>
-          )}
-          {status !== "connected" && (
-            <button type="button" onClick={connect} disabled={busy}>
-              {status === "connecting" ? "Gerar novo QR code" : "Conectar número"}
-            </button>
-          )}
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-        </section>
-      </main>
-    </div>
+        )}
+      </section>
+    </main>
   );
 }
 
