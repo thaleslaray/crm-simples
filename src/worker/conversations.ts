@@ -143,6 +143,7 @@ export type MessageRow = {
   text: string | null;
   status: SendStatus | null;
   authorName: string | null;
+  sentById: string | null;
   timestamp: number;
   mediaStatus: "pending" | "available" | "failed" | null;
   mediaKey: string | null;
@@ -196,6 +197,7 @@ const messageColumns = {
   text: schema.message.text,
   status: schema.message.status,
   authorName: schema.user.name,
+  sentById: schema.message.sentById,
   timestamp: schema.message.timestamp,
   mediaStatus: schema.message.mediaStatus,
   mediaKey: schema.message.mediaKey,

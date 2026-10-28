@@ -28,6 +28,7 @@ export interface HistoryMessage {
   direction: string;
   status?: string | null;
   authorName?: string | null;
+  sentById?: string | null;
   timestamp: number;
   media: { status: "pending" | "available" | "failed" | "expired"; mime: string | null; size: number | null; name: string | null } | null;
   location: { lat: number; lng: number; name: string | null; address: string | null } | null;

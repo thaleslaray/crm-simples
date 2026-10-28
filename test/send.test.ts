@@ -34,6 +34,20 @@ describe("Responder com texto", () => {
     expect(messages.at(-1)).toMatchObject({ direction: "out", text: "Bom dia!", status: "sent" });
   });
 
+  it("devolve o id de quem enviou, no envio e no histórico, para o cliente dar cor estável ao autor", async () => {
+    const ana = await createUser({ email: "ana@exemplo.com", password: "senha-segura-123", name: "Ana", role: "atendente" });
+    const cookie = (await signIn("ana@exemplo.com", "senha-segura-123")).cookie;
+    const conversa = await conversationWithClient(cookie);
+    await uazapi.program("POST", SEND, [{ body: { id: "owner:OUTID" } }]);
+
+    const res = await sendText(cookie, conversa, "Oi!");
+
+    expect(await messageOf(res)).toMatchObject({ sentById: ana });
+    const { messages } = await history(cookie, conversa);
+    expect(messages.at(-1)).toMatchObject({ direction: "out", sentById: ana });
+    expect(messages[0]).toMatchObject({ direction: "in", sentById: null });
+  });
+
   it("envia sem o nome quando o atendente desligou a assinatura", async () => {
     const cookie = await loginAsAna();
     const conversa = await conversationWithClient(cookie);
