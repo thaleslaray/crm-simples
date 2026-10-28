@@ -47,8 +47,11 @@ export const realtime = new Hono<AppEnv>();
 
 // Sessao validada ANTES do upgrade; sem ela, 401 e o hub nem e acordado.
 // O hub guarda o id do membro no socket para poder fecha-lo se ele for removido.
-realtime.get("/", requireFreshAuth, (c) => {
+realtime.get("/", requireFreshAuth, async (c) => {
+  // Cross-site WebSocket hijacking: o cookie vai junto de qualquer site, entao o Origin tem que ser o nosso host.
+  const origin = c.req.header("origin");
+  if (origin && new URL(origin).host !== new URL(c.req.url).host) return c.json({ error: "origem_invalida" }, 403);
   const headers = new Headers(c.req.raw.headers);
   headers.set("x-user-id", c.get("user").id);
-  return hub(c.env).fetch(new Request(c.req.raw, { headers }));
+  return await hub(c.env).fetch(new Request(c.req.raw, { headers }));
 });

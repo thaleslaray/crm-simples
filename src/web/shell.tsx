@@ -114,7 +114,7 @@ function Rail() {
           <Settings {...ICON} />
         </Link>
         <Link to="/perfil" aria-label={`Meu perfil, ${name}`} title={name} className="rail-avatar">
-          {data?.user.image ? <img src={data.user.image} alt="" /> : initials(name)}
+          {data?.user.image ? <img src={data.user.image} alt="" referrerPolicy="no-referrer" /> : initials(name)}
         </Link>
       </div>
     </nav>

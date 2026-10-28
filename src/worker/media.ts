@@ -38,8 +38,13 @@ export async function serveMedia(
     "x-content-type-options": "nosniff",
     "content-security-policy": "sandbox; default-src 'none'",
   });
-  const filename = (msg.mediaName ?? `arquivo-${msg.id}`).replace(/["\\\r\n]/g, "_");
-  headers.set("content-disposition", `${INLINE.test(mime) ? "inline" : "attachment"}; filename="${filename}"`);
+  // Header so aceita Latin-1: `filename` ASCII de reserva + `filename*` UTF-8 com o nome verdadeiro (emoji, acento).
+  const name = msg.mediaName ?? `arquivo-${msg.id}`;
+  const ascii = name.replace(/[^\x20-\x7e]|["\\]/g, "_");
+  headers.set(
+    "content-disposition",
+    `${INLINE.test(mime) ? "inline" : "attachment"}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+  );
 
   const body = "body" in object ? object.body : null;
   if (!body) return new Response(null, { status: 304 }); // so acontece com pre-condicoes, que nao enviamos

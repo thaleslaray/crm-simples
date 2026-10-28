@@ -76,7 +76,7 @@ describe("midia recebida: download pela fila", () => {
     await programDownload(uazapi, { name: "b.html", body: "<script>1</script>", mime: "text/html" });
     await deliverMediaJob(id);
     const res = await fetchMedia(cookie, id);
-    expect(res.headers.get("content-disposition")).toBe('attachment; filename="boleto.html"');
+    expect(res.headers.get("content-disposition")).toBe(`attachment; filename="boleto.html"; filename*=UTF-8''boleto.html`);
     await res.body?.cancel();
   });
 });

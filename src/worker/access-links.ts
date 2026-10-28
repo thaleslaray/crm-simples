@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import { Hono } from "hono";
-import { createAuth } from "./auth";
+import { createAuth, MIN_PASSWORD } from "./auth";
 import { createDb, type Db, schema } from "./db";
 import { buildUserStatements } from "./db/seed-user";
 import { ROLES, type AccessLinkKind, type Role } from "./db/schema";
@@ -9,7 +9,6 @@ import type { AppEnv } from "./middleware";
 
 /** Validade dos links de convite e de redefinicao. */
 export const LINK_TTL_MS = 3 * 24 * 60 * 60 * 1000;
-export const MIN_PASSWORD = 8;
 
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));

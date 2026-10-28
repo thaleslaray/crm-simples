@@ -39,7 +39,7 @@ if (values.local === values.remote) fail("informe exatamente um entre --local e 
 if (!values.email) fail("falta --email.");
 if (!values.name) fail("falta --name.");
 if (!password) fail("falta --password (ou BOOTSTRAP_ADMIN_PASSWORD).");
-if (password.length < 8) fail("a senha precisa ter pelo menos 8 caracteres.");
+if (password.length < 12) fail("a senha precisa ter pelo menos 12 caracteres.");
 
 const { statements } = await buildUserStatements({
   email: values.email,

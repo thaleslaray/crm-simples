@@ -24,6 +24,17 @@ export { InboxHub } from "./durable/inbox-hub";
 
 const app = new Hono<AppEnv>();
 
+// Cabecalhos de seguranca em toda resposta do Worker (os assets do SPA recebem os mesmos por public/_headers).
+// So os cinco pedidos: CSP aqui e SO frame-ancestors, sem politica completa. A midia ja traz a CSP propria e vence.
+app.use("*", async (c, next) => {
+  await next();
+  c.header("X-Frame-Options", "DENY");
+  c.header("Referrer-Policy", "no-referrer");
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Strict-Transport-Security", "max-age=31536000");
+  if (!c.res.headers.has("Content-Security-Policy")) c.header("Content-Security-Policy", "frame-ancestors 'none'");
+});
+
 // Todas as rotas do Better Auth (login, logout, sessao...). Cadastro publico esta desligado na config.
 app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env, c.req.url).handler(c.req.raw));
 

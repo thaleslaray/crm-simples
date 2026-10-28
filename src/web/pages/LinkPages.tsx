@@ -67,7 +67,7 @@ export function InvitePage() {
     if (r.ok) return window.location.assign("/");
     if (r.status === 409) setError("Já existe uma conta com esse e-mail.");
     else if (r.status === 410) setError(r.message ?? "Este link não vale mais.");
-    else setError("Confira os dados: nome, e-mail e senha com pelo menos 8 caracteres.");
+    else setError("Confira os dados: nome, e-mail e senha com pelo menos 12 caracteres.");
   }
 
   if (loaded.state === "loading")
@@ -98,7 +98,7 @@ export function InvitePage() {
           <input name="email" type="email" autoComplete="username" required />
         </label>
         <label>
-          Senha (mínimo 8 caracteres)
+          Senha (mínimo 12 caracteres)
           <input name="password" type="password" autoComplete="new-password" minLength={8} required />
         </label>
         {error && (
@@ -129,7 +129,7 @@ export function ResetPasswordPage() {
     const r = await links.resetPassword(token, String(form.get("password") ?? ""));
     setSubmitting(false);
     if (r.ok) return setDone(true);
-    setError(r.status === 410 ? (r.message ?? "Este link não vale mais.") : "A senha precisa ter pelo menos 8 caracteres.");
+    setError(r.status === 410 ? (r.message ?? "Este link não vale mais.") : "A senha precisa ter pelo menos 12 caracteres.");
   }
 
   if (loaded.state === "loading")
@@ -162,7 +162,7 @@ export function ResetPasswordPage() {
         <h1>Nova senha</h1>
         <p className="muted">Defina a nova senha de {loaded.data.name}.</p>
         <label>
-          Nova senha (mínimo 8 caracteres)
+          Nova senha (mínimo 12 caracteres)
           <input name="password" type="password" autoComplete="new-password" minLength={8} required />
         </label>
         {error && (

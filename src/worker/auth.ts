@@ -2,6 +2,9 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createDb, schema } from "./db";
 
+/** Tamanho minimo da senha: vale no login do Better Auth e nos fluxos de convite e redefinicao. */
+export const MIN_PASSWORD = 12;
+
 /**
  * Better Auth INSTANCIADO POR REQUISICAO: o binding D1 so existe dentro do handler,
  * entao nao ha singleton de modulo. A instancia e barata de criar.
@@ -16,7 +19,19 @@ export function createAuth(env: Cloudflare.Env, requestUrl: string) {
       enabled: true,
       // Sem cadastro publico: usuarios so nascem pelo bootstrap (e, nos proximos tickets, por convite do admin).
       disableSignUp: true,
+      minPasswordLength: MIN_PASSWORD,
     },
+    // Limite de tentativas guardado no D1: memoria nao vale em Workers (cada requisicao pode cair em outro isolate).
+    // `enabled` explicito porque o padrao so liga com NODE_ENV=production, que o Worker nao define.
+    rateLimit: {
+      enabled: true,
+      storage: "database",
+      window: 60,
+      max: 100,
+      customRules: { "/sign-in/email": { window: 60, max: 5 } },
+    },
+    // A Cloudflare poe o IP real do cliente em cf-connecting-ip; o padrao (x-forwarded-for) seria falsificavel.
+    advanced: { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } },
     user: {
       additionalFields: {
         // input:false => o cliente nunca consegue definir/alterar estes campos pela API publica.

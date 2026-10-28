@@ -174,7 +174,7 @@ export function ConnectionPage() {
                         <span className={`inst-pill inst-pill--${i.status}`}>{instanceStatusLabel(i.status)}</span>
                         {i.profileName && (
                           <span className="inst-profile muted">
-                            {i.profilePicUrl && <img src={i.profilePicUrl} alt="" className="inst-pic" />}
+                            {i.profilePicUrl && <img src={i.profilePicUrl} alt="" className="inst-pic" referrerPolicy="no-referrer" />}
                             {i.profileName}
                           </span>
                         )}

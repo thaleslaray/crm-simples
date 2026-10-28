@@ -303,7 +303,7 @@ function Card(props: {
     <>
       <div className="kcard-line">
         <span className="avatar avatar--xs" aria-hidden="true">
-          {card.avatarUrl ? <img src={card.avatarUrl} alt="" /> : initials(name)}
+          {card.avatarUrl ? <img src={card.avatarUrl} alt="" referrerPolicy="no-referrer" /> : initials(name)}
         </span>
         <span className="kcard-name">{name}</span>
         {card.lastMessage && <span className="kcard-time">{listTime(card.lastMessage.timestamp)}</span>}

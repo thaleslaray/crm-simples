@@ -127,6 +127,13 @@
       "when": 1793215664250,
       "tag": "0017_sudden_king_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793218044090,
+      "tag": "0018_rate_limit",
+      "breakpoints": true
     }
   ]
 }

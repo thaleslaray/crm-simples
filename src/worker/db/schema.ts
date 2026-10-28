@@ -72,6 +72,14 @@ export const verification = sqliteTable(
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
 
+/** Contador de tentativas do Better Auth (rateLimit.storage "database"): em Workers cada requisicao pode cair num isolate novo, entao memoria nao serve. */
+export const rateLimit = sqliteTable("rate_limit", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: integer("last_request").notNull(),
+});
+
 /** Link de uso unico com validade (ticket 06): convite (define o papel) ou redefinicao de senha (aponta o membro). So o hash do token e gravado. */
 export const ACCESS_LINK_KINDS = ["convite", "redefinicao"] as const;
 export type AccessLinkKind = (typeof ACCESS_LINK_KINDS)[number];
