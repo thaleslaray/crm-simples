@@ -2,6 +2,7 @@ import { and, desc, eq, lt, or, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
 import { type AppEnv, requireAuth } from "./middleware";
+import { sendOutgoingText } from "./send";
 
 export const conversations = new Hono<AppEnv>();
 conversations.use("*", requireAuth);
@@ -76,9 +77,12 @@ conversations.get("/:id/messages", async (c) => {
       direction: schema.message.direction,
       type: schema.message.type,
       text: schema.message.text,
+      status: schema.message.status,
+      authorName: schema.user.name,
       timestamp: schema.message.timestamp,
     })
     .from(schema.message)
+    .leftJoin(schema.user, eq(schema.user.id, schema.message.sentById))
     .where(
       and(
         eq(schema.message.conversationId, id),
@@ -96,4 +100,26 @@ conversations.get("/:id/messages", async (c) => {
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit).reverse(); // mais recentes, em ordem cronologica
   return c.json({ messages: page, nextBefore: hasMore ? encodeCursor(page[0]!) : null });
+});
+
+const MAX_TEXT_LENGTH = 4096;
+
+conversations.post("/:id/messages", async (c) => {
+  const body = await c.req.json<{ text?: unknown }>().catch(() => null);
+  const text = typeof body?.text === "string" ? body.text : "";
+  if (!text.trim() || text.length > MAX_TEXT_LENGTH) return c.json({ error: "texto_invalido" }, 400);
+  const result = await sendOutgoingText(c.env, { conversationId: c.req.param("id"), userId: c.get("user").id, text });
+  if (result === null || result === "not_failed") return c.json({ error: "nao_encontrado" }, 404);
+  return c.json({ message: result }, 201);
+});
+
+conversations.post("/:id/messages/:messageId/resend", async (c) => {
+  const result = await sendOutgoingText(c.env, {
+    conversationId: c.req.param("id"),
+    messageId: c.req.param("messageId"),
+    userId: c.get("user").id,
+  });
+  if (result === null) return c.json({ error: "nao_encontrado" }, 404);
+  if (result === "not_failed") return c.json({ error: "reenvio_indisponivel" }, 409);
+  return c.json({ message: result });
 });

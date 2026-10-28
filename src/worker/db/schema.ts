@@ -15,7 +15,7 @@ export const user = sqliteTable("user", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   /** Papel do membro: verificado no servidor (middleware requireRole). */
   role: text("role", { enum: ROLES }).notNull().default("atendente"),
-  /** Preferencia: prefixar mensagens enviadas com `*Nome:*` (ligada por padrao). So o campo; sem tela ainda. */
+  /** Preferencia: prefixar mensagens enviadas com `*Nome:*` (ligada por padrao). Editavel no perfil. */
   signatureEnabled: integer("signature_enabled", { mode: "boolean" }).notNull().default(true),
 });
 
@@ -76,6 +76,9 @@ export const verification = sqliteTable(
 export const CONVERSATION_STATUSES = ["aberta"] as const; // em_andamento/resolvida entram nos tickets de status
 export const MESSAGE_TYPES = ["text", "unsupported"] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
+/** Estado de envio das mensagens do atendente: sending (gravada, aguardando a Uazapi), sent, failed (recusa), uncertain (timeout). */
+export const SEND_STATUSES = ["sending", "sent", "failed", "uncertain"] as const;
+export type SendStatus = (typeof SEND_STATUSES)[number];
 
 /** Evento cru do webhook, gravado antes de qualquer processamento. `processedAt` nulo = nao processado. */
 export const webhookEvent = sqliteTable(
@@ -126,14 +129,18 @@ export const message = sqliteTable(
   "message",
   {
     id: text("id").primaryKey(),
-    /** `message.id` da Uazapi (chave de idempotencia). */
-    externalId: text("external_id").notNull().unique(),
+    /** `message.id` da Uazapi (chave de idempotencia). Nulo enquanto a mensagem enviada ainda nao tem id. */
+    externalId: text("external_id").unique(),
     /** `message.messageid` do WhatsApp. */
     whatsappMessageId: text("whatsapp_message_id"),
     conversationId: text("conversation_id")
       .notNull()
       .references(() => conversation.id, { onDelete: "cascade" }),
-    direction: text("direction", { enum: ["in"] }).notNull(),
+    direction: text("direction", { enum: ["in", "out"] }).notNull(),
+    /** So mensagens de saida. */
+    status: text("status", { enum: SEND_STATUSES }),
+    /** Atendente que enviou (so saida). */
+    sentById: text("sent_by_id").references(() => user.id, { onDelete: "set null" }),
     type: text("type", { enum: MESSAGE_TYPES }).notNull(),
     text: text("text"),
     timestamp: integer("timestamp").notNull(),

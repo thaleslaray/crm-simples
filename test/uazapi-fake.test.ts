@@ -18,19 +18,31 @@ describe("Uazapi falsa + cliente Uazapi", () => {
     expect(calls[0]!.headers.token).toBe(env.UAZAPI_INSTANCE_TOKEN);
   });
 
-  it("devolve respostas programadas em sequencia (429 com Retry-After, depois sucesso)", async () => {
+  it("429: espera ao menos o Retry-After (com jitter) e tenta de novo", async () => {
     await uazapi.program("GET", "/instance/status", [
       { status: 429, headers: { "Retry-After": "2" }, body: { error: "rate limit" } },
       { body: { instance: { status: "connecting" } } },
     ]);
-    const client = createUazapiClient(env);
-
-    const err = await client.getInstanceStatus().catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(UazapiHttpError);
-    expect(err).toMatchObject({ status: 429, retryAfterMs: 2000 });
+    const waits: number[] = [];
+    const client = createUazapiClient(env, { sleep: async (ms) => void waits.push(ms), random: () => 1 });
 
     expect(await client.getInstanceStatus()).toEqual({ status: "connecting" });
+
+    expect(waits).toEqual([2500]); // Retry-After 2s + jitter maximo de 25%
     expect(await uazapi.calls()).toHaveLength(2);
+  });
+
+  it("429 persistente: desiste depois das tentativas e expoe o erro", async () => {
+    await uazapi.program("GET", "/instance/status", [{ status: 429, body: { error: "rate limit" } }]);
+    const waits: number[] = [];
+    const client = createUazapiClient(env, { maxRetries: 2, sleep: async (ms) => void waits.push(ms), random: () => 1 });
+
+    const err = await client.getInstanceStatus().catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UazapiHttpError);
+    expect(err).toMatchObject({ status: 429 });
+    expect(waits).toEqual([500, 1000]); // backoff exponencial sem Retry-After
+    expect(await uazapi.calls()).toHaveLength(3);
   });
 
   it("devolve erro 500 programado", async () => {
