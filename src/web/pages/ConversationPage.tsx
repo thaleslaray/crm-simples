@@ -11,6 +11,8 @@ import { EventPill } from "../components/EventPill";
 import { MessageBubble } from "../components/MessageBubble";
 import { NoteBubble } from "../components/NoteBubble";
 import { VoiceRecorder } from "./VoiceRecorder";
+import { AttachMenu } from "../components/AttachMenu";
+import { Lock, LockOpen, Mic, SendHorizontal } from "lucide-react";
 
 /** Miniatura do anexo: a própria imagem, ou um ícone para os demais tipos. */
 function AttachmentThumb({ file }: { file: File }) {
@@ -267,6 +269,14 @@ export function ConversationPage() {
   // Modo "nota interna": o campo grava uma nota só da equipe, que nunca vai ao cliente.
   const [noteMode, setNoteMode] = useState(false);
   useEffect(() => setNoteMode(false), [id]);
+  // Celular: placeholders curtos.
+  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 767px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
   const [sendError, setSendError] = useState(false);
   // Mensagem que o atendente escolheu "Responder": a próxima mensagem sai citando-a.
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -540,9 +550,8 @@ export function ConversationPage() {
         </ol>
         {nextAfter && <p className="messages-edge muted">{loadingNewer ? "Carregando mensagens recentes…" : " "}</p>}
       </div>
-      </div>
       <form
-        className="composer"
+        className={`composer${noteMode ? " note-mode" : ""}`}
         onSubmit={(e) => {
           e.preventDefault();
           void (noteMode ? sendNote() : attachment ? sendAttachment() : sendDraft());
@@ -553,14 +562,6 @@ export function ConversationPage() {
             Não foi possível enviar. Tente de novo.
           </p>
         )}
-        <div className="composer-mode" role="group" aria-label="Tipo de envio">
-          <button type="button" className={noteMode ? "secondary" : "mode-on"} aria-pressed={!noteMode} onClick={() => setNoteMode(false)}>
-            Mensagem
-          </button>
-          <button type="button" className={noteMode ? "mode-note-on" : "secondary"} aria-pressed={noteMode} onClick={() => setNoteMode(true)}>
-            Nota interna
-          </button>
-        </div>
         {replyingTo && !noteMode && (
           <div className="reply-bar">
             <div className="reply-bar-text">
@@ -576,6 +577,9 @@ export function ConversationPage() {
         )}
         {slashOpen && (
           <ul className="qr-menu" role="listbox" aria-label="Respostas rápidas">
+            <li className="qr-label" role="presentation">
+              Respostas rápidas
+            </li>
             {matches.length === 0 ? (
               <li className="muted qr-empty">Nenhuma resposta encontrada</li>
             ) : (
@@ -595,6 +599,12 @@ export function ConversationPage() {
               ))
             )}
           </ul>
+        )}
+        {noteMode && (
+          <p className="note-hint">
+            <Lock aria-hidden="true" />
+            Nota interna: só a equipe vê. O cliente não recebe.
+          </p>
         )}
         {recording && !noteMode ? (
           <VoiceRecorder
@@ -616,23 +626,26 @@ export function ConversationPage() {
             </button>
           </div>
         )}
-        <div className="composer-row">
-          {!noteMode && (<>
-          <label className="icon-button" title="Anexar arquivo">
-            <span aria-hidden="true">📎</span>
-            <span className="sr-only">Anexar arquivo</span>
-            <input type="file" hidden onChange={(e) => { setAttachment(e.target.files?.[0] ?? null); e.target.value = ""; }} />
-          </label>
-          <label className="icon-button icon-button--camera" title="Tirar foto">
-            <span aria-hidden="true">📷</span>
-            <span className="sr-only">Tirar foto</span>
-            <input type="file" hidden accept="image/*" capture="environment" onChange={(e) => { setAttachment(e.target.files?.[0] ?? null); e.target.value = ""; }} />
-          </label></>)}
+        <div className="composer-pill">
+          {!noteMode && <AttachMenu onPick={setAttachment} />}
+          <button
+            type="button"
+            className={`composer-btn composer-lock${noteMode ? " on" : ""}`}
+            aria-label="Nota interna"
+            aria-pressed={noteMode}
+            title="Nota interna"
+            onClick={() => setNoteMode((v) => !v)}
+          >
+            {noteMode ? <Lock aria-hidden="true" /> : <LockOpen aria-hidden="true" />}
+          </button>
           <textarea
             ref={inputRef}
-            aria-label={noteMode ? "Nota interna" : "Mensagem"}
-            placeholder={noteMode ? "Escreva uma nota interna (o cliente não vê)" : "Escreva uma mensagem"}
-            className={noteMode ? "is-note" : undefined}
+            aria-label={noteMode ? "Texto da nota" : "Mensagem"}
+            placeholder={
+              noteMode
+                ? narrow ? "Nota para a equipe" : "Escreva uma nota para a equipe"
+                : narrow ? "Mensagem ou /" : "Digite uma mensagem ou / para respostas rápidas"
+            }
             rows={1}
             value={draft}
             onChange={(e) => {
@@ -663,18 +676,20 @@ export function ConversationPage() {
               }
             }}
           />
-          {!draft.trim() && !attachment && !noteMode && (
-            <button type="button" className="icon-button" aria-label="Gravar nota de voz" onClick={() => setRecording(true)}>
-              <span aria-hidden="true">🎤</span>
+          {!draft.trim() && !attachment && !noteMode ? (
+            <button type="button" className="composer-btn" aria-label="Gravar nota de voz" onClick={() => setRecording(true)}>
+              <Mic aria-hidden="true" />
+            </button>
+          ) : (
+            <button type="submit" className="composer-send" aria-label={noteMode ? "Salvar nota" : "Enviar"} disabled={(!draft.trim() && !(attachment && !noteMode)) || sendingFile}>
+              <SendHorizontal aria-hidden="true" />
             </button>
           )}
-          <button type="submit" disabled={(!draft.trim() && !(attachment && !noteMode)) || sendingFile}>
-            {noteMode ? "Salvar nota" : "Enviar"}
-          </button>
         </div>
           </>
         )}
       </form>
+      </div>
       </div>
       {fichaOpen && <ContactPanel contactId={conversation.contact.id} onClose={() => setFichaOpen(false)} />}
       </div>
