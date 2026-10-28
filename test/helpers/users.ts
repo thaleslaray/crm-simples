@@ -7,3 +7,8 @@ export async function createUser(input: Partial<NewUser> & Pick<NewUser, "email"
   await env.DB.batch(statements.map((s) => env.DB.prepare(s.sql).bind(...s.params)));
   return userId;
 }
+
+/** Muda o papel de um usuario ja criado (arrange de teste, direto no D1). */
+export async function setUserRole(userId: string, role: NewUser["role"]): Promise<void> {
+  await env.DB.prepare("UPDATE user SET role = ? WHERE id = ?").bind(role, userId).run();
+}

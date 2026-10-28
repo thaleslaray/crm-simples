@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { env } from "cloudflare:workers";
 import { api, cookieFrom, postJson, signIn } from "./helpers/api";
-import { createUser } from "./helpers/users";
+import { createUser, setUserRole } from "./helpers/users";
 
 const SENHA = "senha-segura-123";
 
@@ -109,11 +108,11 @@ describe("papeis", () => {
   });
 
   it("rebaixar um admin vale na hora nas rotas de admin (nao fica preso no cache de sessao)", async () => {
-    await createUser({ email: "chefe@exemplo.com", password: SENHA, role: "admin" });
+    const chefeId = await createUser({ email: "chefe@exemplo.com", password: SENHA, role: "admin" });
     const { cookie } = await signIn("chefe@exemplo.com", SENHA);
     expect((await api("/api/admin/ping", { cookie })).status).toBe(200);
 
-    await env.DB.prepare("UPDATE user SET role = 'atendente' WHERE email = ?").bind("chefe@exemplo.com").run();
+    await setUserRole(chefeId, "atendente");
 
     expect((await api("/api/admin/ping", { cookie })).status).toBe(403);
   });

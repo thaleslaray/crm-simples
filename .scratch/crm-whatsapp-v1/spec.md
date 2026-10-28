@@ -219,7 +219,7 @@ Um CRM web interno, usado só pela equipe da empresa, que conecta o número de W
 ## Testing Decisions
 
 - **Um bom teste exercita só comportamento externo**: entra por onde o sistema é chamado de verdade (HTTP, webhook, fila, cron, WebSocket) e verifica o que um usuário ou a Uazapi observariam (respostas da API, eventos no WebSocket, chamadas feitas à Uazapi, objetos no R2). Não testa funções internas, formato de tabelas ou chamadas do Drizzle.
-- **Costura principal: a borda do Worker.** Testes com `@cloudflare/vitest-pool-workers`, rodando sobre D1, Durable Object, Queues e R2 reais do Miniflare, chamando os handlers de fetch, queue e scheduled. A Uazapi é substituída por um servidor HTTP falso que grava as chamadas recebidas e devolve respostas programadas (incluindo `429`, timeout e erro).
+- **Costura principal: a borda do Worker.** Testes com `@cloudflare/vitest-plugin` (sucessor do `@cloudflare/vitest-pool-workers`; detalhes em `docs/agents/testing.md`), rodando sobre D1, Durable Object, Queues e R2 reais do Miniflare, chamando os handlers de fetch, queue e scheduled. A Uazapi é substituída por um servidor HTTP falso que grava as chamadas recebidas e devolve respostas programadas (incluindo `429`, timeout e erro).
 - Cobrir pela borda do Worker:
   - webhook: validação de origem, idempotência (o mesmo evento duas vezes vira uma mensagem), descarte de grupos e de `fromMe`, criação automática de contato e conversa, reabertura de resolvida;
   - pipeline de mídia: sucesso grava no R2, falha temporária faz retry, falha definitiva marca "falhou";

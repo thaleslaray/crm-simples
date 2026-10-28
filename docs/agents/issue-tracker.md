@@ -18,6 +18,12 @@ Create a new file under `.scratch/<feature-slug>/` (creating the directory if ne
 
 Read the file at the referenced path. The user will normally pass the path or the issue number directly.
 
+With no reference, the ticket is the **next ticket**: the lowest-numbered file in `.scratch/<feature>/issues/` with `Status: ready-for-agent` whose `Blocked by` tickets are all `done` or `ready-for-human` (only human items left, such as a deploy). State its number and title, then start.
+
+## When a ticket is finished
+
+Tick its checklist, append a dated note under `## Comments` (what was checked, anything left for later tickets), and set `Status: done`. If an item needs a human (deploy, credentials), leave it unticked and set `Status: ready-for-human`.
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
