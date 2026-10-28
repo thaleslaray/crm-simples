@@ -142,6 +142,8 @@ export interface Message {
   /** Só mensagens de saída: enviando, enviada, entregue, lida, reproduzida, falhou (recusa) ou incerto (timeout). */
   status?: SendStatus | null;
   authorName?: string | null;
+  /** Id de quem enviou (null: cliente ou membro removido); dá a cor estável do autor. */
+  sentById?: string | null;
   timestamp: number;
   media: MessageMedia | null;
   location: { lat: number; lng: number; name: string | null; address: string | null } | null;

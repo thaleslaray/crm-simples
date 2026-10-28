@@ -41,9 +41,9 @@ test("a ficha tem a ação de iniciar conversa com o contato", async ({ page }) 
   await expect(page).toHaveURL(/\/conversas\//);
 
   const ficha = page.getByRole("complementary", { name: "Ficha do contato" });
-  const toggle = page.getByRole("button", { name: "Ficha", exact: true });
+  const toggle = page.getByRole("button", { name: "Ficha do contato" });
   await expect(toggle).toBeVisible();
-  if ((await toggle.getAttribute("aria-pressed")) !== "true") await toggle.click();
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   await ficha.getByRole("button", { name: "Iniciar conversa" }).click();
   const again = page.getByRole("dialog", { name: "Nova conversa" });
   await expect(again.getByText("Para:")).toBeVisible();
