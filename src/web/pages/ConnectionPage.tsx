@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { api } from "../api";
+import { type FormEvent, useEffect, useState } from "react";
+import { api, type UazapiConfigSummary } from "../api";
 import { useConnection } from "../connection";
 
 const QR_POLL_MS = 3000;
@@ -11,6 +11,48 @@ export function ConnectionPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const status = state?.status ?? "unknown";
+  const [cfg, setCfg] = useState<UazapiConfigSummary | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [baseUrl, setBaseUrl] = useState("");
+  const [token, setToken] = useState("");
+  const [cfgMsg, setCfgMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .uazapiConfig()
+      .then(setCfg)
+      .catch(() => setCfgMsg("Não foi possível carregar os dados da Uazapi."));
+  }, []);
+
+  async function saveCfg(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setCfgMsg(null);
+    try {
+      const saved = await api.saveUazapiConfig(baseUrl, token);
+      setCfg(saved);
+      setEditing(false);
+      setToken("");
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      setCfgMsg(
+        code === "endereco_invalido"
+          ? "Endereço inválido. Use o endereço completo, começando com https://."
+          : code === "token_obrigatorio"
+            ? "Informe o token da instância."
+            : "A Uazapi não aceitou esses dados. Confira o endereço e o token e tente de novo.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startEditing() {
+    setBaseUrl(cfg?.baseUrl ?? "");
+    setToken("");
+    setCfgMsg(null);
+    setEditing(true);
+  }
 
   // Enquanto conectando, consulta a Uazapi de tempos em tempos: o QR code expira e o pareamento termina fora daqui.
   useEffect(() => {
@@ -67,7 +109,54 @@ export function ConnectionPage() {
             <p className="muted">No celular: WhatsApp, Aparelhos conectados, Conectar um aparelho. O código se atualiza sozinho.</p>
           </div>
         )}
-        {status !== "connected" && (
+        {cfg && (cfg.configured && !editing ? (
+          <p className="muted uazapi-line" data-testid="uazapi-resumo">
+            Servidor: {cfg.baseUrl} · Token {cfg.tokenHint}{" "}
+            <button type="button" className="secondary" onClick={startEditing}>
+              Alterar
+            </button>
+          </p>
+        ) : (
+          <form className="qr-form" onSubmit={saveCfg} aria-label="Dados da Uazapi">
+            <label>
+              Endereço do servidor
+              <input
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://seu-subdominio.uazapi.com"
+                inputMode="url"
+                autoComplete="off"
+              />
+            </label>
+            <label>
+              Token da instância
+              <input
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder={cfg.configured ? "Deixe vazio para manter o atual" : ""}
+                autoComplete="off"
+              />
+            </label>
+            <div className="qr-actions">
+              <button type="submit" disabled={busy || !baseUrl.trim() || (!cfg.configured && !token.trim())}>
+                Salvar
+              </button>
+              {cfg.configured && (
+                <button type="button" className="secondary" onClick={() => setEditing(false)}>
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </form>
+        ))}
+        {cfg && !cfg.configured && !editing && <p className="muted">Informe os dados da Uazapi para conectar o número.</p>}
+        {cfgMsg && (
+          <p className="error" role="alert">
+            {cfgMsg}
+          </p>
+        )}
+        {cfg?.configured && status !== "connected" && (
           <button type="button" onClick={connect} disabled={busy}>
             {status === "connecting" ? "Gerar novo QR code" : "Conectar número"}
           </button>

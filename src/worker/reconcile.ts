@@ -3,7 +3,7 @@ import { loadConversation, loadMessage } from "./conversations";
 import { createDb, type Db, schema } from "./db";
 import { ingestMessage } from "./ingest";
 import { publish } from "./realtime";
-import { createUazapiClient } from "./uazapi/client";
+import { getUazapiClient } from "./uazapi/config";
 import { errorName } from "./errors";
 
 const PAGE_SIZE = 100;
@@ -22,7 +22,7 @@ const ROW_ID = "inbox";
 async function recoverMessages(env: Cloudflare.Env, db: Db, now: number): Promise<void> {
   const state = await db.query.reconciliationState.findFirst({ where: eq(schema.reconciliationState.id, ROW_ID) });
   const since = Math.max(now - MAX_WINDOW_MS, state ? state.lastRunAt - MARGIN_MS : now - FIRST_WINDOW_MS);
-  const uazapi = createUazapiClient(env);
+  const uazapi = await getUazapiClient(env);
   let failed = false;
 
   for (let page = 0; page < MAX_PAGES; page++) {

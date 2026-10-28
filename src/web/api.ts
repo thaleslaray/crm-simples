@@ -190,6 +190,12 @@ export interface ConnectionWithQr {
   qrcode?: string;
 }
 
+export interface UazapiConfigSummary {
+  configured: boolean;
+  baseUrl?: string;
+  tokenHint?: string;
+}
+
 export class ApiError extends Error {
   constructor(readonly status: number) {
     super(`Falha na API (${status})`);
@@ -366,6 +372,22 @@ export const api = {
   connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
   /** Só admin: consulta a Uazapi e devolve o QR code atual. */
   connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),
+  /** Só admin: dados da Uazapi guardados (endereço e fim do token; o token inteiro nunca volta). */
+  uazapiConfig: () => getJson<UazapiConfigSummary>("/api/admin/uazapi"),
+  /** Só admin: grava os dados da Uazapi. Token vazio mantém o atual. Rejeita com `code` quando recusado (400). */
+  saveUazapiConfig: async (baseUrl: string, token: string): Promise<UazapiConfigSummary> => {
+    const res = await fetch("/api/admin/uazapi", {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ baseUrl, token }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw Object.assign(new ApiError(res.status), { code: body.error });
+    }
+    return res.json() as Promise<UazapiConfigSummary>;
+  },
   /** Só admin: inicia o pareamento. */
   connect: () => sendJson<ConnectionWithQr>("POST", "/api/connection/connect", {}),
   conversation: (id: string) => getJson<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`),

@@ -60,7 +60,6 @@ const vars = {
   BETTER_AUTH_SECRET: "segredo-e2e-com-mais-de-32-caracteres-aleatorios",
   UAZAPI_BASE_URL: `http://127.0.0.1:${E2E_UAZAPI_PORT}`,
   UAZAPI_INSTANCE_TOKEN: E2E_WEBHOOK.instanceToken,
-  UAZAPI_ADMIN_TOKEN: "token-admin-e2e",
   WEBHOOK_URL_SECRET: E2E_WEBHOOK.urlSecret,
 };
 writeFileSync(

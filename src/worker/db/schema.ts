@@ -116,6 +116,17 @@ export const workspaceSetting = sqliteTable("workspace_setting", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+/** Dados da Uazapi informados pela tela (uma unica linha, id "instance"). O token fica cifrado (AES-GCM, ver uazapi/config.ts). */
+export const uazapiSetting = sqliteTable("uazapi_setting", {
+  id: text("id").primaryKey(),
+  baseUrl: text("base_url").notNull(),
+  /** `iv.cifrado` em base64. Nunca devolvido pela API. */
+  tokenEnc: text("token_enc").notNull(),
+  /** Ultimos 4 caracteres do token, so para o admin reconhecer qual esta salvo. */
+  tokenLast4: text("token_last4").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
 /** Reconciliacao (ticket 19): uma unica linha (id "inbox") com o inicio da ultima conferencia bem-sucedida. */
 export const reconciliationState = sqliteTable("reconciliation_state", {
   id: text("id").primaryKey(),

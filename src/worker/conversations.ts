@@ -11,7 +11,7 @@ import { normalizePhone } from "../shared/phone";
 import { sendOutgoingText } from "./send";
 import { startConversation } from "./start-conversation";
 import { assignConversation, assumeConversation, type ChangeOutcome, listEvents, resolveConversation } from "./status";
-import { createUazapiClient } from "./uazapi/client";
+import { getUazapiClient } from "./uazapi/config";
 import { errorName } from "./errors";
 
 export const conversations = new Hono<AppEnv>();
@@ -317,7 +317,7 @@ conversations.post("/:id/read", async (c) => {
     const ids = unread.flatMap((m) => (m.externalId ? [m.externalId] : []));
     if (ids.length > 0) {
       try {
-        await createUazapiClient(c.env).markRead(ids);
+        await (await getUazapiClient(c.env)).markRead(ids);
       } catch (err) {
         console.error("conversa: falha ao marcar como lida na Uazapi", { erro: errorName(err) });
       }

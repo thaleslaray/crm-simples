@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { createDb, schema } from "./db";
 import { streamToR2 } from "./stream-to-r2";
-import { createUazapiClient } from "./uazapi/client";
+import { getUazapiClient } from "./uazapi/config";
 import { errorName } from "./errors";
 
 /** Igual a `max_retries` do consumer em wrangler.jsonc: a tentativa seguinte ja iria para a DLQ. */
@@ -14,7 +14,7 @@ async function downloadMedia(env: Cloudflare.Env, messageId: string): Promise<vo
   if (!msg || msg.mediaStatus !== "pending") return; // sumiu ou ja foi tratada (entrega repetida)
   if (!msg.externalId) throw new Error("mensagem sem id da Uazapi"); // midia so vem de mensagem recebida, que sempre tem
 
-  const uazapi = createUazapiClient(env);
+  const uazapi = await getUazapiClient(env);
   const link = await uazapi.downloadMedia(msg.externalId);
   const file = await uazapi.openFile(link.url);
   if (!file.body) throw new Error("arquivo sem corpo");

@@ -16,7 +16,6 @@ export default defineConfig({
             UAZAPI_BASE_URL: inject<string>("fakeUazapiUrl"),
             UAZAPI_INSTANCE_TOKEN: "token-instancia-teste",
             UAZAPI_TIMEOUT_MS: "500",
-            UAZAPI_ADMIN_TOKEN: "token-admin-teste",
             WEBHOOK_URL_SECRET: "segredo-webhook-teste",
           },
         },

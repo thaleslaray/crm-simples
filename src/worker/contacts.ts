@@ -8,7 +8,7 @@ import { ftsExpression, MIN_PHONE_DIGITS } from "./search";
 import { type AppEnv, requireAuth } from "./middleware";
 import { listNotes } from "./notes";
 import { publish } from "./realtime";
-import { createUazapiClient } from "./uazapi/client";
+import { getUazapiClient } from "./uazapi/config";
 import { errorName } from "./errors";
 
 export const contacts = new Hono<AppEnv>();
@@ -111,7 +111,7 @@ async function refreshAvatar(env: Cloudflare.Env, db: Db, contactId: string): Pr
   const row = await db.query.contact.findFirst({ where: eq(schema.contact.id, contactId), columns: { phone: true } });
   if (!row?.phone) return;
   try {
-    const url = await createUazapiClient(env).getAvatar(row.phone);
+    const url = await (await getUazapiClient(env)).getAvatar(row.phone);
     await db
       .update(schema.contact)
       .set({ ...(url ? { avatarUrl: url } : {}), avatarFetchedAt: Date.now() })

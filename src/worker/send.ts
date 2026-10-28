@@ -5,7 +5,8 @@ import { publish } from "./realtime";
 import { markReplied } from "./status";
 import type { MessageType, SendStatus } from "./db/schema";
 import { signedFileUrl } from "./signed-files";
-import { createUazapiClient, UazapiHttpError } from "./uazapi/client";
+import { UazapiHttpError } from "./uazapi/client";
+import { getUazapiClient } from "./uazapi/config";
 
 /** Arquivo anexado pelo atendente; `voice` = nota de voz gravada no navegador (vai como `ptt`, sem legenda). */
 export type OutgoingMedia = { file: File; caption: string; voice: boolean };
@@ -123,7 +124,7 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
     status = "failed";
   } else {
     try {
-      const uazapi = createUazapiClient(env);
+      const uazapi = await getUazapiClient(env);
       const signed = author.signatureEnabled ? `*${author.name}:*\n${text}` : text;
       const sent = hasMedia
         ? await uazapi.sendMedia({

@@ -62,8 +62,13 @@ O deploy é pelo GitHub (Workers Builds): cada push no `main` de `thaleslaray/cr
 - Build: `pnpm build`
 - Deploy: `pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy`
 
-Secrets do Worker (fora do repositório): `BETTER_AUTH_SECRET`, `WEBHOOK_URL_SECRET`, `UAZAPI_BASE_URL`,
-`UAZAPI_INSTANCE_TOKEN`, `UAZAPI_ADMIN_TOKEN`. Para trocar um: `pnpm exec wrangler secret put <NOME>`.
+Secrets do Worker (fora do repositório): `BETTER_AUTH_SECRET` e `WEBHOOK_URL_SECRET`. Para trocar um:
+`pnpm exec wrangler secret put <NOME>`.
+
+Uazapi: o admin informa o endereço do servidor e o token da instância em Configurações › Conexão do número. O token
+fica cifrado no D1 (AES-GCM, chave derivada do `BETTER_AUTH_SECRET`) e nunca volta ao navegador. **Trocar o
+`BETTER_AUTH_SECRET` invalida o token guardado**: a tela volta a pedir os dados. Sem dados no banco, valem os secrets
+opcionais `UAZAPI_BASE_URL` e `UAZAPI_INSTANCE_TOKEN` (usados por testes e por quem já os tem configurados).
 
 Primeiro admin: `pnpm bootstrap:admin --remote --email ... --name ... --password ...` (precisa de `pnpm exec wrangler login`).
 

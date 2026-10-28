@@ -9,6 +9,7 @@ import { applyStatusUpdate } from "./delivery";
 import { publish } from "./realtime";
 import { publishUpdate } from "./status";
 import { errorName } from "./errors";
+import { resolveUazapiConfig } from "./uazapi/config";
 
 /** Comparacao em tempo constante: hasheia os dois lados (tamanho fixo) e compara os digests. */
 async function safeEqual(a: unknown, b: string): Promise<boolean> {
@@ -27,9 +28,11 @@ webhook.post("/:secret", async (c) => {
   const body = await c.req.json().catch(() => null);
   const token = body && typeof body === "object" ? (body as { token?: unknown }).token : undefined;
   // Avalia os dois para nao revelar qual falhou pelo tempo de resposta.
+  const config = await resolveUazapiConfig(c.env);
   const [okSecret, okToken] = await Promise.all([
     safeEqual(c.req.param("secret"), c.env.WEBHOOK_URL_SECRET),
-    safeEqual(token, c.env.UAZAPI_INSTANCE_TOKEN),
+    // Sem token configurado nada passa (nem token vazio).
+    config ? safeEqual(token, config.token) : false,
   ]);
   if (!okSecret || !okToken) return c.json({ error: "nao_autorizado" }, 401);
   const { token: _token, ...payload } = body as Record<string, unknown>;

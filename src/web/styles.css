@@ -123,6 +123,8 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .conn-card { max-width: 440px; }
 .conn-status { margin: 0; font-size: 1.25rem; font-weight: 600; }
 .conn-status--connected { color: var(--brand); }
+.uazapi-line { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; overflow-wrap: anywhere; }
+.uazapi-line button { width: auto; padding: 4px 12px; font-size: 0.9rem; }
 .conn-status--disconnected { color: var(--danger); }
 .qr { display: grid; gap: 12px; justify-items: center; text-align: center; }
 .qr img { width: 100%; max-width: 280px; height: auto; aspect-ratio: 1; image-rendering: pixelated; background: #fff; border: 1px solid var(--border); border-radius: 8px; }

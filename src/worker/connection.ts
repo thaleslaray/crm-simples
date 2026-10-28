@@ -4,7 +4,7 @@ import { createDb, type Db, schema } from "./db";
 import { type ConnectionStatus } from "./db/schema";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
 import { publish } from "./realtime";
-import { createUazapiClient } from "./uazapi/client";
+import { getUazapiClient } from "./uazapi/config";
 import { errorName } from "./errors";
 
 const ROW_ID = "instance";
@@ -64,7 +64,7 @@ export async function recordConnection(env: Cloudflare.Env, db: Db, obs: Connect
 export async function refreshConnection(env: Cloudflare.Env, db: Db): Promise<{ state: ConnectionState; qrcode?: string } | null> {
   let remote;
   try {
-    remote = await createUazapiClient(env).getInstanceStatus();
+    remote = await (await getUazapiClient(env)).getInstanceStatus();
   } catch (err) {
     console.error("conexao: falha ao consultar a Uazapi", { erro: errorName(err) });
     return null;
@@ -95,8 +95,8 @@ connection.get("/status", requireRole("admin"), async (c) => {
 // Inicia o pareamento: garante o webhook certo e pede o QR code.
 connection.post("/connect", requireRole("admin"), async (c) => {
   const db = createDb(c.env.DB);
-  const uazapi = createUazapiClient(c.env);
   try {
+    const uazapi = await getUazapiClient(c.env);
     await uazapi.configureWebhook(`${new URL(c.req.url).origin}/api/webhook/${c.env.WEBHOOK_URL_SECRET}`);
     const remote = await uazapi.connect();
     const state = await recordConnection(c.env, db, { status: normalizeStatus(remote.status) });
