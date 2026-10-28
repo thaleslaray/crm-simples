@@ -1,5 +1,6 @@
 // Esquema D1 (Drizzle). Tabelas user/session/account/verification seguem o contrato do Better Auth;
 // `role` e `signatureEnabled` sao campos adicionais do usuario (declarados tambem em auth.ts).
+import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const ROLES = ["admin", "atendente"] as const;
@@ -71,6 +72,27 @@ export const verification = sqliteTable(
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
 
+// ---- Conexao do numero (ticket 18) ----
+
+export const CONNECTION_STATUSES = ["connected", "connecting", "disconnected"] as const;
+export type ConnectionStatus = (typeof CONNECTION_STATUSES)[number];
+
+/** Estado da conexao do numero: uma unica linha (id "instance"). Sem linha = ainda desconhecido. */
+export const connectionState = sqliteTable("connection_state", {
+  id: text("id").primaryKey(),
+  status: text("status", { enum: CONNECTION_STATUSES }).notNull(),
+  /** `type` do evento connection (Disconnected, TemporaryBan). */
+  disconnectType: text("disconnect_type"),
+  lastDisconnectReason: text("last_disconnect_reason"),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+/** Reconciliacao (ticket 19): uma unica linha (id "inbox") com o inicio da ultima conferencia bem-sucedida. */
+export const reconciliationState = sqliteTable("reconciliation_state", {
+  id: text("id").primaryKey(),
+  lastRunAt: integer("last_run_at").notNull(),
+});
+
 // ---- Caixa de entrada (ticket 02) ----
 
 export const CONVERSATION_STATUSES = ["aberta", "em_andamento", "aguardando_cliente", "resolvida"] as const;
@@ -79,8 +101,11 @@ export const MESSAGE_TYPES = ["text", "image", "video", "audio", "voice", "docum
 export const MEDIA_STATUSES = ["pending", "available", "failed"] as const;
 export type MediaStatus = (typeof MEDIA_STATUSES)[number];
 export type MessageType = (typeof MESSAGE_TYPES)[number];
-/** Estado de envio das mensagens do atendente: sending (gravada, aguardando a Uazapi), sent, failed (recusa), uncertain (timeout). */
-export const SEND_STATUSES = ["sending", "sent", "failed", "uncertain"] as const;
+/**
+ * Estado das mensagens do atendente: sending (gravada, aguardando a Uazapi), sent, failed (recusa), uncertain (timeout);
+ * depois, pelo webhook `messages_update`: delivered, read, played.
+ */
+export const SEND_STATUSES = ["sending", "sent", "delivered", "read", "played", "failed", "uncertain"] as const;
 export type SendStatus = (typeof SEND_STATUSES)[number];
 
 /** Evento cru do webhook, gravado antes de qualquer processamento. `processedAt` nulo = nao processado. */
@@ -123,10 +148,20 @@ export const conversation = sqliteTable(
     assigneeId: text("assignee_id").references(() => user.id, { onDelete: "set null" }),
     lastMessageAt: integer("last_message_at"),
     lastMessageId: text("last_message_id"),
+    /** Mensagens do cliente ainda nao vistas; zerado ao abrir a conversa. */
+    unreadCount: integer("unread_count").notNull().default(0),
     createdAt: integer("created_at").notNull(),
   },
   (t) => [index("conversation_last_message_at_idx").on(t.lastMessageAt)],
 );
+
+/** Resposta rapida compartilhada pela equipe: atalho (gravado em minusculas, unico) e texto com `{nome}`. */
+export const quickReply = sqliteTable("quick_reply", {
+  id: text("id").primaryKey(),
+  shortcut: text("shortcut").notNull().unique(),
+  text: text("text").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
 
 export const message = sqliteTable(
   "message",
@@ -156,8 +191,14 @@ export const message = sqliteTable(
     mediaName: text("media_name"),
     /** Localizacao e contato recebidos: JSON `{lat,lng,name,address}` ou `{name,vcard}`. */
     extra: text("extra"),
+    /** `messageid` do WhatsApp da mensagem citada (resposta com citacao, de entrada ou saida). */
+    quotedId: text("quoted_id"),
   },
-  (t) => [index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id)],
+  (t) => [
+    index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id),
+    // Parcial: so as pendentes entram, a reconciliacao acha as presas sem varrer a tabela.
+    index("message_media_pending_idx").on(t.timestamp).where(sql`${t.mediaStatus} = 'pending'`),
+  ],
 );
 
 /** Eventos de sistema da linha do tempo: quem mudou o status/responsavel e quando (o vaivem automatico nao entra). */

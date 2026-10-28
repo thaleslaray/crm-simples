@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "721539cc-3ac6-4c06-a15d-1eb09b874f3f",
+  "id": "ed7a7c06-1553-4e67-9925-6124084e1bba",
   "prevId": "b599474d-7126-48b7-ab48-25c50a013433",
   "tables": {
     "account": {
@@ -123,6 +123,51 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "connection_state": {
+      "name": "connection_state",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "disconnect_type": {
+          "name": "disconnect_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_disconnect_reason": {
+          "name": "last_disconnect_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -291,127 +336,6 @@
           "tableTo": "user",
           "columnsFrom": [
             "assignee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "conversation_event": {
-      "name": "conversation_event",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "conversation_id": {
-          "name": "conversation_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "actor_id": {
-          "name": "actor_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "to_user_id": {
-          "name": "to_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "from_user_id": {
-          "name": "from_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "timestamp": {
-          "name": "timestamp",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "conversation_event_conv_ts_idx": {
-          "name": "conversation_event_conv_ts_idx",
-          "columns": [
-            "conversation_id",
-            "timestamp"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "conversation_event_conversation_id_conversation_id_fk": {
-          "name": "conversation_event_conversation_id_conversation_id_fk",
-          "tableFrom": "conversation_event",
-          "tableTo": "conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "conversation_event_actor_id_user_id_fk": {
-          "name": "conversation_event_actor_id_user_id_fk",
-          "tableFrom": "conversation_event",
-          "tableTo": "user",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "conversation_event_to_user_id_user_id_fk": {
-          "name": "conversation_event_to_user_id_user_id_fk",
-          "tableFrom": "conversation_event",
-          "tableTo": "user",
-          "columnsFrom": [
-            "to_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "conversation_event_from_user_id_user_id_fk": {
-          "name": "conversation_event_from_user_id_user_id_fk",
-          "tableFrom": "conversation_event",
-          "tableTo": "user",
-          "columnsFrom": [
-            "from_user_id"
           ],
           "columnsTo": [
             "id"

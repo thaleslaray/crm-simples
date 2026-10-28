@@ -5,6 +5,7 @@ export interface Conversation {
   status: ConversationStatus;
   assigneeId: string | null;
   assigneeName: string | null;
+  unreadCount: number;
   contact: { id: string; name: string | null; phone: string | null };
   lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
 }
@@ -48,16 +49,45 @@ export interface Message {
   direction: "in" | "out";
   type: MessageType;
   text: string | null;
-  /** Só mensagens de saída: enviando, enviada, falhou (recusa) ou incerto (timeout). */
+  /** Só mensagens de saída: enviando, enviada, entregue, lida, reproduzida, falhou (recusa) ou incerto (timeout). */
   status?: SendStatus | null;
   authorName?: string | null;
   timestamp: number;
   media: MessageMedia | null;
   location: { lat: number; lng: number; name: string | null; address: string | null } | null;
   contact: { name: string | null; phone: string | null } | null;
+  /** Mensagem citada (some se a original é anterior à conexão do número). */
+  quote?: MessageQuote | null;
 }
 
-export type SendStatus = "sending" | "sent" | "failed" | "uncertain";
+export interface MessageQuote {
+  id: string;
+  type: MessageType;
+  text: string | null;
+  direction: "in" | "out";
+  authorName: string | null;
+}
+
+export type SendStatus = "sending" | "sent" | "delivered" | "read" | "played" | "failed" | "uncertain";
+
+export interface QuickReply {
+  id: string;
+  shortcut: string;
+  text: string;
+}
+
+/** Conexão do número do WhatsApp. `unknown` = ainda sem informação (nenhum aviso é mostrado). */
+export interface ConnectionState {
+  status: "connected" | "connecting" | "disconnected" | "unknown";
+  temporaryBan: boolean;
+  lastDisconnectReason: string | null;
+  updatedAt: number | null;
+}
+
+export interface ConnectionWithQr {
+  connection: ConnectionState;
+  qrcode?: string;
+}
 
 export class ApiError extends Error {
   constructor(readonly status: number) {
@@ -83,14 +113,23 @@ async function sendJson<T>(method: string, path: string, body: unknown): Promise
 }
 
 export const api = {
-  sendText: (id: string, text: string) =>
-    sendJson<{ message: Message }>("POST", `/api/conversations/${encodeURIComponent(id)}/messages`, { text }),
+  sendText: (id: string, text: string, replyTo?: string) =>
+    sendJson<{ message: Message }>("POST", `/api/conversations/${encodeURIComponent(id)}/messages`, { text, replyTo }),
   resend: (id: string, messageId: string) =>
     sendJson<{ message: Message }>(
       "POST",
       `/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/resend`,
       {},
     ),
+  me: () => getJson<{ user: { role: "admin" | "atendente" } }>("/api/me"),
+  quickReplies: () => getJson<{ quickReplies: QuickReply[] }>("/api/quick-replies"),
+  createQuickReply: (r: { shortcut: string; text: string }) =>
+    sendJson<{ quickReply: QuickReply }>("POST", "/api/quick-replies", r),
+  updateQuickReply: (id: string, r: { shortcut: string; text: string }) =>
+    sendJson<{ quickReply: QuickReply }>("PATCH", `/api/quick-replies/${encodeURIComponent(id)}`, r),
+  deleteQuickReply: (id: string) => sendJson<{ ok: true }>("DELETE", `/api/quick-replies/${encodeURIComponent(id)}`, {}),
+  /** Abrir a conversa: zera as não lidas e marca como lidas no WhatsApp. */
+  markRead: (id: string) => sendJson<{ ok: true }>("POST", `/api/conversations/${encodeURIComponent(id)}/read`, {}),
   preferences: () => getJson<{ signatureEnabled: boolean }>("/api/me/preferences"),
   setSignature: (signatureEnabled: boolean) =>
     sendJson<{ signatureEnabled: boolean }>("PATCH", "/api/me/preferences", { signatureEnabled }),
@@ -108,6 +147,11 @@ export const api = {
     sendJson<{ conversation: Conversation }>("POST", `/api/conversations/${encodeURIComponent(id)}/assign`, { userId }),
   resolve: (id: string) =>
     sendJson<{ conversation: Conversation }>("POST", `/api/conversations/${encodeURIComponent(id)}/resolve`, {}),
+  connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
+  /** Só admin: consulta a Uazapi e devolve o QR code atual. */
+  connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),
+  /** Só admin: inicia o pareamento. */
+  connect: () => sendJson<ConnectionWithQr>("POST", "/api/connection/connect", {}),
   conversation: (id: string) => getJson<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`),
   messages: (id: string, before?: string) => {
     const qs = before ? `?before=${encodeURIComponent(before)}` : "";

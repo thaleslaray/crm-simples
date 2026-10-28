@@ -1,10 +1,13 @@
 import { and, asc, desc, eq, gt, isNull, lt, lte, or, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { type Context, Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
 import { CONVERSATION_STATUSES, type ConversationStatus, type SendStatus } from "./db/schema";
 import { type AppEnv, requireAuth } from "./middleware";
+import { publish } from "./realtime";
 import { sendOutgoingText } from "./send";
 import { assignConversation, assumeConversation, type ChangeOutcome, listEvents, resolveConversation } from "./status";
+import { createUazapiClient } from "./uazapi/client";
 
 export const conversations = new Hono<AppEnv>();
 conversations.use("*", requireAuth);
@@ -25,6 +28,7 @@ export async function selectConversations(db: Db, where?: SQL) {
       status: schema.conversation.status,
       assigneeId: schema.conversation.assigneeId,
       assigneeName: schema.user.name,
+      unreadCount: schema.conversation.unreadCount,
       contactId: schema.contact.id,
       contactName: schema.contact.name,
       contactPhone: schema.contact.phone,
@@ -44,6 +48,7 @@ export async function selectConversations(db: Db, where?: SQL) {
     status: r.status,
     assigneeId: r.assigneeId,
     assigneeName: r.assigneeName,
+    unreadCount: r.unreadCount,
     contact: { id: r.contactId, name: r.contactName, phone: r.contactPhone },
     lastMessage:
       r.msgType && r.msgTimestamp != null ? { type: r.msgType, text: r.msgText, timestamp: r.msgTimestamp } : null,
@@ -113,11 +118,16 @@ export type MessageRow = {
   mediaSize: number | null;
   mediaName: string | null;
   extra: string | null;
+  quotedMessageId: string | null;
+  quotedType: (typeof schema.message.$inferSelect)["type"] | null;
+  quotedText: string | null;
+  quotedDirection: "in" | "out" | null;
+  quotedAuthorName: string | null;
 };
 
 /** Mensagem no formato da API. Midia "disponivel" cujo objeto saiu do R2 (regra de 365 dias) aparece como "expired". */
 export async function messageView(bucket: R2Bucket, m: MessageRow) {
-  const { mediaStatus, mediaKey, mediaMime, mediaSize, mediaName, extra, ...base } = m;
+  const { mediaStatus, mediaKey, mediaMime, mediaSize, mediaName, extra, quotedMessageId, quotedType, quotedText, quotedDirection, quotedAuthorName, ...base } = m;
   let status: "pending" | "available" | "failed" | "expired" | null = mediaStatus;
   if (mediaStatus === "available" && (!mediaKey || !(await bucket.head(mediaKey)))) status = "expired";
   const details = extra ? (JSON.parse(extra) as Record<string, unknown>) : null;
@@ -126,6 +136,11 @@ export async function messageView(bucket: R2Bucket, m: MessageRow) {
     media: status ? { status, mime: mediaMime, size: mediaSize, name: mediaName } : null,
     location: m.type === "location" ? details : null,
     contact: m.type === "contact" ? contactView(details) : null,
+    // Citacao so aparece se a mensagem original esta no historico (uma anterior a conexao do numero nao esta).
+    quote:
+      quotedMessageId && quotedType && quotedDirection
+        ? { id: quotedMessageId, type: quotedType, text: quotedText, direction: quotedDirection, authorName: quotedAuthorName }
+        : null,
   };
 }
 
@@ -135,6 +150,12 @@ function contactView(details: Record<string, unknown> | null) {
   const tel = /^TEL[^:\n]*:(.+)$/im.exec(vcard)?.[1]?.trim() ?? null;
   return { name: (details?.name as string | null) ?? null, phone: tel };
 }
+
+const quoted = alias(schema.message, "quoted");
+const quotedAuthor = alias(schema.user, "quoted_author");
+
+/** Junta a mensagem citada (mesma conversa, achada pelo `messageid` do WhatsApp) e o autor dela. */
+const quoteJoinOn = and(eq(quoted.conversationId, schema.message.conversationId), eq(quoted.whatsappMessageId, schema.message.quotedId));
 
 const messageColumns = {
   id: schema.message.id,
@@ -150,6 +171,11 @@ const messageColumns = {
   mediaSize: schema.message.mediaSize,
   mediaName: schema.message.mediaName,
   extra: schema.message.extra,
+  quotedMessageId: quoted.id,
+  quotedType: quoted.type,
+  quotedText: quoted.text,
+  quotedDirection: quoted.direction,
+  quotedAuthorName: quotedAuthor.name,
 };
 
 /** Ate `limit` mensagens mais antigas que o cursor, em ordem cronologica; `more` diz se ainda ha antes delas. */
@@ -158,6 +184,8 @@ async function loadOlder(db: Db, conversationId: string, limit: number, cur?: Cu
     .select(messageColumns)
     .from(schema.message)
     .leftJoin(schema.user, eq(schema.user.id, schema.message.sentById))
+    .leftJoin(quoted, quoteJoinOn)
+    .leftJoin(quotedAuthor, eq(quotedAuthor.id, quoted.sentById))
     .where(and(eq(schema.message.conversationId, conversationId), cur ? olderThan(cur, inclusive) : undefined))
     .orderBy(desc(schema.message.timestamp), desc(schema.message.id))
     .limit(limit + 1); // uma a mais so para saber se ha pagina mais antiga
@@ -170,6 +198,8 @@ async function loadNewer(db: Db, conversationId: string, limit: number, cur: Cur
     .select(messageColumns)
     .from(schema.message)
     .leftJoin(schema.user, eq(schema.user.id, schema.message.sentById))
+    .leftJoin(quoted, quoteJoinOn)
+    .leftJoin(quotedAuthor, eq(quotedAuthor.id, quoted.sentById))
     .where(and(eq(schema.message.conversationId, conversationId), newerThan(cur)))
     .orderBy(asc(schema.message.timestamp), asc(schema.message.id))
     .limit(limit + 1);
@@ -180,6 +210,8 @@ async function loadNewer(db: Db, conversationId: string, limit: number, cur: Cur
 export async function loadMessage(db: Db, bucket: R2Bucket, id: string): Promise<Message | null> {
   const [row] = await db.select(messageColumns).from(schema.message)
     .leftJoin(schema.user, eq(schema.user.id, schema.message.sentById))
+    .leftJoin(quoted, quoteJoinOn)
+    .leftJoin(quotedAuthor, eq(quotedAuthor.id, quoted.sentById))
     .where(eq(schema.message.id, id));
   return row ? messageView(bucket, row) : null;
 }
@@ -232,13 +264,45 @@ conversations.get("/:id/messages", async (c) => {
   return c.json({ messages: await views(c.env.MEDIA, older.page), nextBefore: older.more ? encodeCursor(older.page[0]!) : null });
 });
 
+// Abrir a conversa: zera o contador e marca no WhatsApp as mensagens do cliente que ainda nao tinham sido vistas.
+conversations.post("/:id/read", async (c) => {
+  const db = createDb(c.env.DB);
+  const id = c.req.param("id");
+  const conv = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { unreadCount: true } });
+  if (!conv) return c.json({ error: "nao_encontrado" }, 404);
+  if (conv.unreadCount > 0) {
+    // As `unreadCount` mais recentes do cliente sao as nao vistas.
+    const unread = await db
+      .select({ externalId: schema.message.externalId })
+      .from(schema.message)
+      .where(and(eq(schema.message.conversationId, id), eq(schema.message.direction, "in")))
+      .orderBy(desc(schema.message.timestamp), desc(schema.message.id))
+      .limit(conv.unreadCount);
+    // Zera antes de falar com a Uazapi: falha de la nao deixa o contador preso.
+    await db.update(schema.conversation).set({ unreadCount: 0 }).where(eq(schema.conversation.id, id));
+    const ids = unread.flatMap((m) => (m.externalId ? [m.externalId] : []));
+    if (ids.length > 0) {
+      try {
+        await createUazapiClient(c.env).markRead(ids);
+      } catch (err) {
+        console.error("conversa: falha ao marcar como lida na Uazapi", { erro: err instanceof Error ? err.name : "desconhecido" });
+      }
+    }
+    const conversation = await loadConversation(db, id);
+    if (conversation) await publish(c.env, { type: "conversation.updated", conversation });
+  }
+  return c.json({ ok: true });
+});
+
 const MAX_TEXT_LENGTH = 4096;
 
 conversations.post("/:id/messages", async (c) => {
-  const body = await c.req.json<{ text?: unknown }>().catch(() => null);
+  const body = await c.req.json<{ text?: unknown; replyTo?: unknown }>().catch(() => null);
   const text = typeof body?.text === "string" ? body.text : "";
   if (!text.trim() || text.length > MAX_TEXT_LENGTH) return c.json({ error: "texto_invalido" }, 400);
-  const result = await sendOutgoingText(c.env, { conversationId: c.req.param("id"), userId: c.get("user").id, text });
+  const replyTo = typeof body?.replyTo === "string" && body.replyTo ? body.replyTo : undefined;
+  const result = await sendOutgoingText(c.env, { conversationId: c.req.param("id"), userId: c.get("user").id, text, replyTo });
+  if (result === "invalid_reply") return c.json({ error: "citacao_invalida" }, 400);
   if (result === null || result === "not_failed") return c.json({ error: "nao_encontrado" }, 404);
   return c.json({ message: result }, 201);
 });

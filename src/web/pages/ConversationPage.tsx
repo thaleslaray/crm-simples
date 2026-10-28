@@ -1,9 +1,10 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { ApiError, api, type Conversation, type Member, type Message, type TimelineEvent } from "../api";
+import { ApiError, api, type Conversation, type Member, type Message, type QuickReply, type SendStatus, type TimelineEvent } from "../api";
 import { authClient } from "../auth-client";
+import { fillName, filterQuickReplies, slashQuery } from "../quick-replies";
 import { getDraft, setDraft } from "../drafts";
-import { contactLabel, dayLabel, eventText, formatPhone, initials, messageTime, sameDay, STATUS_LABEL } from "../format";
+import { contactLabel, dayLabel, eventText, formatPhone, initials, messagePreview, messageTime, sameDay, STATUS_LABEL } from "../format";
 import { onRealtime } from "../realtime";
 import { MessageBody } from "./MessageBody";
 
@@ -12,6 +13,14 @@ const LOAD_OLDER_THRESHOLD = 120;
 
 // Prefixo do id da bolha "enviando" que só existe no navegador até a API responder.
 const TEMP = "tmp-";
+
+/** Entrega das mensagens enviadas: ✓ enviada, ✓✓ entregue, ✓✓ lida. */
+const DELIVERY_LABEL: Partial<Record<SendStatus, string>> = {
+  sent: "✓ Enviada",
+  delivered: "✓✓ Entregue",
+  read: "✓✓ Lida",
+  played: "✓✓ Reproduzida",
+};
 
 type State =
   | { kind: "loading" }
@@ -22,7 +31,8 @@ type State =
 export function ConversationPage() {
   const { id } = useParams<{ id: string }>();
   // ?m=<id da mensagem>: aberta a partir de um resultado de busca, posicionada nela.
-  const target = useSearchParams()[0].get("m");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const target = searchParams.get("m");
   const [state, setState] = useState<State>({ kind: "loading" });
   const [loadingOlder, setLoadingOlder] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
@@ -96,6 +106,7 @@ export function ConversationPage() {
         if (event.conversation.id === id) {
           append([event.message]);
           setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, conversation: event.conversation } : s));
+          if (event.message.direction === "in") api.markRead(id).catch(() => undefined); // está olhando: já conta como lida
         }
         return;
       }
@@ -109,6 +120,16 @@ export function ConversationPage() {
         });
         return;
       }
+      if (event.type === "message.status") {
+        if (event.conversationId === id)
+          setState((s) =>
+            s.kind === "ready"
+              ? { ...s, messages: s.messages.map((m) => (m.id === event.messageId ? { ...m, status: event.status } : m)) }
+              : s,
+          );
+        return;
+      }
+      if (event.type !== "reconnected") return;
       void refreshStatus();
       const last = lastSeen.current;
       if (hasNewerGap.current) return; // janela de busca: o que falta vem ao rolar
@@ -141,6 +162,12 @@ export function ConversationPage() {
       stickToBottom.current = false;
     }
   }, [state]);
+
+  // Abrir a conversa com mensagens não lidas: zera o contador e marca como lidas no WhatsApp.
+  const unreadOnOpen = state.kind === "ready" ? state.conversation.unreadCount : 0;
+  useEffect(() => {
+    if (id && unreadOnOpen > 0) api.markRead(id).catch(() => undefined);
+  }, [id, unreadOnOpen]);
 
   // Enquanto houver mídia "carregando", relê as mensagens recentes e atualiza só o estado da mídia.
   const hasPending = state.kind === "ready" && state.messages.some((m) => m.media?.status === "pending");
@@ -206,13 +233,36 @@ export function ConversationPage() {
 
   const [draft, setDraftState] = useState("");
   const [sendError, setSendError] = useState(false);
+  // Mensagem que o atendente escolheu "Responder": a próxima mensagem sai citando-a.
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   // Rascunho é por conversa: ao trocar de conversa, carrega o dela.
   useEffect(() => {
     setDraftState(id ? getDraft(id) : "");
     setSendError(false);
+    setReplyingTo(null);
   }, [id]);
 
-  const replaceMessage = useCallback((from: string, to: Message | null) => {
+  // Respostas rápidas: `/` no começo do campo abre a lista; escolher uma troca o campo pelo texto (com {nome}).
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [slashDismissed, setSlashDismissed] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
+  useEffect(() => {
+    api.quickReplies().then((r) => setQuickReplies(r.quickReplies)).catch(() => undefined);
+  }, [id]);
+  const query = slashDismissed ? null : slashQuery(draft);
+  const matches = query === null ? [] : filterQuickReplies(quickReplies, query);
+  const slashOpen = query !== null && quickReplies.length > 0;
+  const pickQuickReply = (r: QuickReply) => {
+    if (state.kind !== "ready" || !id) return;
+    const filled = fillName(r.text, state.conversation.contact.name);
+    setDraftState(filled);
+    setDraft(id, filled);
+    setSlashDismissed(true);
+    inputRef.current?.focus();
+  };
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const replaceMessage =useCallback((from: string, to: Message | null) => {
     setState((s) => {
       if (s.kind !== "ready") return s;
       const known = to ? s.messages.some((m) => m.id === to.id) : false;
@@ -236,23 +286,41 @@ export function ConversationPage() {
     const text = draft.trim();
     if (!id || !text) return;
     const tempId = `${TEMP}${crypto.randomUUID()}`;
-    const temp: Message = { id: tempId, direction: "out", type: "text", text, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null };
+    const quoting = replyingTo;
+    const quote = quoting
+      ? { id: quoting.id, type: quoting.type, text: quoting.text, direction: quoting.direction, authorName: quoting.authorName ?? null }
+      : null;
+    const temp: Message = { id: tempId, direction: "out", type: "text", text, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote };
     stickToBottom.current = true;
     setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, messages: [...s.messages, temp] } : s));
     setDraftState("");
     setDraft(id, "");
     setSendError(false);
+    setReplyingTo(null);
     try {
-      replaceMessage(tempId, (await api.sendText(id, text)).message);
+      replaceMessage(tempId, (await api.sendText(id, text, quoting?.id)).message);
       void refreshConversation();
     } catch {
       // Nem chegou ao servidor: tira a bolha e devolve o texto ao campo.
       replaceMessage(tempId, null);
       setDraftState(text);
       setDraft(id, text);
+      setReplyingTo(quoting);
       setSendError(true);
     }
-  }, [draft, id, replaceMessage, refreshConversation]);
+  }, [draft, id, replaceMessage, replyingTo, refreshConversation]);
+
+  // Vai até a mensagem original: se já está na tela, rola até ela; senão reabre a conversa posicionada nela (como a busca).
+  const goToQuoted = useCallback(
+    (quotedId: string) => {
+      const el = scroller.current?.querySelector(`[data-message-id="${CSS.escape(quotedId)}"]`);
+      if (!el) return setSearchParams({ m: quotedId });
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.classList.add("is-found");
+      setTimeout(() => el.classList.remove("is-found"), 1800);
+    },
+    [setSearchParams],
+  );
 
   const resend = useCallback(
     async (m: Message) => {
@@ -341,6 +409,12 @@ export function ConversationPage() {
                 className={`bubble bubble--${m.direction}${m.type === "unsupported" ? " is-unsupported" : ""}${m.status ? ` is-${m.status}` : ""}${m.id === target ? " is-found" : ""}`}
               >
                 {m.direction === "out" && m.authorName && <span className="bubble-author">{m.authorName}</span>}
+                {m.quote && (
+                  <button type="button" className="quote" onClick={() => goToQuoted(m.quote!.id)} aria-label="Ver mensagem citada">
+                    <span className="quote-author">{m.quote.direction === "out" ? (m.quote.authorName ?? "Equipe") : label}</span>
+                    <span className="quote-text">{messagePreview(m.quote.type, m.quote.text)}</span>
+                  </button>
+                )}
                 <MessageBody message={m} />
                 <span className="bubble-meta">
                   {m.status === "failed" && (
@@ -359,6 +433,16 @@ export function ConversationPage() {
                     </span>
                   )}
                   {m.status === "sending" && <span className="bubble-status">Enviando…</span>}
+                  {!m.id.startsWith(TEMP) && m.status !== "failed" && m.status !== "sending" && (
+                    <button type="button" className="link" onClick={() => setReplyingTo(m)}>
+                      Responder
+                    </button>
+                  )}
+                  {m.status && DELIVERY_LABEL[m.status] && (
+                    <span className={`bubble-delivery${m.status === "read" || m.status === "played" ? " is-read" : ""}`} data-delivery={m.status}>
+                      {DELIVERY_LABEL[m.status]}
+                    </span>
+                  )}
                   <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
                 </span>
               </li>)}
@@ -380,17 +464,69 @@ export function ConversationPage() {
             Não foi possível enviar. Tente de novo.
           </p>
         )}
+        {replyingTo && (
+          <div className="reply-bar">
+            <div className="reply-bar-text">
+              <span className="quote-author">
+                Respondendo a {replyingTo.direction === "out" ? (replyingTo.authorName ?? "equipe") : label}
+              </span>
+              <span className="quote-text">{messagePreview(replyingTo.type, replyingTo.text)}</span>
+            </div>
+            <button type="button" className="link" aria-label="Cancelar resposta" onClick={() => setReplyingTo(null)}>
+              ✕
+            </button>
+          </div>
+        )}
+        {slashOpen && (
+          <ul className="qr-menu" role="listbox" aria-label="Respostas rápidas">
+            {matches.length === 0 ? (
+              <li className="muted qr-empty">Nenhuma resposta encontrada</li>
+            ) : (
+              matches.map((r, i) => (
+                <li
+                  key={r.id}
+                  role="option"
+                  aria-selected={i === Math.min(slashIndex, matches.length - 1)}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // mantém o foco no campo
+                    pickQuickReply(r);
+                  }}
+                >
+                  <strong>/{r.shortcut}</strong>
+                  <span>{r.text}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
         <div className="composer-row">
           <textarea
+            ref={inputRef}
             aria-label="Mensagem"
             placeholder="Escreva uma mensagem"
             rows={1}
             value={draft}
             onChange={(e) => {
               setDraftState(e.target.value);
+              setSlashDismissed(false);
+              setSlashIndex(0);
               if (id) setDraft(id, e.target.value);
             }}
             onKeyDown={(e) => {
+              if (slashOpen && matches.length > 0) {
+                const cur = Math.min(slashIndex, matches.length - 1);
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setSlashIndex((cur + (e.key === "ArrowDown" ? 1 : matches.length - 1)) % matches.length);
+                  return;
+                }
+                if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+                  e.preventDefault();
+                  pickQuickReply(matches[cur]!);
+                  return;
+                }
+              }
+              if (slashOpen && e.key === "Escape") setSlashDismissed(true);
               // Ctrl/Cmd+Enter envia; Enter sozinho quebra a linha (no celular não há outra forma de quebrar).
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();

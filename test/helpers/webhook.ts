@@ -17,6 +17,8 @@ export interface TextMessageInput {
   text?: string;
   timestamp?: number;
   token?: string;
+  /** Resposta com citacao: `messageid` (ou `owner:messageid`) da mensagem citada. ATENCAO: campo `quoted` da doc da Uazapi, ainda nao validado com webhook real. */
+  quoted?: string;
 }
 
 /** Evento `messages` no formato da Uazapi, com padroes de uma mensagem de texto de um cliente. */
@@ -38,6 +40,7 @@ export function textMessageEvent(input: TextMessageInput = {}) {
       isGroup: input.isGroup ?? false,
       messageType: input.messageType ?? "conversation",
       text: input.text ?? "oi",
+      ...(input.quoted ? { quoted: input.quoted } : {}),
       messageTimestamp: input.timestamp ?? 1_700_000_000_000 + seq * 1000,
     },
   };
@@ -109,6 +112,27 @@ export function contactMessageEvent(input: TextMessageInput & { displayName: str
       messageTimestamp: input.timestamp ?? Date.now(),
       content: { displayName: input.displayName, vcard: input.vcard },
     },
+  };
+}
+
+/** Evento `messages_update` (status de entrega); `Timestamp` em SEGUNDOS, como a Uazapi manda. */
+export function statusUpdateEvent(messageIds: string[], state: string, timestampSeconds = 1_700_000_100) {
+  return {
+    EventType: "messages_update",
+    token: env.UAZAPI_INSTANCE_TOKEN,
+    state,
+    event: { MessageIDs: messageIds, Timestamp: timestampSeconds },
+  };
+}
+
+/** Evento `connection` no formato da Uazapi. */
+export function connectionEvent(input: { status: string; type?: string; lastDisconnectReason?: string; token?: string }) {
+  return {
+    EventType: "connection",
+    token: input.token ?? env.UAZAPI_INSTANCE_TOKEN,
+    instance: { status: input.status },
+    ...(input.type ? { type: input.type } : {}),
+    ...(input.lastDisconnectReason ? { lastDisconnectReason: input.lastDisconnectReason } : {}),
   };
 }
 

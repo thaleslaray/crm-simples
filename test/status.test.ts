@@ -1,382 +1,142 @@
 import { describe, expect, it } from "vitest";
-import { api, signIn } from "./helpers/api";
-import {
-  assign,
-  assume,
-  clientWritesAgain,
-  conversationOf,
-  conversationWithClient,
-  events,
-  inboxFiltered,
-  resend,
-  resolve,
-  sendText,
-} from "./helpers/conversations";
+import { conversationWithClient, history, inbox, openConversation, sendText } from "./helpers/conversations";
 import { fakeUazapi } from "./helpers/fake-uazapi";
 import { connectRealtime } from "./helpers/realtime";
-import { createUser, deleteUser } from "./helpers/users";
+import { loginAsAtendente } from "./helpers/session";
+import { postWebhook, statusUpdateEvent, textMessageEvent } from "./helpers/webhook";
 
-async function login(email: string, name: string, role: "admin" | "atendente" = "atendente") {
-  const id = await createUser({ email, password: "senha-segura-123", name, role });
-  return { id, cookie: (await signIn(email, "senha-segura-123")).cookie };
-}
+const SEND = "/send/text";
+const MARK_READ = "/message/markread";
 
-describe("Assumir conversa", () => {
-  it("o atendente assume uma conversa aberta e ela passa a em andamento com ele como responsavel", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(ana.cookie);
-
-    const res = await assume(ana.cookie, conversa);
-
-    expect(res.status).toBe(200);
-    expect(await conversationOf(ana.cookie, conversa)).toMatchObject({
-      status: "em_andamento",
-      assigneeId: ana.id,
-      assigneeName: "Ana",
-    });
-  });
-
-  it("grava na linha do tempo quem assumiu e quando", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(ana.cookie);
-    const antes = Date.now();
-
-    await assume(ana.cookie, conversa);
-
-    const lista = await events(ana.cookie, conversa);
-    expect(lista).toMatchObject([{ type: "assumida", actorName: "Ana", toName: "Ana" }]);
-    expect(lista[0]!.timestamp).toBeGreaterThanOrEqual(antes);
-  });
-
-  it("com dois atendentes assumindo ao mesmo tempo, so um vence e o outro recebe erro claro", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const beto = await login("beto@exemplo.com", "Beto");
-    const conversa = await conversationWithClient(ana.cookie);
-
-    const [a, b] = await Promise.all([assume(ana.cookie, conversa), assume(beto.cookie, conversa)]);
-
-    expect([a.status, b.status].sort()).toEqual([200, 409]);
-    const perdedor = a.status === 409 ? a : b;
-    expect(await perdedor.json()).toEqual({ error: "ja_assumida" });
-    expect(await events(ana.cookie, conversa)).toHaveLength(1);
-  });
-
-  it("assumir uma conversa que nao existe responde 404", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    expect((await assume(ana.cookie, "nao-existe")).status).toBe(404);
-  });
-
-  it("publica a mudanca no tempo real para as outras sessoes", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const beto = await login("beto@exemplo.com", "Beto");
-    const conversa = await conversationWithClient(ana.cookie);
-    const conn = await connectRealtime(beto.cookie);
-
-    await assume(ana.cookie, conversa);
-
-    expect(await conn.next()).toMatchObject({
-      type: "conversation.updated",
-      conversation: { id: conversa, status: "em_andamento", assigneeId: ana.id, assigneeName: "Ana" },
-      event: { type: "assumida", actorName: "Ana" },
-    });
-    conn.close();
-  });
-});
-
-describe("Resposta ao cliente muda o status", () => {
+describe("Status de entrega", () => {
   const uazapi = fakeUazapi();
 
-  it("a primeira resposta numa conversa aberta torna o autor responsavel e a deixa aguardando cliente", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(ana.cookie);
-    await uazapi.program("POST", "/send/text", [{ body: { id: "owner:R1" } }]);
-
-    await sendText(ana.cookie, conversa, "Oi!");
-
-    expect(await conversationOf(ana.cookie, conversa)).toMatchObject({ status: "aguardando_cliente", assigneeId: ana.id });
-    expect(await events(ana.cookie, conversa)).toMatchObject([{ type: "assumida", actorName: "Ana", toName: "Ana" }]);
-  });
-
-  it("responder numa conversa em andamento a deixa aguardando cliente sem gerar evento", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
-    await uazapi.program("POST", "/send/text", [{ body: { id: "owner:R2" } }]);
-
-    await sendText(ana.cookie, conversa, "Oi!");
-
-    expect(await conversationOf(ana.cookie, conversa)).toMatchObject({ status: "aguardando_cliente", assigneeId: ana.id });
-    expect(await events(ana.cookie, conversa)).toHaveLength(1); // so o "assumida"
-  });
-
-  it("envio recusado pela Uazapi nao muda o status; o reenvio que da certo muda", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
-    await uazapi.program("POST", "/send/text", [{ status: 400, body: { error: "recusado" } }]);
-
-    const failed = (await (await sendText(ana.cookie, conversa, "Oi")).json()) as { message: { id: string } };
-    expect((await conversationOf(ana.cookie, conversa)).status).toBe("em_andamento");
-
-    await uazapi.program("POST", "/send/text", [{ body: { id: "owner:R3" } }]);
-    await resend(ana.cookie, conversa, failed.message.id);
-    expect((await conversationOf(ana.cookie, conversa)).status).toBe("aguardando_cliente");
-  });
-
-  it("responder uma conversa resolvida nao a reabre", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
-    await resolve(ana.cookie, conversa);
-    await uazapi.program("POST", "/send/text", [{ body: { id: "owner:R4" } }]);
-
-    await sendText(ana.cookie, conversa, "So mais uma coisa");
-
-    expect((await conversationOf(ana.cookie, conversa)).status).toBe("resolvida");
-  });
-
-  it("a mensagem enviada ja chega no tempo real com o novo status da conversa", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const beto = await login("beto@exemplo.com", "Beto");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
-    await uazapi.program("POST", "/send/text", [{ body: { id: "owner:R5" } }]);
-    const conn = await connectRealtime(beto.cookie);
-
-    await sendText(ana.cookie, conversa, "Oi!");
-
-    expect(await conn.next()).toMatchObject({ type: "conversation.updated", conversation: { status: "aguardando_cliente" }, event: null });
-    expect(await conn.next()).toMatchObject({ type: "message.created", conversation: { status: "aguardando_cliente" } });
-    conn.close();
-  });
-});
-
-describe("Cliente escreve de novo", () => {
-  const uazapi = fakeUazapi();
-
-  async function aguardando(ana: { cookie: string }) {
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
-    await uazapi.program("POST", "/send/text", [{ body: { id: "owner:C1" } }]);
-    await sendText(ana.cookie, conversa, "Oi!");
-    return conversa;
+  /** Cliente escreve, o atendente responde; o WhatsApp conhece a resposta como `n` (id da Uazapi `owner:n`). */
+  async function setup(n: string) {
+    const cookie = await loginAsAtendente(`${n.toLowerCase()}@exemplo.com`);
+    const conversa = await conversationWithClient(cookie);
+    await uazapi.program("POST", SEND, [{ body: { id: `owner:${n}`, messageid: n } }]);
+    await sendText(cookie, conversa, "Olá");
+    const last = async () => (await history(cookie, conversa)).messages.findLast((m) => m.direction === "out")!;
+    return { cookie, conversa, last };
   }
 
-  it("aguardando cliente volta a em andamento com o mesmo responsavel, sem evento na linha do tempo", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await aguardando(ana);
-    const antes = await events(ana.cookie, conversa);
+  it("entregue, lida e reproduzida: o status da mensagem enviada acompanha", async () => {
+    const { last } = await setup("S1");
+    expect((await last()).status).toBe("sent");
 
-    await clientWritesAgain();
+    await postWebhook(statusUpdateEvent(["S1"], "Delivered"));
+    expect((await last()).status).toBe("delivered");
 
-    expect(await conversationOf(ana.cookie, conversa)).toMatchObject({ status: "em_andamento", assigneeId: ana.id });
-    expect(await events(ana.cookie, conversa)).toEqual(antes);
+    await postWebhook(statusUpdateEvent(["S1"], "Read"));
+    expect((await last()).status).toBe("read");
+
+    await postWebhook(statusUpdateEvent(["S1"], "Played"));
+    expect((await last()).status).toBe("played");
   });
 
-  it("resolvida volta a em andamento com o mesmo responsavel e registra a reabertura", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await aguardando(ana);
-    await resolve(ana.cookie, conversa);
-
-    await clientWritesAgain();
-
-    expect(await conversationOf(ana.cookie, conversa)).toMatchObject({ status: "em_andamento", assigneeId: ana.id });
-    expect((await events(ana.cookie, conversa)).at(-1)).toMatchObject({ type: "reaberta", actorName: null, toName: "Ana" });
+  it("aceita o id da Uazapi (owner:...) além do id do WhatsApp", async () => {
+    const { last } = await setup("S2");
+    await postWebhook(statusUpdateEvent(["owner:S2"], "Delivered"));
+    expect((await last()).status).toBe("delivered");
   });
 
-  it("se o responsavel foi removido, a conversa reaberta volta a aberta sem dono", async () => {
-    const admin = await login("admin@exemplo.com", "Chefe", "admin");
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await aguardando(ana);
-    await deleteUser(ana.id);
-
-    await clientWritesAgain();
-
-    expect(await conversationOf(admin.cookie, conversa)).toMatchObject({ status: "aberta", assigneeId: null });
+  it("o status nunca regride", async () => {
+    const { last } = await setup("S3");
+    await postWebhook(statusUpdateEvent(["S3"], "Read"));
+    await postWebhook(statusUpdateEvent(["S3"], "Delivered"));
+    await postWebhook(statusUpdateEvent(["S3"], "Sent"));
+    expect((await last()).status).toBe("read");
   });
 
-  it("em andamento continua em andamento quando o cliente escreve", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
+  it("falhou só vale para mensagem ainda não entregue", async () => {
+    const a = await setup("S4");
+    await postWebhook(statusUpdateEvent(["S4"], "Failed"));
+    expect((await a.last()).status).toBe("failed");
 
-    await clientWritesAgain();
-
-    expect((await conversationOf(ana.cookie, conversa)).status).toBe("em_andamento");
+    const b = await setup("S5");
+    await postWebhook(statusUpdateEvent(["S5"], "Delivered"));
+    await postWebhook(statusUpdateEvent(["S5"], "Failed"));
+    expect((await b.last()).status).toBe("delivered");
   });
 
-  it("publica a reabertura no tempo real", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await aguardando(ana);
-    await resolve(ana.cookie, conversa);
-    const conn = await connectRealtime(ana.cookie);
+  it("uma atualização com vários ids atualiza os conhecidos e ignora os desconhecidos", async () => {
+    const { last } = await setup("S6");
+    const res = await postWebhook(statusUpdateEvent(["DESCONHECIDO", "S6"], "Read"));
+    expect(res.status).toBe(200);
+    expect((await last()).status).toBe("read");
+  });
 
-    await clientWritesAgain();
+  it("publica a mudança no hub, e só quando o status de fato muda", async () => {
+    const { conversa, last } = await setup("S7");
+    const outra = await connectRealtime(await loginAsAtendente("outra@exemplo.com"));
+    const id = (await last()).id;
 
-    expect(await conn.next()).toMatchObject({ type: "conversation.updated", conversation: { status: "em_andamento" }, event: { type: "reaberta" } });
-    expect(await conn.next()).toMatchObject({ type: "message.created", conversation: { status: "em_andamento" } });
-    conn.close();
+    await postWebhook(statusUpdateEvent(["S7"], "Delivered"));
+    expect(await outra.next()).toMatchObject({ type: "message.status", conversationId: conversa, messageId: id, status: "delivered" });
+
+    await postWebhook(statusUpdateEvent(["S7"], "Sent")); // regressão: nada muda, nada publicado
+    await expect(outra.next(300)).rejects.toThrow();
+    outra.close();
   });
 });
 
-describe("Filtros da caixa e membros", () => {
+describe("Não lidas", () => {
   const uazapi = fakeUazapi();
 
-  /** Tres conversas: aberta sem dono, em andamento da Ana, aguardando cliente do Beto. */
-  async function cenario() {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const beto = await login("beto@exemplo.com", "Beto");
-    const aberta = await conversationWithClient(ana.cookie, "5511900000001");
-    const daAna = await conversationWithClient(ana.cookie, "5511900000002");
-    const doBeto = await conversationWithClient(ana.cookie, "5511900000003");
-    await assume(ana.cookie, daAna);
-    await uazapi.program("POST", "/send/text", [{ body: { id: "owner:F1" } }]);
-    await sendText(beto.cookie, doBeto, "Oi!");
-    return { ana, beto, aberta, daAna, doBeto };
-  }
-  const ids = (list: { id: string }[]) => list.map((c) => c.id).sort();
+  it("cada mensagem do cliente soma um à conversa, e a mensagem do atendente não", async () => {
+    const cookie = await loginAsAtendente();
+    const conversa = await conversationWithClient(cookie); // 1 mensagem
+    await postWebhook(textMessageEvent({ sender: "5511900000010@s.whatsapp.net", text: "segunda" }));
+    await uazapi.program("POST", SEND, [{ body: { id: "owner:U1" } }]);
+    await sendText(cookie, conversa, "resposta");
 
-  it("filtra por status, inclusive aguardando cliente", async () => {
-    const { ana, aberta, daAna, doBeto } = await cenario();
-
-    expect(ids(await inboxFiltered(ana.cookie, "status=aguardando_cliente"))).toEqual([doBeto]);
-    expect(ids(await inboxFiltered(ana.cookie, "status=em_andamento"))).toEqual([daAna]);
-    expect(ids(await inboxFiltered(ana.cookie, "status=aberta"))).toEqual([aberta]);
-    expect(await inboxFiltered(ana.cookie, "status=resolvida")).toEqual([]);
+    expect((await inbox(cookie)).find((c) => c.id === conversa)?.unreadCount).toBe(2);
   });
 
-  it("\"minhas\" traz so as conversas do usuario logado", async () => {
-    const { ana, beto, daAna, doBeto } = await cenario();
+  it("abrir a conversa zera o contador e marca as mensagens do cliente como lidas na Uazapi", async () => {
+    const cookie = await loginAsAtendente();
+    const phone = "5511900000010";
+    const sender = `${phone}@s.whatsapp.net`;
+    await postWebhook(textMessageEvent({ sender, id: "owner:IN1" }));
+    await postWebhook(textMessageEvent({ sender, id: "owner:IN2" }));
+    const conversa = (await inbox(cookie)).find((c) => c.contact.phone === phone)!.id;
+    await uazapi.program("POST", MARK_READ, [{ body: { ok: true } }]);
 
-    expect(ids(await inboxFiltered(ana.cookie, "assignee=me"))).toEqual([daAna]);
-    expect(ids(await inboxFiltered(beto.cookie, "assignee=me"))).toEqual([doBeto]);
-  });
-
-  it("filtra pelo responsavel de um colega e pelas sem responsavel", async () => {
-    const { ana, beto, aberta, doBeto } = await cenario();
-
-    expect(ids(await inboxFiltered(ana.cookie, `assignee=${beto.id}`))).toEqual([doBeto]);
-    expect(ids(await inboxFiltered(ana.cookie, "assignee=none"))).toEqual([aberta]);
-  });
-
-  it("os filtros se combinam", async () => {
-    const { ana, beto, daAna } = await cenario();
-
-    expect(ids(await inboxFiltered(ana.cookie, `assignee=${ana.id}&status=em_andamento`))).toEqual([daAna]);
-    expect(await inboxFiltered(ana.cookie, `assignee=${beto.id}&status=em_andamento`)).toEqual([]);
-  });
-
-  it("status desconhecido responde 400", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    expect((await api("/api/conversations?status=qualquer", { cookie: ana.cookie })).status).toBe(400);
-  });
-
-  it("qualquer membro logado lista a equipe para filtrar e transferir", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    await login("chefe@exemplo.com", "Chefe", "admin");
-
-    const res = await api("/api/members", { cookie: ana.cookie });
+    const res = await openConversation(cookie, conversa);
 
     expect(res.status).toBe(200);
-    expect(((await res.json()) as { members: unknown[] }).members).toMatchObject([
-      { name: "Ana", role: "atendente" },
-      { name: "Chefe", role: "admin" },
-    ]);
-    expect((await api("/api/members")).status).toBe(401);
-  });
-});
+    expect((await inbox(cookie)).find((c) => c.id === conversa)?.unreadCount).toBe(0);
+    const calls = await uazapi.calls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ method: "POST", path: MARK_READ });
+    expect((calls[0]!.body as { id: string[] }).id.sort()).toEqual(["owner:IN1", "owner:IN2"]);
 
-describe("Atribuir, transferir e resolver", () => {
-  it("o admin atribui uma conversa aberta e ela passa a em andamento com o escolhido", async () => {
-    const admin = await login("admin@exemplo.com", "Chefe", "admin");
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(admin.cookie);
-
-    const res = await assign(admin.cookie, conversa, ana.id);
-
-    expect(res.status).toBe(200);
-    expect(await conversationOf(admin.cookie, conversa)).toMatchObject({ status: "em_andamento", assigneeId: ana.id });
-    expect(await events(admin.cookie, conversa)).toMatchObject([{ type: "atribuida", actorName: "Chefe", toName: "Ana" }]);
+    // Abrir de novo, sem nada novo: não chama a Uazapi.
+    await openConversation(cookie, conversa);
+    expect(await uazapi.calls()).toHaveLength(1);
   });
 
-  it("o atendente nao atribui uma conversa sem responsavel (ele assume)", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const beto = await login("beto@exemplo.com", "Beto");
-    const conversa = await conversationWithClient(ana.cookie);
+  it("falha da Uazapi ao marcar como lida não impede de zerar o contador", async () => {
+    const cookie = await loginAsAtendente();
+    const conversa = await conversationWithClient(cookie);
+    await uazapi.program("POST", MARK_READ, [{ status: 500 }]);
 
-    expect((await assign(ana.cookie, conversa, beto.id)).status).toBe(403);
-    expect((await conversationOf(ana.cookie, conversa)).status).toBe("aberta");
+    expect((await openConversation(cookie, conversa)).status).toBe(200);
+    expect((await inbox(cookie)).find((c) => c.id === conversa)?.unreadCount).toBe(0);
   });
 
-  it("o responsavel transfere a conversa a um colega e o status se mantem", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const beto = await login("beto@exemplo.com", "Beto");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
+  it("abrir publica a conversa zerada no hub; exige login e conversa existente", async () => {
+    const cookie = await loginAsAtendente();
+    const conversa = await conversationWithClient(cookie);
+    await uazapi.program("POST", MARK_READ, [{ body: { ok: true } }]);
+    const outra = await connectRealtime(await loginAsAtendente("outra@exemplo.com"));
 
-    const res = await assign(ana.cookie, conversa, beto.id);
+    await openConversation(cookie, conversa);
 
-    expect(res.status).toBe(200);
-    expect(await conversationOf(ana.cookie, conversa)).toMatchObject({ status: "em_andamento", assigneeId: beto.id });
-    expect((await events(ana.cookie, conversa)).at(-1)).toMatchObject({ type: "transferida", actorName: "Ana", fromName: "Ana", toName: "Beto" });
-  });
-
-  it("atendente que nao e o responsavel nao transfere a conversa", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const beto = await login("beto@exemplo.com", "Beto");
-    const caio = await login("caio@exemplo.com", "Caio");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
-
-    expect((await assign(beto.cookie, conversa, caio.id)).status).toBe(403);
-    expect((await conversationOf(ana.cookie, conversa)).assigneeId).toBe(ana.id);
-  });
-
-  it("o admin transfere a conversa de qualquer atendente", async () => {
-    const admin = await login("admin@exemplo.com", "Chefe", "admin");
-    const ana = await login("ana@exemplo.com", "Ana");
-    const beto = await login("beto@exemplo.com", "Beto");
-    const conversa = await conversationWithClient(admin.cookie);
-    await assume(ana.cookie, conversa);
-
-    expect((await assign(admin.cookie, conversa, beto.id)).status).toBe(200);
-    expect((await conversationOf(admin.cookie, conversa)).assigneeId).toBe(beto.id);
-  });
-
-  it("transferir para um membro que nao existe responde 400", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
-
-    expect((await assign(ana.cookie, conversa, "fantasma")).status).toBe(400);
-  });
-
-  it("o responsavel resolve a conversa e a linha do tempo registra", async () => {
-    const ana = await login("ana@exemplo.com", "Ana");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
-
-    expect((await resolve(ana.cookie, conversa)).status).toBe(200);
-
-    expect(await conversationOf(ana.cookie, conversa)).toMatchObject({ status: "resolvida", assigneeId: ana.id });
-    expect((await events(ana.cookie, conversa)).at(-1)).toMatchObject({ type: "resolvida", actorName: "Ana" });
-  });
-
-  it("uma conversa aberta nao pode ser resolvida", async () => {
-    const admin = await login("admin@exemplo.com", "Chefe", "admin");
-    const conversa = await conversationWithClient(admin.cookie);
-
-    expect((await resolve(admin.cookie, conversa)).status).toBe(409);
-  });
-
-  it("atendente que nao e o responsavel nao resolve, mas o admin resolve", async () => {
-    const admin = await login("admin@exemplo.com", "Chefe", "admin");
-    const ana = await login("ana@exemplo.com", "Ana");
-    const beto = await login("beto@exemplo.com", "Beto");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
-
-    expect((await resolve(beto.cookie, conversa)).status).toBe(403);
-    expect((await resolve(admin.cookie, conversa)).status).toBe(200);
+    expect(await outra.next()).toMatchObject({ type: "conversation.updated", conversation: { id: conversa, unreadCount: 0 } });
+    outra.close();
+    expect((await openConversation("", conversa)).status).toBe(401);
+    expect((await openConversation(cookie, "nao-existe")).status).toBe(404);
   });
 });

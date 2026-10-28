@@ -4,7 +4,7 @@ import { api, type Conversation, type InboxFilter, type Member, type SearchResul
 import { authClient } from "../auth-client";
 import { clearDrafts } from "../drafts";
 import { contactLabel, initials, listTime, messagePreview, STATUS_LABEL } from "../format";
-import { onRealtime, useRealtimeConnection } from "../realtime";
+import { onRealtime } from "../realtime";
 
 /** Caixa de entrada: lista à esquerda e conversa aberta à direita (no celular, uma tela de cada vez). */
 export function InboxPage() {
@@ -19,7 +19,7 @@ export function InboxPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const me = data?.user.id;
 
-  useRealtimeConnection();
+  const isAdmin = (data?.user as { role?: string } | undefined)?.role === "admin";
 
   useEffect(() => {
     api.members().then((r) => setMembers(r.members)).catch(() => undefined);
@@ -40,6 +40,7 @@ export function InboxPage() {
         (filter.assignee === "none" ? c.assigneeId === null : c.assigneeId === (filter.assignee === "me" ? me : filter.assignee)));
     return onRealtime((event) => {
       if (event.type === "reconnected") return load(); // pode ter perdido eventos: busca a lista de novo
+      if (event.type !== "message.created" && event.type !== "conversation.updated") return;
       const next = event.conversation;
       if (event.type === "message.created") {
         // Mensagem nova: a conversa (nova ou existente) vai para o topo com a prévia atualizada, se passa no filtro.
@@ -72,6 +73,12 @@ export function InboxPage() {
       <header className="topbar">
         <h1>Caixa de entrada</h1>
         <div className="user">
+          {isAdmin && <Link to="/respostas-rapidas">Respostas rápidas</Link>}
+          {isAdmin && (
+            <Link to="/conexao" className="link">
+              Conexão
+            </Link>
+          )}
           <Link to="/perfil" data-testid="user-name">
             {data?.user.name}
           </Link>
@@ -170,6 +177,11 @@ function ConversationItem({ conversation: c }: { conversation: Conversation }) {
           <span className={`badge badge--${c.status}`}>{STATUS_LABEL[c.status]}</span>
           <span className="conv-assignee">{c.assigneeName ?? "Sem responsável"}</span>
         </span>
+        {c.unreadCount > 0 && (
+          <span className="unread-badge" aria-label={`${c.unreadCount} não lida${c.unreadCount > 1 ? "s" : ""}`}>
+            {c.unreadCount > 99 ? "99+" : c.unreadCount}
+          </span>
+        )}
       </span>
     </NavLink>
   );

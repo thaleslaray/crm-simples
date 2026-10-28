@@ -6,16 +6,17 @@ import { markReplied } from "./status";
 import type { SendStatus } from "./db/schema";
 import { createUazapiClient, UazapiHttpError } from "./uazapi/client";
 
-type Input = { conversationId: string; userId: string } & ({ text: string } | { messageId: string });
+type Input = { conversationId: string; userId: string } & ({ text: string; replyTo?: string } | { messageId: string });
 
 /**
  * Envia texto do atendente. Grava como "sending", chama a Uazapi e atualiza:
  * sucesso -> sent (com o id da Uazapi); recusa HTTP -> failed (reenvio manual); timeout ou erro de rede -> uncertain
  * (a Uazapi pode ter entregue: nunca reenviado automaticamente, e o reenvio manual só vale para "failed").
  * Com `messageId` reenvia uma mensagem "failed". Devolve null se conversa/mensagem não existe e "not_failed"
- * se a mensagem não está em "failed".
+ * se a mensagem não está em "failed". Com `replyTo` (id de uma mensagem da mesma conversa) responde citando; devolve
+ * "invalid_reply" se ela não existe ou ainda não tem id no WhatsApp.
  */
-export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promise<Message | "not_failed" | null> {
+export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promise<Message | "not_failed" | "invalid_reply" | null> {
   const db = createDb(env.DB);
   const conv = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, input.conversationId) });
   if (!conv) return null;
@@ -26,6 +27,7 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
   let messageId: string;
   let text: string;
   let timestamp: number;
+  let quotedId: string | null = null;
   if ("messageId" in input) {
     const msg = await db.query.message.findFirst({
       where: and(
@@ -46,7 +48,16 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
     messageId = msg.id;
     text = msg.text ?? "";
     timestamp = msg.timestamp;
+    quotedId = msg.quotedId;
   } else {
+    if (input.replyTo) {
+      const target = await db.query.message.findFirst({
+        where: and(eq(schema.message.id, input.replyTo), eq(schema.message.conversationId, conv.id)),
+        columns: { whatsappMessageId: true },
+      });
+      if (!target?.whatsappMessageId) return "invalid_reply";
+      quotedId = target.whatsappMessageId;
+    }
     messageId = crypto.randomUUID();
     text = input.text;
     timestamp = Date.now();
@@ -59,6 +70,7 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
       type: "text",
       text,
       timestamp,
+      quotedId,
     });
     await db
       .update(schema.conversation)
@@ -76,6 +88,7 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
       const sent = await createUazapiClient(env).sendText({
         number,
         text: author.signatureEnabled ? `*${author.name}:*\n${text}` : text,
+        replyId: quotedId ?? undefined,
       });
       status = "sent";
       patch = { externalId: sent.id, whatsappMessageId: sent.messageId };
