@@ -17,6 +17,8 @@ export interface TextMessageInput {
   text?: string;
   timestamp?: number;
   token?: string;
+  /** Resposta com citacao: `messageid` (ou `owner:messageid`) da mensagem citada. ATENCAO: campo `quoted` da doc da Uazapi, ainda nao validado com webhook real. */
+  quoted?: string;
 }
 
 /** Evento `messages` no formato da Uazapi, com padroes de uma mensagem de texto de um cliente. */
@@ -38,6 +40,7 @@ export function textMessageEvent(input: TextMessageInput = {}) {
       isGroup: input.isGroup ?? false,
       messageType: input.messageType ?? "conversation",
       text: input.text ?? "oi",
+      ...(input.quoted ? { quoted: input.quoted } : {}),
       messageTimestamp: input.timestamp ?? 1_700_000_000_000 + seq * 1000,
     },
   };

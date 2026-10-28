@@ -22,6 +22,7 @@ export interface HistoryMessage {
   media: { status: "pending" | "available" | "failed" | "expired"; mime: string | null; size: number | null; name: string | null } | null;
   location: { lat: number; lng: number; name: string | null; address: string | null } | null;
   contact: { name: string | null; phone: string | null } | null;
+  quote?: { id: string; type: string; text: string | null; direction: string; authorName: string | null } | null;
 }
 
 export async function inbox(cookie: string): Promise<InboxConversation[]> {
@@ -67,8 +68,8 @@ export async function conversationWithClient(cookie: string, phone = "5511900000
 }
 
 /** O atendente envia texto pela API, como o front faz. */
-export function sendText(cookie: string, conversationId: string, text: string) {
-  return postJson(`/api/conversations/${conversationId}/messages`, { text }, { cookie });
+export function sendText(cookie: string, conversationId: string, text: string, replyTo?: string) {
+  return postJson(`/api/conversations/${conversationId}/messages`, { text, ...(replyTo ? { replyTo } : {}) }, { cookie });
 }
 
 export function resend(cookie: string, conversationId: string, messageId: string) {

@@ -20,6 +20,8 @@ export interface UazapiMessage {
   mediaType?: string;
   /** Detalhes da midia/localizacao/contato; texto simples traz string. */
   content?: unknown;
+  /** Resposta com citacao: id da mensagem citada, com ou sem o prefixo `owner:` (nao validado com webhook real). */
+  quoted?: string;
 }
 
 type MessageType = (typeof schema.message.$inferInsert)["type"];
@@ -74,6 +76,14 @@ function parse(msg: UazapiMessage, text: string | null): Parsed {
     return { type: "contact", text: null, media: null, extra: { name: str(content.displayName), vcard: str(content.vcard) } };
   }
   return { type: "unsupported", text: null, media: null, extra: null };
+}
+
+/** `messageid` do WhatsApp da mensagem citada: do campo `quoted` ou, sem ele, de `content.contextInfo.stanzaID`. */
+function quotedId(msg: UazapiMessage): string | null {
+  const content = msg.content && typeof msg.content === "object" ? (msg.content as Record<string, unknown>) : {};
+  const info = content.contextInfo && typeof content.contextInfo === "object" ? (content.contextInfo as Record<string, unknown>) : {};
+  const raw = str(msg.quoted) ?? str(info.stanzaID);
+  return raw ? raw.slice(raw.lastIndexOf(":") + 1) || null : null;
 }
 
 const TEXT_TYPES = ["conversation", "extendedtextmessage"];
@@ -156,6 +166,7 @@ export async function ingestMessage(
       mediaSize: parsed.media?.size ?? null,
       mediaName: parsed.media?.name ?? null,
       extra: parsed.extra ? JSON.stringify(parsed.extra) : null,
+      quotedId: quotedId(msg),
     })
     .onConflictDoNothing({ target: schema.message.externalId })
     .returning({ id: schema.message.id });

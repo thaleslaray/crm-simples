@@ -28,7 +28,7 @@ export interface UazapiClient {
   /** Abre o link do arquivo para leitura em stream. Nao envia o token da instancia: o host vem do corpo da resposta. */
   openFile(url: string): Promise<Response>;
   /** Envia texto. Lanca UazapiHttpError (recusa) ou UazapiTimeoutError (resultado incerto). */
-  sendText(input: { number: string; text: string }): Promise<SentText>;
+  sendText(input: { number: string; text: string; replyId?: string }): Promise<SentText>;
 }
 
 export class UazapiHttpError extends Error {
@@ -138,11 +138,11 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     },
     // O timeout vale ate os headers chegarem; o corpo segue em stream sem limite de tempo proprio.
     openFile: (url) => request(url, {}, false),
-    async sendText({ number, text }) {
+    async sendText({ number, text, replyId }) {
       const res = await request("/send/text", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ number, text }),
+        body: JSON.stringify({ number, text, ...(replyId ? { replyid: replyId } : {}) }),
       });
       const body = (await res.json().catch(() => ({}))) as { id?: unknown; messageid?: unknown };
       return {

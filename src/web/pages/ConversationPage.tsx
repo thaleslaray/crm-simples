@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import { Link, useParams, useSearchParams } from "react-router";
 import { ApiError, api, type Conversation, type Message } from "../api";
 import { getDraft, setDraft } from "../drafts";
-import { contactLabel, dayLabel, formatPhone, initials, messageTime, sameDay } from "../format";
+import { contactLabel, dayLabel, formatPhone, initials, messagePreview, messageTime, sameDay } from "../format";
 import { onRealtime } from "../realtime";
 import { MessageBody } from "./MessageBody";
 
@@ -21,7 +21,8 @@ type State =
 export function ConversationPage() {
   const { id } = useParams<{ id: string }>();
   // ?m=<id da mensagem>: aberta a partir de um resultado de busca, posicionada nela.
-  const target = useSearchParams()[0].get("m");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const target = searchParams.get("m");
   const [state, setState] = useState<State>({ kind: "loading" });
   const [loadingOlder, setLoadingOlder] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
@@ -186,10 +187,13 @@ export function ConversationPage() {
 
   const [draft, setDraftState] = useState("");
   const [sendError, setSendError] = useState(false);
+  // Mensagem que o atendente escolheu "Responder": a próxima mensagem sai citando-a.
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   // Rascunho é por conversa: ao trocar de conversa, carrega o dela.
   useEffect(() => {
     setDraftState(id ? getDraft(id) : "");
     setSendError(false);
+    setReplyingTo(null);
   }, [id]);
 
   const replaceMessage = useCallback((from: string, to: Message | null) => {
@@ -205,22 +209,40 @@ export function ConversationPage() {
     const text = draft.trim();
     if (!id || !text) return;
     const tempId = `${TEMP}${crypto.randomUUID()}`;
-    const temp: Message = { id: tempId, direction: "out", type: "text", text, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null };
+    const quoting = replyingTo;
+    const quote = quoting
+      ? { id: quoting.id, type: quoting.type, text: quoting.text, direction: quoting.direction, authorName: quoting.authorName ?? null }
+      : null;
+    const temp: Message = { id: tempId, direction: "out", type: "text", text, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote };
     stickToBottom.current = true;
     setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, messages: [...s.messages, temp] } : s));
     setDraftState("");
     setDraft(id, "");
     setSendError(false);
+    setReplyingTo(null);
     try {
-      replaceMessage(tempId, (await api.sendText(id, text)).message);
+      replaceMessage(tempId, (await api.sendText(id, text, quoting?.id)).message);
     } catch {
       // Nem chegou ao servidor: tira a bolha e devolve o texto ao campo.
       replaceMessage(tempId, null);
       setDraftState(text);
       setDraft(id, text);
+      setReplyingTo(quoting);
       setSendError(true);
     }
-  }, [draft, id, replaceMessage]);
+  }, [draft, id, replaceMessage, replyingTo]);
+
+  // Vai até a mensagem original: se já está na tela, rola até ela; senão reabre a conversa posicionada nela (como a busca).
+  const goToQuoted = useCallback(
+    (quotedId: string) => {
+      const el = scroller.current?.querySelector(`[data-message-id="${CSS.escape(quotedId)}"]`);
+      if (!el) return setSearchParams({ m: quotedId });
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.classList.add("is-found");
+      setTimeout(() => el.classList.remove("is-found"), 1800);
+    },
+    [setSearchParams],
+  );
 
   const resend = useCallback(
     async (m: Message) => {
@@ -293,6 +315,12 @@ export function ConversationPage() {
                 className={`bubble bubble--${m.direction}${m.type === "unsupported" ? " is-unsupported" : ""}${m.status ? ` is-${m.status}` : ""}${m.id === target ? " is-found" : ""}`}
               >
                 {m.direction === "out" && m.authorName && <span className="bubble-author">{m.authorName}</span>}
+                {m.quote && (
+                  <button type="button" className="quote" onClick={() => goToQuoted(m.quote!.id)} aria-label="Ver mensagem citada">
+                    <span className="quote-author">{m.quote.direction === "out" ? (m.quote.authorName ?? "Equipe") : label}</span>
+                    <span className="quote-text">{messagePreview(m.quote.type, m.quote.text)}</span>
+                  </button>
+                )}
                 <MessageBody message={m} />
                 <span className="bubble-meta">
                   {m.status === "failed" && (
@@ -311,6 +339,11 @@ export function ConversationPage() {
                     </span>
                   )}
                   {m.status === "sending" && <span className="bubble-status">Enviando…</span>}
+                  {!m.id.startsWith(TEMP) && m.status !== "failed" && m.status !== "sending" && (
+                    <button type="button" className="link" onClick={() => setReplyingTo(m)}>
+                      Responder
+                    </button>
+                  )}
                   <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
                 </span>
               </li>
@@ -330,6 +363,19 @@ export function ConversationPage() {
           <p className="error" role="alert">
             Não foi possível enviar. Tente de novo.
           </p>
+        )}
+        {replyingTo && (
+          <div className="reply-bar">
+            <div className="reply-bar-text">
+              <span className="quote-author">
+                Respondendo a {replyingTo.direction === "out" ? (replyingTo.authorName ?? "equipe") : label}
+              </span>
+              <span className="quote-text">{messagePreview(replyingTo.type, replyingTo.text)}</span>
+            </div>
+            <button type="button" className="link" aria-label="Cancelar resposta" onClick={() => setReplyingTo(null)}>
+              ✕
+            </button>
+          </div>
         )}
         <div className="composer-row">
           <textarea

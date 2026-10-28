@@ -1,0 +1,1 @@
+ALTER TABLE `message` ADD `quoted_id` text;
