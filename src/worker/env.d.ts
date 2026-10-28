@@ -14,6 +14,8 @@ declare global {
       UAZAPI_BASE_URL: string;
       UAZAPI_INSTANCE_TOKEN: string;
       UAZAPI_ADMIN_TOKEN: string;
+      /** Opcional: timeout das chamadas a Uazapi em ms (padrao 15000). */
+      UAZAPI_TIMEOUT_MS?: string;
       WEBHOOK_URL_SECRET: string;
     }
   }

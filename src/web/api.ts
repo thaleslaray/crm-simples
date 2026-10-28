@@ -20,14 +20,19 @@ export interface MessageMedia {
 
 export interface Message {
   id: string;
-  direction: "in";
+  direction: "in" | "out";
   type: MessageType;
   text: string | null;
+  /** Só mensagens de saída: enviando, enviada, falhou (recusa) ou incerto (timeout). */
+  status?: SendStatus | null;
+  authorName?: string | null;
   timestamp: number;
   media: MessageMedia | null;
   location: { lat: number; lng: number; name: string | null; address: string | null } | null;
   contact: { name: string | null; phone: string | null } | null;
 }
+
+export type SendStatus = "sending" | "sent" | "failed" | "uncertain";
 
 export class ApiError extends Error {
   constructor(readonly status: number) {
@@ -41,7 +46,29 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function sendJson<T>(method: string, path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status);
+  return res.json() as Promise<T>;
+}
+
 export const api = {
+  sendText: (id: string, text: string) =>
+    sendJson<{ message: Message }>("POST", `/api/conversations/${encodeURIComponent(id)}/messages`, { text }),
+  resend: (id: string, messageId: string) =>
+    sendJson<{ message: Message }>(
+      "POST",
+      `/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/resend`,
+      {},
+    ),
+  preferences: () => getJson<{ signatureEnabled: boolean }>("/api/me/preferences"),
+  setSignature: (signatureEnabled: boolean) =>
+    sendJson<{ signatureEnabled: boolean }>("PATCH", "/api/me/preferences", { signatureEnabled }),
   conversations: () => getJson<{ conversations: Conversation[] }>("/api/conversations"),
   conversation: (id: string) => getJson<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`),
   messages: (id: string, before?: string) => {

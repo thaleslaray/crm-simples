@@ -1,7 +1,9 @@
 import { and, asc, desc, eq, gt, lt, lte, or, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
+import type { SendStatus } from "./db/schema";
 import { type AppEnv, requireAuth } from "./middleware";
+import { sendOutgoingText } from "./send";
 
 export const conversations = new Hono<AppEnv>();
 conversations.use("*", requireAuth);
@@ -81,9 +83,11 @@ const newerThan = (cur: Cursor) =>
 
 export type MessageRow = {
   id: string;
-  direction: "in";
+  direction: "in" | "out";
   type: (typeof schema.message.$inferSelect)["type"];
   text: string | null;
+  status: SendStatus | null;
+  authorName: string | null;
   timestamp: number;
   mediaStatus: "pending" | "available" | "failed" | null;
   mediaKey: string | null;
@@ -119,6 +123,8 @@ const messageColumns = {
   direction: schema.message.direction,
   type: schema.message.type,
   text: schema.message.text,
+  status: schema.message.status,
+  authorName: schema.user.name,
   timestamp: schema.message.timestamp,
   mediaStatus: schema.message.mediaStatus,
   mediaKey: schema.message.mediaKey,
@@ -133,6 +139,7 @@ async function loadOlder(db: Db, conversationId: string, limit: number, cur?: Cu
   const rows = await db
     .select(messageColumns)
     .from(schema.message)
+    .leftJoin(schema.user, eq(schema.user.id, schema.message.sentById))
     .where(and(eq(schema.message.conversationId, conversationId), cur ? olderThan(cur, inclusive) : undefined))
     .orderBy(desc(schema.message.timestamp), desc(schema.message.id))
     .limit(limit + 1); // uma a mais so para saber se ha pagina mais antiga
@@ -144,6 +151,7 @@ async function loadNewer(db: Db, conversationId: string, limit: number, cur: Cur
   const rows = await db
     .select(messageColumns)
     .from(schema.message)
+    .leftJoin(schema.user, eq(schema.user.id, schema.message.sentById))
     .where(and(eq(schema.message.conversationId, conversationId), newerThan(cur)))
     .orderBy(asc(schema.message.timestamp), asc(schema.message.id))
     .limit(limit + 1);
@@ -152,7 +160,9 @@ async function loadNewer(db: Db, conversationId: string, limit: number, cur: Cur
 
 /** Uma mensagem no formato da API (a mesma do historico e do tempo real). */
 export async function loadMessage(db: Db, bucket: R2Bucket, id: string): Promise<Message | null> {
-  const [row] = await db.select(messageColumns).from(schema.message).where(eq(schema.message.id, id));
+  const [row] = await db.select(messageColumns).from(schema.message)
+    .leftJoin(schema.user, eq(schema.user.id, schema.message.sentById))
+    .where(eq(schema.message.id, id));
   return row ? messageView(bucket, row) : null;
 }
 
@@ -202,4 +212,26 @@ conversations.get("/:id/messages", async (c) => {
 
   const older = await loadOlder(db, id, limit, before ?? undefined);
   return c.json({ messages: await views(c.env.MEDIA, older.page), nextBefore: older.more ? encodeCursor(older.page[0]!) : null });
+});
+
+const MAX_TEXT_LENGTH = 4096;
+
+conversations.post("/:id/messages", async (c) => {
+  const body = await c.req.json<{ text?: unknown }>().catch(() => null);
+  const text = typeof body?.text === "string" ? body.text : "";
+  if (!text.trim() || text.length > MAX_TEXT_LENGTH) return c.json({ error: "texto_invalido" }, 400);
+  const result = await sendOutgoingText(c.env, { conversationId: c.req.param("id"), userId: c.get("user").id, text });
+  if (result === null || result === "not_failed") return c.json({ error: "nao_encontrado" }, 404);
+  return c.json({ message: result }, 201);
+});
+
+conversations.post("/:id/messages/:messageId/resend", async (c) => {
+  const result = await sendOutgoingText(c.env, {
+    conversationId: c.req.param("id"),
+    messageId: c.req.param("messageId"),
+    userId: c.get("user").id,
+  });
+  if (result === null) return c.json({ error: "nao_encontrado" }, 404);
+  if (result === "not_failed") return c.json({ error: "reenvio_indisponivel" }, 409);
+  return c.json({ message: result });
 });

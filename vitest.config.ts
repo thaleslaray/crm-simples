@@ -15,6 +15,7 @@ export default defineConfig({
             BETTER_AUTH_SECRET: "segredo-de-teste-com-mais-de-32-caracteres-ok",
             UAZAPI_BASE_URL: inject<string>("fakeUazapiUrl"),
             UAZAPI_INSTANCE_TOKEN: "token-instancia-teste",
+            UAZAPI_TIMEOUT_MS: "500",
             UAZAPI_ADMIN_TOKEN: "token-admin-teste",
             WEBHOOK_URL_SECRET: "segredo-webhook-teste",
           },
@@ -24,6 +25,8 @@ export default defineConfig({
   ],
   test: {
     include: ["test/**/*.test.ts"],
+    // Uma Uazapi falsa para todos os arquivos: em paralelo, as chamadas de um arquivo apareceriam no outro.
+    fileParallelism: false,
     globalSetup: ["./test/fake-uazapi/global-setup.ts"],
     setupFiles: ["./test/setup.ts"],
   },

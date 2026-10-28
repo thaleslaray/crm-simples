@@ -65,6 +65,22 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .bubble p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .bubble time { justify-self: end; font-size: 0.75rem; color: var(--muted); }
 
+.bubble--out { align-self: flex-end; border-top-right-radius: 4px; background: #dcf1ee; border-color: #b7dcd7; }
+.bubble-author { font-size: 0.75rem; font-weight: 600; color: var(--brand); }
+.bubble-meta { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 8px; font-size: 0.75rem; color: var(--muted); }
+.bubble-meta time { justify-self: auto; }
+.bubble-status { font-size: 0.75rem; }
+.bubble.is-failed .bubble-status, .bubble.is-uncertain .bubble-status { color: var(--danger); font-weight: 600; }
+.bubble.is-sending { opacity: 0.7; }
+button.link { background: transparent; color: var(--brand); padding: 0 4px; min-height: 32px; text-decoration: underline; }
+.composer { background: var(--card); border-top: 1px solid var(--border); padding: 8px 12px; display: grid; gap: 6px; }
+.composer-row { display: flex; gap: 8px; align-items: flex-end; }
+.composer textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; resize: none; field-sizing: content; min-height: 44px; max-height: 40dvh; }
+.profile { padding: 16px; display: grid; gap: 16px; max-width: 520px; align-content: start; }
+.profile p { margin: 0; }
+.toggle { display: flex; align-items: center; gap: 12px; color: var(--fg); font-size: 1rem; min-height: 44px; }
+.toggle input { width: 22px; height: 22px; flex-shrink: 0; }
+
 @media (max-width: 767px) {
   .conv-list { width: 100%; border-right: 0; }
   .inbox:not(.inbox--detail) .conv-pane { display: none; }

@@ -11,6 +11,7 @@ async function downloadMedia(env: Cloudflare.Env, messageId: string): Promise<vo
   const db = createDb(env.DB);
   const msg = await db.query.message.findFirst({ where: eq(schema.message.id, messageId) });
   if (!msg || msg.mediaStatus !== "pending") return; // sumiu ou ja foi tratada (entrega repetida)
+  if (!msg.externalId) throw new Error("mensagem sem id da Uazapi"); // midia so vem de mensagem recebida, que sempre tem
 
   const uazapi = createUazapiClient(env);
   const link = await uazapi.downloadMedia(msg.externalId);
