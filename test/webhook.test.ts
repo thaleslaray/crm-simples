@@ -105,18 +105,11 @@ describe("webhook: contatos e LID", () => {
 });
 
 describe("webhook: tipos de mensagem", () => {
-  it("midia vira tipo nao suportado sem quebrar a ingestao", async () => {
+  it("tipo desconhecido vira nao suportado sem quebrar a ingestao", async () => {
     const cookie = await loginAsAtendente();
-    const res = await postWebhook(textMessageEvent({ messageType: "imageMessage", text: "" }));
+    const res = await postWebhook(textMessageEvent({ messageType: "pollCreationMessage", text: "enquete" }));
     expect(res.status).toBe(200);
 
-    const [conversa] = await inbox(cookie);
-    expect(conversa!.lastMessage).toMatchObject({ type: "unsupported", text: null });
-  });
-
-  it("midia com legenda tambem fica como tipo nao suportado", async () => {
-    const cookie = await loginAsAtendente();
-    await postWebhook(textMessageEvent({ messageType: "imageMessage", text: "segue o comprovante" }));
     const [conversa] = await inbox(cookie);
     expect(conversa!.lastMessage).toMatchObject({ type: "unsupported", text: null });
   });

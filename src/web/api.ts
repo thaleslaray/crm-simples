@@ -8,7 +8,15 @@ export interface Conversation {
   lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
 }
 
-export type MessageType = "text" | "unsupported";
+export type MessageType =
+  | "text" | "image" | "video" | "audio" | "voice" | "document" | "sticker" | "location" | "contact" | "unsupported";
+
+export interface MessageMedia {
+  status: "pending" | "available" | "failed" | "expired";
+  mime: string | null;
+  size: number | null;
+  name: string | null;
+}
 
 export interface Message {
   id: string;
@@ -16,6 +24,9 @@ export interface Message {
   type: MessageType;
   text: string | null;
   timestamp: number;
+  media: MessageMedia | null;
+  location: { lat: number; lng: number; name: string | null; address: string | null } | null;
+  contact: { name: string | null; phone: string | null } | null;
 }
 
 /** Conexão do número do WhatsApp. `unknown` = ainda sem informação (nenhum aviso é mostrado). */
@@ -68,6 +79,16 @@ export const api = {
       `/api/conversations/${encodeURIComponent(id)}/messages${qs}`,
     );
   },
+  /** Janela do histórico centrada numa mensagem (resultado de busca). */
+  messagesAround: (id: string, messageId: string) =>
+    getJson<{ messages: Message[]; nextBefore: string | null; nextAfter: string | null }>(
+      `/api/conversations/${encodeURIComponent(id)}/messages?around=${encodeURIComponent(messageId)}`,
+    ),
+  messagesNewer: (id: string, after: string) =>
+    getJson<{ messages: Message[]; nextAfter: string | null }>(
+      `/api/conversations/${encodeURIComponent(id)}/messages?after=${encodeURIComponent(after)}`,
+    ),
+  search: (q: string) => getJson<SearchResults>(`/api/search?q=${encodeURIComponent(q)}`),
   /** Mensagens depois da última vista (ressincronização ao reconectar). */
   messagesAfter: (id: string, last: Message) => {
     const qs = `?after=${encodeURIComponent(`${last.timestamp}:${last.id}`)}`;
@@ -76,3 +97,15 @@ export const api = {
     );
   },
 };
+
+export interface SearchResults {
+  contacts: Conversation[];
+  messages: {
+    messageId: string;
+    conversationId: string;
+    contact: Conversation["contact"];
+    /** Trecho com o termo entre \u0001 e \u0002. */
+    snippet: string;
+    timestamp: number;
+  }[];
+}

@@ -11,12 +11,22 @@ export interface InstanceStatus {
   lastDisconnectReason?: string;
 }
 
+export interface MediaDownload {
+  /** Link temporario (~2 dias) do arquivo ja decifrado. */
+  url: string;
+  mimetype: string | null;
+}
+
 export interface UazapiClient {
   getInstanceStatus(): Promise<InstanceStatus>;
   /** Inicia o pareamento (QR code). `history_days: 0`: nao importa historico anterior a conexao. */
   connect(): Promise<InstanceStatus>;
   /** Cadastra o webhook da instancia: so os eventos que o CRM usa, sem grupos nem mensagens `fromMe`. */
   configureWebhook(url: string): Promise<void>;
+  /** `/message/download`: pede o link do arquivo da mensagem (`id` = `message.id` do webhook). */
+  downloadMedia(messageId: string): Promise<MediaDownload>;
+  /** Abre o link do arquivo para leitura em stream. Nao envia o token da instancia: o host vem do corpo da resposta. */
+  openFile(url: string): Promise<Response>;
 }
 
 export class UazapiHttpError extends Error {
@@ -57,13 +67,13 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
   const timeoutMs = options.timeoutMs ?? 15_000;
   const baseUrl = env.UAZAPI_BASE_URL.replace(/\/+$/, "");
 
-  async function request(path: string, init: RequestInit = {}): Promise<Response> {
+  async function request(path: string, init: RequestInit = {}, authenticated = true): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await doFetch(`${baseUrl}${path}`, {
+      const res = await doFetch(authenticated ? `${baseUrl}${path}` : path, {
         ...init,
-        headers: { token: env.UAZAPI_INSTANCE_TOKEN, accept: "application/json", ...init.headers },
+        headers: { ...(authenticated ? { token: env.UAZAPI_INSTANCE_TOKEN, accept: "application/json" } : {}), ...init.headers },
         signal: controller.signal,
       });
       if (!res.ok) {
@@ -105,5 +115,17 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
       });
       await res.body?.cancel();
     },
+    async downloadMedia(messageId) {
+      const res = await request("/message/download", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: messageId, return_link: true, return_base64: false }),
+      });
+      const body = (await res.json()) as { fileURL?: string; mimetype?: string };
+      if (!body.fileURL) throw new Error("Uazapi nao devolveu o link do arquivo");
+      return { url: body.fileURL, mimetype: body.mimetype ?? null };
+    },
+    // O timeout vale ate os headers chegarem; o corpo segue em stream sem limite de tempo proprio.
+    openFile: (url) => request(url, {}, false),
   };
 }

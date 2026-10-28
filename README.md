@@ -56,7 +56,7 @@ Nada foi criado na conta Cloudflare. Os IDs em `wrangler.jsonc` são placeholder
 
 1. `wrangler login`; plano **Workers Paid**.
 2. `wrangler d1 create crm-whatsapp` e colocar o `database_id` em `wrangler.jsonc`.
-3. `wrangler r2 bucket create crm-whatsapp-media` (a regra de expiração de 365 dias entra no ticket de mídia).
+3. `wrangler r2 bucket create crm-whatsapp-media` e a regra de expiração: `wrangler r2 bucket lifecycle add crm-whatsapp-media expire-365d --expire-days 365` (apaga objetos com mais de 365 dias; a mídia passa a aparecer como "mídia expirada").
 4. `wrangler queues create crm-media` e `wrangler queues create crm-media-dlq`.
 5. Secrets: `wrangler secret put` para `BETTER_AUTH_SECRET`, `UAZAPI_BASE_URL`, `UAZAPI_INSTANCE_TOKEN`,
    `UAZAPI_ADMIN_TOKEN`, `WEBHOOK_URL_SECRET`.

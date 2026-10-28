@@ -3,9 +3,11 @@ import { connection } from "./connection";
 import { conversations } from "./conversations";
 import { createAuth } from "./auth";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
+import { media } from "./media";
 import { handleQueue } from "./queue";
 import { realtime } from "./realtime";
 import { handleScheduled } from "./scheduled";
+import { search } from "./search";
 import { webhook } from "./webhook";
 
 export { InboxHub } from "./durable/inbox-hub";
@@ -17,6 +19,8 @@ app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env, c.req.url).handl
 
 app.route("/api/webhook", webhook);
 app.route("/api/conversations", conversations);
+app.route("/api/search", search);
+app.route("/api/media", media);
 app.route("/api/realtime", realtime);
 app.route("/api/connection", connection);
 

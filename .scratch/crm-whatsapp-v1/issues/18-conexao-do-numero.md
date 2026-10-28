@@ -4,14 +4,14 @@
 
 **Blocked by:** 04 (Tempo real)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Tela de conexão só para admin, com status e QR code atualizado enquanto `connecting`
-- [ ] Pareamento com `history_days: 0`
-- [ ] Configuração do webhook na Uazapi (eventos `messages`, `messages_update`, `connection`; `excludeMessages` com grupos e `fromMe`; `addUrlEvents` e `addUrlTypesMessages` desligados)
-- [ ] Evento `connection` e Cron Trigger de 5 minutos atualizam o estado no D1 e publicam no hub; `TemporaryBan` é exibido como tal
-- [ ] Faixa vermelha para todos quando não estiver `connected`
-- [ ] Toda tela nova funciona bem em viewport de celular e de desktop
+- [x] Tela de conexão só para admin, com status e QR code atualizado enquanto `connecting`
+- [x] Pareamento com `history_days: 0`
+- [x] Configuração do webhook na Uazapi (eventos `messages`, `messages_update`, `connection`; `excludeMessages` com grupos e `fromMe`; `addUrlEvents` e `addUrlTypesMessages` desligados)
+- [x] Evento `connection` e Cron Trigger de 5 minutos atualizam o estado no D1 e publicam no hub; `TemporaryBan` é exibido como tal
+- [x] Faixa vermelha para todos quando não estiver `connected`
+- [x] Toda tela nova funciona bem em viewport de celular e de desktop
 
 ## Comments
 
