@@ -182,3 +182,39 @@ button.quote { display: grid; gap: 1px; text-align: left; width: 100%; min-heigh
 .team-who { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .team-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 button.danger { color: var(--danger); }
+
+/* Ficha do contato e notas internas */
+.conv-body { flex: 1; min-height: 0; display: flex; }
+.conv-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ficha { width: 340px; flex-shrink: 0; overflow-y: auto; background: var(--card); border-left: 1px solid var(--border); padding: 12px 16px; display: grid; gap: 12px; align-content: start; }
+.ficha h2 { font-size: 1rem; margin: 0; }
+.ficha h3 { font-size: 0.8rem; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.ficha-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ficha-body { display: grid; gap: 16px; }
+.ficha-id { display: flex; align-items: center; gap: 12px; }
+.ficha-id p { margin: 0; font-size: 0.9rem; }
+.avatar--big { width: 64px; height: 64px; object-fit: cover; font-size: 1.2rem; }
+.ficha-form { display: grid; gap: 10px; }
+.ficha-form textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; width: 100%; resize: vertical; }
+.ficha-form input[readonly] { background: var(--bg); color: var(--muted); }
+.ficha-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ficha-list li { display: grid; gap: 4px; justify-items: start; font-size: 0.9rem; }
+.ficha-note { background: #fef9c3; border: 1px solid #f3e08a; border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.ficha-note .muted { font-size: 0.8rem; }
+.ficha-close { display: none; }
+.ficha-toggle { margin-left: auto; min-height: 44px; }
+.note { align-self: center; width: min(90%, 560px); background: #fef9c3; border: 1px dashed #d4b83a; border-radius: 10px; padding: 8px 12px; display: grid; gap: 2px; }
+.note p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.note-tag { font-size: 0.72rem; font-weight: 700; color: #854d0e; text-transform: uppercase; letter-spacing: 0.03em; }
+.note-meta { font-size: 0.75rem; color: #854d0e; justify-self: end; }
+.composer-mode { display: flex; gap: 6px; }
+.composer-mode button { min-height: 36px; padding: 6px 12px; font-size: 0.85rem; }
+.composer-mode .mode-on { background: var(--brand); }
+.composer-mode .mode-note-on { background: #a16207; }
+.composer textarea.is-note { background: #fef9c3; border-color: #d4b83a; }
+@media (max-width: 767px) {
+  /* Celular: a ficha vira uma aba que ocupa o lugar da conversa. */
+  .conv-body--ficha .conv-col { display: none; }
+  .ficha { width: 100%; border-left: 0; }
+  .ficha-close { display: inline-block; }
+}

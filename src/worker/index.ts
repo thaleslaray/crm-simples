@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { connection } from "./connection";
+import { contacts } from "./contacts";
 import { conversations } from "./conversations";
 import { createAuth } from "./auth";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
@@ -24,6 +25,7 @@ app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env, c.req.url).handl
 
 app.route("/api/webhook", webhook);
 app.route("/api/conversations", conversations);
+app.route("/api/contacts", contacts);
 app.route("/api/search", search);
 app.route("/api/members", members);
 app.route("/api/admin", teamAdmin);

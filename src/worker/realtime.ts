@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import type { ConnectionState } from "./connection";
+import type { ContactView } from "./contacts";
 import type { Conversation, Message } from "./conversations";
+import type { Note } from "./notes";
 import type { TimelineEvent } from "./status";
 import { type AppEnv, requireAuth } from "./middleware";
 
@@ -10,6 +12,8 @@ export type RealtimeEvent =
   | { type: "message.status"; conversationId: string; messageId: string; status: NonNullable<Message["status"]> }
   // Status, responsavel ou nao lidas mudou; `event` e o evento de sistema da linha do tempo (ausente/nulo no vaivem automatico).
   | { type: "conversation.updated"; conversation: Conversation; event?: TimelineEvent | null }
+  | { type: "note.created"; conversationId: string; note: Note }
+  | { type: "contact.updated"; contact: ContactView }
   | { type: "connection.changed"; connection: ConnectionState };
 
 const hub = (env: Cloudflare.Env) => env.INBOX_HUB.getByName("inbox");
