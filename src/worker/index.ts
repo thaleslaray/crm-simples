@@ -5,6 +5,7 @@ import { type AppEnv, requireAuth, requireRole } from "./middleware";
 import { handleQueue } from "./queue";
 import { realtime } from "./realtime";
 import { handleScheduled } from "./scheduled";
+import { search } from "./search";
 import { webhook } from "./webhook";
 
 export { InboxHub } from "./durable/inbox-hub";
@@ -16,6 +17,7 @@ app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env, c.req.url).handl
 
 app.route("/api/webhook", webhook);
 app.route("/api/conversations", conversations);
+app.route("/api/search", search);
 app.route("/api/realtime", realtime);
 
 app.get("/api/health", (c) => c.json({ ok: true }));
