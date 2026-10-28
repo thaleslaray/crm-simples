@@ -8,6 +8,7 @@ const fake = await startFakeUazapi({
     { method: "GET", path: "/instance/status", responses: [{ body: { instance: { status: "connected" } } }] },
     { method: "POST", path: "/send/text", responses: [{ body: { id: "owner:e2e-out", messageid: "e2e-out" } }] },
     { method: "POST", path: "/message/markread", responses: [{ body: { ok: true } }] },
+    { method: "POST", path: "/send/media", responses: [{ body: { id: "owner:e2e-media", messageid: "e2e-media" } }] },
   ],
 });
 console.log(`Uazapi falsa em ${fake.url}`);

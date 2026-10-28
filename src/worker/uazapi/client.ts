@@ -48,6 +48,15 @@ export interface UazapiClient {
   sendText(input: { number: string; text: string; replyId?: string }): Promise<SentText>;
   /** `/message/markread`: marca mensagens recebidas (`id` = `message.id` da Uazapi) como lidas no WhatsApp. */
   markRead(messageIds: string[]): Promise<void>;
+  /** Envia midia por link (`/send/media`). `ptt` e nota de voz; `text` e a legenda; `replyId` cita uma mensagem. Mesmos erros de `sendText`. */
+  sendMedia(input: {
+    number: string;
+    type: "image" | "video" | "document" | "ptt";
+    file: string;
+    text?: string;
+    docName?: string;
+    replyId?: string;
+  }): Promise<SentText>;
 }
 
 export class UazapiHttpError extends Error {
@@ -147,6 +156,16 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
   const postJson = (path: string, body: unknown) =>
     request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
+  /** POST de envio (texto ou midia): a resposta traz o id da mensagem. */
+  async function postSend(path: string, payload: object): Promise<SentText> {
+    const res = await postJson(path, payload);
+    const body = (await res.json().catch(() => ({}))) as { id?: unknown; messageid?: unknown };
+    return {
+      id: typeof body.id === "string" ? body.id : null,
+      messageId: typeof body.messageid === "string" ? body.messageid : null,
+    };
+  }
+
   return {
     async findMessages({ limit, offset }) {
       const res = await postJson("/message/find", { limit, offset });
@@ -190,17 +209,7 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
       });
       await res.body?.cancel();
     },
-    async sendText({ number, text, replyId }) {
-      const res = await request("/send/text", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ number, text, ...(replyId ? { replyid: replyId } : {}) }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { id?: unknown; messageid?: unknown };
-      return {
-        id: typeof body.id === "string" ? body.id : null,
-        messageId: typeof body.messageid === "string" ? body.messageid : null,
-      };
-    },
+    sendText: ({ number, text, replyId }) => postSend("/send/text", { number, text, ...(replyId ? { replyid: replyId } : {}) }),
+    sendMedia: ({ replyId, ...input }) => postSend("/send/media", { ...input, ...(replyId ? { replyid: replyId } : {}) }),
   };
 }

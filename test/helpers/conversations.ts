@@ -82,6 +82,20 @@ export function resend(cookie: string, conversationId: string, messageId: string
   return postJson(`/api/conversations/${conversationId}/messages/${messageId}/resend`, {}, { cookie });
 }
 
+/** O atendente anexa um arquivo (ou grava uma nota de voz) pelo formulário multipart, como o front faz. */
+export function sendMedia(
+  cookie: string,
+  conversationId: string,
+  input: { name: string; mime: string; content: string; caption?: string; voice?: boolean; replyTo?: string },
+) {
+  const form = new FormData();
+  form.set("file", new File([input.content], input.name, { type: input.mime }));
+  if (input.caption !== undefined) form.set("text", input.caption);
+  if (input.voice) form.set("voice", "1");
+  if (input.replyTo) form.set("replyTo", input.replyTo);
+  return api(`/api/conversations/${conversationId}/messages`, { method: "POST", cookie, body: form });
+}
+
 /** Preferência de assinatura do atendente logado, como a tela de perfil faz. */
 export function setSignature(cookie: string, enabled: boolean) {
   return api("/api/me/preferences", {

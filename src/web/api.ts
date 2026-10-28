@@ -90,6 +90,21 @@ async function sendJson<T>(method: string, path: string, body: unknown): Promise
 export const api = {
   sendText: (id: string, text: string, replyTo?: string) =>
     sendJson<{ message: Message }>("POST", `/api/conversations/${encodeURIComponent(id)}/messages`, { text, replyTo }),
+  /** Anexo (legenda opcional) ou nota de voz (`voice`, sem legenda). */
+  sendMedia: async (id: string, file: File, opts: { text?: string; voice?: boolean; replyTo?: string } = {}) => {
+    const form = new FormData();
+    form.set("file", file);
+    if (opts.text) form.set("text", opts.text);
+    if (opts.voice) form.set("voice", "1");
+    if (opts.replyTo) form.set("replyTo", opts.replyTo);
+    const res = await fetch(`/api/conversations/${encodeURIComponent(id)}/messages`, {
+      method: "POST",
+      credentials: "same-origin",
+      body: form,
+    });
+    if (!res.ok) throw new ApiError(res.status);
+    return (await res.json()) as { message: Message };
+  },
   resend: (id: string, messageId: string) =>
     sendJson<{ message: Message }>(
       "POST",

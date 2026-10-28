@@ -3,9 +3,22 @@ import { Link, useParams, useSearchParams } from "react-router";
 import { ApiError, api, type Conversation, type Message, type QuickReply, type SendStatus } from "../api";
 import { fillName, filterQuickReplies, slashQuery } from "../quick-replies";
 import { getDraft, setDraft } from "../drafts";
-import { contactLabel, dayLabel, formatPhone, initials, messagePreview, messageTime, sameDay } from "../format";
+import { contactLabel, dayLabel, formatPhone, formatSize, initials, messagePreview, messageTime, sameDay } from "../format";
 import { onRealtime } from "../realtime";
 import { MessageBody } from "./MessageBody";
+import { VoiceRecorder } from "./VoiceRecorder";
+
+/** Miniatura do anexo: a própria imagem, ou um ícone para os demais tipos. */
+function AttachmentThumb({ file }: { file: File }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file.type.startsWith("image/")) return setUrl(null);
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return url ? <img className="attachment-thumb" src={url} alt="" /> : <span className="attachment-thumb attachment-thumb--file" aria-hidden="true">📄</span>;
+}
 
 // Distância do topo (px) que dispara o carregamento das mensagens mais antigas.
 const LOAD_OLDER_THRESHOLD = 120;
@@ -292,6 +305,62 @@ export function ConversationPage() {
     [setSearchParams],
   );
 
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [sendingFile, setSendingFile] = useState(false);
+
+  // Envia anexo ou nota de voz com a mesma bolha "enviando" do texto; devolve se chegou ao servidor.
+  const sendFile = useCallback(
+    async (file: File, opts: { caption: string; voice: boolean; quoting?: Message | null }) => {
+      if (!id) return false;
+      const quoting = opts.quoting ?? null;
+      const quote = quoting
+        ? { id: quoting.id, type: quoting.type, text: quoting.text, direction: quoting.direction, authorName: quoting.authorName ?? null }
+        : null;
+      const tempId = `${TEMP}${crypto.randomUUID()}`;
+      const type: Message["type"] = opts.voice ? "voice" : file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "document";
+      const temp: Message = { id: tempId, direction: "out", type, text: opts.caption || null, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote };
+      stickToBottom.current = true;
+      setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, messages: [...s.messages, temp] } : s));
+      setSendError(false);
+      setSendingFile(true);
+      setReplyingTo(null);
+      try {
+        replaceMessage(tempId, (await api.sendMedia(id, file, { text: opts.caption, voice: opts.voice, replyTo: quoting?.id })).message);
+        return true;
+      } catch {
+        replaceMessage(tempId, null);
+        setReplyingTo(quoting);
+        setSendError(true);
+        return false;
+      } finally {
+        setSendingFile(false);
+      }
+    },
+    [id, replaceMessage],
+  );
+
+  const sendAttachment = useCallback(async () => {
+    if (!attachment) return;
+    const file = attachment;
+    const caption = draft.trim();
+    setAttachment(null);
+    setDraftState("");
+    if (id) setDraft(id, "");
+    if (!(await sendFile(file, { caption, voice: false, quoting: replyingTo }))) {
+      // Nem chegou ao servidor: devolve o anexo e a legenda ao campo.
+      setAttachment(file);
+      setDraftState(caption);
+      if (id) setDraft(id, caption);
+    }
+  }, [attachment, draft, id, sendFile, replyingTo]);
+
+  // Anexo e gravação são por conversa: trocar de conversa os descarta.
+  useEffect(() => {
+    setAttachment(null);
+    setRecording(false);
+  }, [id]);
+
   const resend = useCallback(
     async (m: Message) => {
       if (!id) return;
@@ -409,7 +478,7 @@ export function ConversationPage() {
         className="composer"
         onSubmit={(e) => {
           e.preventDefault();
-          void sendDraft();
+          void (attachment ? sendAttachment() : sendDraft());
         }}
       >
         {sendError && (
@@ -452,7 +521,37 @@ export function ConversationPage() {
             )}
           </ul>
         )}
+        {recording ? (
+          <VoiceRecorder
+            busy={sendingFile}
+            onCancel={() => setRecording(false)}
+            onSend={(file) => {
+              void sendFile(file, { caption: "", voice: true, quoting: replyingTo }).then((ok) => ok && setRecording(false));
+            }}
+          />
+        ) : (
+          <>
+        {attachment && (
+          <div className="attachment" aria-label="Anexo">
+            <AttachmentThumb file={attachment} />
+            <span className="attachment-name">{attachment.name}</span>
+            <span className="muted">{formatSize(attachment.size)}</span>
+            <button type="button" className="link" onClick={() => setAttachment(null)}>
+              Remover
+            </button>
+          </div>
+        )}
         <div className="composer-row">
+          <label className="icon-button" title="Anexar arquivo">
+            <span aria-hidden="true">📎</span>
+            <span className="sr-only">Anexar arquivo</span>
+            <input type="file" hidden onChange={(e) => { setAttachment(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+          </label>
+          <label className="icon-button icon-button--camera" title="Tirar foto">
+            <span aria-hidden="true">📷</span>
+            <span className="sr-only">Tirar foto</span>
+            <input type="file" hidden accept="image/*" capture="environment" onChange={(e) => { setAttachment(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+          </label>
           <textarea
             ref={inputRef}
             aria-label="Mensagem"
@@ -483,14 +582,21 @@ export function ConversationPage() {
               // Ctrl/Cmd+Enter envia; Enter sozinho quebra a linha (no celular não há outra forma de quebrar).
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
-                void sendDraft();
+                void (attachment ? sendAttachment() : sendDraft());
               }
             }}
           />
-          <button type="submit" disabled={!draft.trim()}>
+          {!draft.trim() && !attachment && (
+            <button type="button" className="icon-button" aria-label="Gravar nota de voz" onClick={() => setRecording(true)}>
+              <span aria-hidden="true">🎤</span>
+            </button>
+          )}
+          <button type="submit" disabled={(!draft.trim() && !attachment) || sendingFile}>
             Enviar
           </button>
         </div>
+          </>
+        )}
       </form>
     </article>
   );

@@ -10,6 +10,7 @@ import { quickReplies } from "./quick-replies";
 import { realtime } from "./realtime";
 import { handleScheduled } from "./scheduled";
 import { search } from "./search";
+import { signedFiles } from "./signed-files";
 import { webhook } from "./webhook";
 
 export { InboxHub } from "./durable/inbox-hub";
@@ -23,6 +24,7 @@ app.route("/api/webhook", webhook);
 app.route("/api/conversations", conversations);
 app.route("/api/search", search);
 app.route("/api/media", media);
+app.route("/api/files", signedFiles);
 app.route("/api/realtime", realtime);
 app.route("/api/connection", connection);
 
