@@ -6,6 +6,9 @@
 export interface InstanceStatus {
   /** Ex.: "connected", "connecting", "disconnected". */
   status: string;
+  /** QR code (data URL ou base64) enquanto a instancia estiver `connecting`. */
+  qrcode?: string;
+  lastDisconnectReason?: string;
 }
 
 export interface MediaDownload {
@@ -23,6 +26,10 @@ export interface SentText {
 
 export interface UazapiClient {
   getInstanceStatus(): Promise<InstanceStatus>;
+  /** Inicia o pareamento (QR code). `history_days: 0`: nao importa historico anterior a conexao. */
+  connect(): Promise<InstanceStatus>;
+  /** Cadastra o webhook da instancia: so os eventos que o CRM usa, sem grupos nem mensagens `fromMe`. */
+  configureWebhook(url: string): Promise<void>;
   /** `/message/download`: pede o link do arquivo da mensagem (`id` = `message.id` do webhook). */
   downloadMedia(messageId: string): Promise<MediaDownload>;
   /** Abre o link do arquivo para leitura em stream. Nao envia o token da instancia: o host vem do corpo da resposta. */
@@ -120,11 +127,31 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     }
   }
 
+  async function readInstance(res: Response): Promise<InstanceStatus> {
+    const body = (await res.json()) as { instance?: { status?: string; qrcode?: string; lastDisconnectReason?: string } };
+    const { status, qrcode, lastDisconnectReason } = body.instance ?? {};
+    return { status: status ?? "unknown", ...(qrcode ? { qrcode } : {}), ...(lastDisconnectReason ? { lastDisconnectReason } : {}) };
+  }
+  const postJson = (path: string, body: unknown) =>
+    request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
   return {
     async getInstanceStatus() {
-      const res = await request("/instance/status");
-      const body = (await res.json()) as { instance?: { status?: string }; status?: unknown };
-      return { status: body.instance?.status ?? "unknown" };
+      return readInstance(await request("/instance/status"));
+    },
+    async connect() {
+      return readInstance(await postJson("/instance/connect", { history_days: 0 }));
+    },
+    async configureWebhook(url) {
+      const res = await postJson("/webhook", {
+        enabled: true,
+        url,
+        events: ["messages", "messages_update", "connection"],
+        excludeMessages: ["isGroupYes", "fromMeYes"],
+        addUrlEvents: false,
+        addUrlTypesMessages: false,
+      });
+      await res.body?.cancel();
     },
     async downloadMedia(messageId) {
       const res = await request("/message/download", {
