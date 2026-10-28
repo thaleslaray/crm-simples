@@ -1,5 +1,6 @@
 // Esquema D1 (Drizzle). Tabelas user/session/account/verification seguem o contrato do Better Auth;
 // `role` e `signatureEnabled` sao campos adicionais do usuario (declarados tambem em auth.ts).
+import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const ROLES = ["admin", "atendente"] as const;
@@ -84,6 +85,12 @@ export const connectionState = sqliteTable("connection_state", {
   disconnectType: text("disconnect_type"),
   lastDisconnectReason: text("last_disconnect_reason"),
   updatedAt: integer("updated_at").notNull(),
+});
+
+/** Reconciliacao (ticket 19): uma unica linha (id "inbox") com o inicio da ultima conferencia bem-sucedida. */
+export const reconciliationState = sqliteTable("reconciliation_state", {
+  id: text("id").primaryKey(),
+  lastRunAt: integer("last_run_at").notNull(),
 });
 
 // ---- Caixa de entrada (ticket 02) ----
@@ -171,5 +178,9 @@ export const message = sqliteTable(
     /** Localizacao e contato recebidos: JSON `{lat,lng,name,address}` ou `{name,vcard}`. */
     extra: text("extra"),
   },
-  (t) => [index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id)],
+  (t) => [
+    index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id),
+    // Parcial: so as pendentes entram, a reconciliacao acha as presas sem varrer a tabela.
+    index("message_media_pending_idx").on(t.timestamp).where(sql`${t.mediaStatus} = 'pending'`),
+  ],
 );
