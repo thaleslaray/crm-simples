@@ -1,0 +1,99 @@
+import { expect, test } from "./fixtures";
+import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
+
+declare global {
+  interface Window {
+    __notifications: { title: string; body: string; tag: string; click: () => void }[];
+    __beeps: number;
+    __permissionAsks: number;
+  }
+}
+
+test("mensagem nova com a aba em segundo plano toca som, notifica com nome e prévia, e clicar abre a conversa; título mostra não lidas", async ({
+  page,
+  request,
+}, info) => {
+  // Aba "sem foco" e navegador com Notification e WebAudio falsos, para observar o que o app faz.
+  await page.addInitScript(() => {
+    window.__notifications = [];
+    window.__beeps = 0;
+    window.__permissionAsks = 0;
+    document.hasFocus = () => false;
+    class FakeNotification {
+      static permission = "default";
+      static requestPermission() {
+        window.__permissionAsks++;
+        FakeNotification.permission = "granted";
+        return Promise.resolve("granted");
+      }
+      onclick: (() => void) | null = null;
+      constructor(title: string, opts: { body: string; tag: string }) {
+        window.__notifications.push({ title, body: opts.body, tag: opts.tag, click: () => this.onclick?.() });
+      }
+      close() {}
+    }
+    Object.defineProperty(window, "Notification", { value: FakeNotification, configurable: true });
+    class FakeAudio {
+      currentTime = 0;
+      destination = {};
+      resume() {
+        return Promise.resolve();
+      }
+      createGain() {
+        const node = { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: (n: unknown) => n };
+        return node;
+      }
+      createOscillator() {
+        window.__beeps++;
+        return { frequency: { value: 0 }, connect: (n: unknown) => n, start() {}, stop() {} };
+      }
+    }
+    Object.defineProperty(window, "AudioContext", { value: FakeAudio, configurable: true });
+  });
+
+  const run = `${info.project.name}${Date.now()}`;
+  const phone = `55118${String(Date.now()).slice(-8)}`;
+  const write = async (n: number) => {
+    const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
+      data: {
+        EventType: "messages",
+        token: E2E_WEBHOOK.instanceToken,
+        message: {
+          id: `av-${run}-${n}`,
+          messageid: `WAAV${run}${n}`,
+          chatid: `${phone}@s.whatsapp.net`,
+          sender: `${phone}@s.whatsapp.net`,
+          senderName: `Cliente ${run}`,
+          fromMe: false,
+          isGroup: false,
+          messageType: "conversation",
+          text: `Aviso ${n}`,
+          messageTimestamp: Date.now() + n,
+        },
+      },
+    });
+    expect(res.status()).toBe(200);
+  };
+
+  const socket = page.waitForEvent("websocket"); // só escrevo depois de o tempo real estar conectado
+  await page.goto("/login");
+  await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
+  await page.getByLabel("Senha").fill(E2E_ADMIN.password);
+  await page.getByRole("button", { name: "Entrar" }).click(); // o clique é o gesto que libera som e pede a permissão
+  await expect(page.getByRole("navigation", { name: "Conversas" })).toBeVisible();
+  await socket;
+  await page.mouse.click(5, 5);
+  await expect.poll(() => page.evaluate(() => window.__permissionAsks)).toBe(1);
+
+  await write(1);
+
+  await expect.poll(() => page.evaluate(() => window.__notifications.length)).toBe(1);
+  expect(await page.evaluate(() => window.__notifications[0])).toMatchObject({ title: `Cliente ${run}`, body: "Aviso 1" });
+  expect(await page.evaluate(() => window.__beeps)).toBe(1);
+  await expect(page).toHaveTitle(/^\(\d+\) CRM WhatsApp$/);
+
+  // Clicar na notificação abre a conversa
+  await page.evaluate(() => window.__notifications[0]!.click());
+  await expect(page).toHaveURL(/\/conversas\//);
+  await expect(page.getByRole("article", { name: `Conversa com Cliente ${run}` })).toBeVisible();
+});
