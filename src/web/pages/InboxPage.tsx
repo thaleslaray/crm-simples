@@ -4,6 +4,7 @@ import { api, type Conversation, type InboxFilter, type Member, type SearchResul
 import { authClient } from "../auth-client";
 import { clearDrafts } from "../drafts";
 import { contactLabel, initials, listTime, messagePreview, STATUS_LABEL } from "../format";
+import { LabelChip, useLabels } from "../labels";
 import { onRealtime } from "../realtime";
 
 /** Caixa de entrada: lista à esquerda e conversa aberta à direita (no celular, uma tela de cada vez). */
@@ -15,7 +16,8 @@ export function InboxPage() {
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
   const results = useSearch(query);
-  const [filter, setFilter] = useState<InboxFilter>({ status: "", assignee: "" });
+  const [filter, setFilter] = useState<InboxFilter>({ status: "", assignee: "", label: "" });
+  const labels = useLabels();
   const [members, setMembers] = useState<Member[]>([]);
   const me = data?.user.id;
 
@@ -36,10 +38,12 @@ export function InboxPage() {
     load();
     const matches = (c: Conversation) =>
       (!filter.status || c.status === filter.status) &&
+      (!filter.label || c.contact.labels.some((l) => l.id === filter.label)) &&
       (!filter.assignee ||
         (filter.assignee === "none" ? c.assigneeId === null : c.assigneeId === (filter.assignee === "me" ? me : filter.assignee)));
     return onRealtime((event) => {
-      if (event.type === "reconnected") return load(); // pode ter perdido eventos: busca a lista de novo
+      // Pode ter perdido eventos (ou uma etiqueta mudou/foi apagada): busca a lista de novo.
+      if (event.type === "reconnected" || event.type === "labels.changed") return load();
       if (event.type !== "message.created" && event.type !== "conversation.updated") return;
       const next = event.conversation;
       if (event.type === "message.created") {
@@ -73,6 +77,8 @@ export function InboxPage() {
       <header className="topbar">
         <h1>Caixa de entrada</h1>
         <div className="user">
+          <Link to="/contatos">Contatos</Link>
+          {isAdmin && <Link to="/etiquetas">Etiquetas</Link>}
           {isAdmin && <Link to="/respostas-rapidas">Respostas rápidas</Link>}
           {isAdmin && <Link to="/equipe">Equipe</Link>}
           {isAdmin && (
@@ -126,6 +132,14 @@ export function InboxPage() {
                 </option>
               ))}
             </select>
+            <select aria-label="Filtrar por etiqueta" value={filter.label} onChange={(e) => setFilter((f) => ({ ...f, label: e.target.value }))}>
+              <option value="">Todas as etiquetas</option>
+              {labels.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
           </div>
           {query.trim() ? (
             <SearchPanel results={results} />
@@ -136,7 +150,7 @@ export function InboxPage() {
           ) : conversations === null ? (
             <p className="empty">Carregando…</p>
           ) : conversations.length === 0 ? (
-            <p className="empty">{filter.status || filter.assignee ? "Nenhuma conversa neste filtro" : "Nenhuma conversa ainda"}</p>
+            <p className="empty">{filter.status || filter.assignee || filter.label ? "Nenhuma conversa neste filtro" : "Nenhuma conversa ainda"}</p>
           ) : (
             <ul>
               {conversations.map((c) => (
@@ -178,6 +192,13 @@ function ConversationItem({ conversation: c }: { conversation: Conversation }) {
           <span className={`badge badge--${c.status}`}>{STATUS_LABEL[c.status]}</span>
           <span className="conv-assignee">{c.assigneeName ?? "Sem responsável"}</span>
         </span>
+        {c.contact.labels.length > 0 && (
+          <span className="chips" aria-label="Etiquetas">
+            {c.contact.labels.map((l) => (
+              <LabelChip key={l.id} label={l} />
+            ))}
+          </span>
+        )}
         {c.unreadCount > 0 && (
           <span className="unread-badge" aria-label={`${c.unreadCount} não lida${c.unreadCount > 1 ? "s" : ""}`}>
             {c.unreadCount > 99 ? "99+" : c.unreadCount}

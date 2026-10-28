@@ -20,6 +20,7 @@ export interface FichaView {
     company: string | null;
     notes: string | null;
     avatarUrl: string | null;
+    labels: { id: string; name: string; color: string }[];
   };
   conversations: { id: string; status: string; assigneeName: string | null; assignees: string[]; createdAt: number }[];
   notes: NoteView[];

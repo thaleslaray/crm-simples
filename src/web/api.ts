@@ -6,8 +6,24 @@ export interface Conversation {
   assigneeId: string | null;
   assigneeName: string | null;
   unreadCount: number;
-  contact: { id: string; name: string | null; phone: string | null };
+  contact: { id: string; name: string | null; phone: string | null; labels: Label[] };
   lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
+}
+
+/** Etiqueta do contato: nome + cor (hex). */
+export interface Label {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/** Linha da lista de contatos. */
+export interface ContactRow {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  conversationId: string | null;
+  labels: Label[];
 }
 
 export type ConversationStatus = "aberta" | "em_andamento" | "aguardando_cliente" | "resolvida";
@@ -39,6 +55,7 @@ export interface Contact {
   company: string | null;
   notes: string | null;
   avatarUrl: string | null;
+  labels: Label[];
 }
 
 export interface Ficha {
@@ -55,10 +72,11 @@ export interface Member {
   role: "admin" | "atendente";
 }
 
-/** Filtros da caixa: status e responsável ("me", "none" ou o id do membro). */
+/** Filtros da caixa: status, responsável ("me", "none" ou o id do membro) e etiqueta (id). */
 export interface InboxFilter {
   status: ConversationStatus | "";
   assignee: string;
+  label: string;
 }
 
 export type MessageType =
@@ -220,6 +238,7 @@ export const api = {
     const qs = new URLSearchParams();
     if (filter?.status) qs.set("status", filter.status);
     if (filter?.assignee) qs.set("assignee", filter.assignee);
+    if (filter?.label) qs.set("label", filter.label);
     return getJson<{ conversations: Conversation[] }>(`/api/conversations${qs.size ? `?${qs}` : ""}`);
   },
   members: () => getJson<{ members: Member[] }>("/api/members"),
@@ -239,6 +258,21 @@ export const api = {
   /** A foto quebrou (URL temporária expirada): busca outra. */
   refreshAvatar: (contactId: string) =>
     sendJson<{ contact: Contact }>("POST", `/api/contacts/${encodeURIComponent(contactId)}/avatar/refresh`, {}),
+  labels: () => getJson<{ labels: Label[] }>("/api/labels"),
+  createLabel: (l: Omit<Label, "id">) => sendJson<{ label: Label }>("POST", "/api/labels", l),
+  updateLabel: (id: string, l: Partial<Omit<Label, "id">>) =>
+    sendJson<{ label: Label }>("PATCH", `/api/labels/${encodeURIComponent(id)}`, l),
+  deleteLabel: (id: string) => sendJson<{ ok: true }>("DELETE", `/api/labels/${encodeURIComponent(id)}`, {}),
+  applyLabel: (contactId: string, labelId: string) =>
+    sendJson<{ contact: Contact }>("PUT", `/api/contacts/${encodeURIComponent(contactId)}/labels/${encodeURIComponent(labelId)}`, {}),
+  removeLabel: (contactId: string, labelId: string) =>
+    sendJson<{ contact: Contact }>("DELETE", `/api/contacts/${encodeURIComponent(contactId)}/labels/${encodeURIComponent(labelId)}`, {}),
+  contacts: (q: string, label: string) => {
+    const qs = new URLSearchParams();
+    if (q.trim()) qs.set("q", q.trim());
+    if (label) qs.set("label", label);
+    return getJson<{ contacts: ContactRow[] }>(`/api/contacts${qs.size ? `?${qs}` : ""}`);
+  },
   connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
   /** Só admin: consulta a Uazapi e devolve o QR code atual. */
   connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),
