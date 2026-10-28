@@ -3,7 +3,8 @@
 CRM de atendimento pelo WhatsApp, com a cara do WhatsApp Web. A equipe inteira atende o mesmo número: as conversas
 chegam numa caixa de entrada compartilhada, cada uma tem um responsável e um status, e nada se perde.
 
-**No ar:** https://crm-simples.thales2581.workers.dev
+Roda inteiro na **sua** conta da Cloudflare e conversa com o WhatsApp pela [Uazapi](https://uazapi.com). Este guia
+leva você do clone ao CRM no ar, com o seu número conectado.
 
 ---
 
@@ -21,98 +22,207 @@ chegam numa caixa de entrada compartilhada, cada uma tem um responsável e um st
 - **Equipe.** Convite por link, papéis de admin e atendente.
 - **Tema claro e escuro**, no computador e no celular.
 
-## Primeiros passos (no site no ar)
+## O que você precisa
 
-1. **Entre** com o seu admin.
-2. **Conecte o WhatsApp:** Configurações › Conexão do número.
-   - Informe o **endereço do servidor da Uazapi** e o **Admin Token** (o `admintoken` do servidor, não o token de uma
-     instância).
-   - Escolha a instância que o CRM vai usar ("Usar esta") ou crie uma nova pelo nome.
-   - Clique em **Conectar número** e leia o QR code no celular (WhatsApp › Aparelhos conectados).
-3. **Dê nome à empresa:** Configurações › Empresa. O nome aparece no topo da lista, no login e na aba do navegador.
-4. **Monte a casa:** etiquetas, respostas rápidas e funis, em Configurações.
-5. **Chame a equipe:** Configurações › Equipe › Gerar link de convite. Mande o link para a pessoa; ela cria a própria
-   senha.
+- Uma conta na **Cloudflare** com o plano **Workers Paid** (US$ 5/mês), por causa das filas e dos Durable Objects.
+- Um servidor da **Uazapi** e o **Admin Token** dele (o `admintoken`, que lista e cria instâncias).
+- **Node 22** ou mais novo e o **pnpm** (`corepack enable` instala a versão certa).
+- **Git**.
 
-Esqueceu a senha? O admin gera um "Link de nova senha" em Configurações › Equipe. O CRM não manda e-mail.
+---
+
+## Instalar na sua Cloudflare
+
+Os comandos abaixo rodam na pasta do projeto. Cada bloco é um passo.
+
+### 1. Baixar o projeto
+
+```bash
+git clone https://github.com/thaleslaray/crm-simples.git
+```
+
+```bash
+cd crm-simples && pnpm install
+```
+
+### 2. Entrar na Cloudflare
+
+```bash
+pnpm exec wrangler login
+```
+
+Abre o navegador para você autorizar. Se você tem mais de uma conta, o Wrangler pergunta qual usar nos próximos passos.
+
+### 3. Criar o banco, o armazenamento de mídia e as filas
+
+```bash
+pnpm exec wrangler d1 create crm-simples
+```
+
+Esse comando mostra um `database_id`. Guarde: ele vai no passo 4.
+
+```bash
+pnpm exec wrangler r2 bucket create crm-simples-media
+```
+
+```bash
+pnpm exec wrangler queues create crm-simples-media
+```
+
+```bash
+pnpm exec wrangler queues create crm-simples-media-dlq
+```
+
+Opcional: apagar fotos, vídeos e áudios com mais de 1 ano (a conversa passa a mostrar "mídia expirada").
+
+```bash
+pnpm exec wrangler r2 bucket lifecycle add crm-simples-media expire-365d --expire-days 365
+```
+
+### 4. Apontar o projeto para a sua conta
+
+Abra o arquivo `wrangler.jsonc` e troque duas coisas:
+
+- **`account_id`**: apague essa linha, ou ponha o ID da sua conta (aparece no painel da Cloudflare, na barra lateral
+  de Workers & Pages).
+- **`database_id`**: ponha o ID que o passo 3 mostrou.
+
+Os nomes (`crm-simples`, `crm-simples-media` e as filas) já batem com os que você criou. Se escolheu outros nomes,
+troque também no `wrangler.jsonc`.
+
+### 5. Publicar
+
+```bash
+pnpm build
+```
+
+```bash
+pnpm exec wrangler d1 migrations apply DB --remote
+```
+
+```bash
+pnpm exec wrangler deploy
+```
+
+No fim, o Wrangler mostra o endereço do seu CRM, algo como `https://crm-simples.SEU-SUBDOMINIO.workers.dev`.
+
+### 6. Gravar os dois segredos
+
+São valores aleatórios que só o seu CRM conhece. Os comandos geram e gravam direto, sem mostrar na tela.
+
+```bash
+openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET
+```
+
+```bash
+openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET
+```
+
+- `BETTER_AUTH_SECRET` protege o login e cifra os tokens da Uazapi no banco. **Não troque depois:** trocar desloga
+  todo mundo e obriga a informar a Uazapi de novo.
+- `WEBHOOK_URL_SECRET` entra no endereço que o CRM cadastra na Uazapi para receber as mensagens.
+
+### 7. Criar o seu usuário admin
+
+Não existe tela de cadastro aberta: o primeiro admin nasce por este comando. Troque o e-mail, o nome e a senha.
+
+```bash
+pnpm bootstrap:admin --remote --email voce@empresa.com --name "Seu Nome" --password 'uma-senha-forte'
+```
+
+Pronto: abra o endereço do passo 5 e entre.
+
+---
+
+## Depois de instalar
+
+1. **Conecte o WhatsApp:** Configurações › Conexão do número.
+   - Informe o **endereço do servidor da Uazapi** (ex.: `https://seu-subdominio.uazapi.com`) e o **Admin Token**.
+     O CRM confere com a Uazapi antes de salvar.
+   - Aparecem as instâncias do seu servidor. Clique em **"Usar esta"** na que o CRM vai usar, ou crie uma nova pelo
+     nome.
+   - Clique em **Conectar número** e leia o QR code no celular (WhatsApp › Aparelhos conectados). O webhook é
+     cadastrado sozinho.
+2. **Dê nome à empresa:** Configurações › Empresa. O nome aparece no topo da lista, no login e na aba do navegador.
+3. **Monte a casa:** etiquetas, respostas rápidas e funis, em Configurações.
+4. **Chame a equipe:** Configurações › Equipe › Gerar link de convite. Mande o link para a pessoa; ela cria a própria
+   senha. Esqueceu a senha? Na mesma tela, "Link de nova senha". O CRM não manda e-mail.
+
+## Atualizar sozinho a cada push (opcional)
+
+Se o seu código está num repositório seu no GitHub, a Cloudflare pode publicar a cada push no `main`:
+
+1. No painel: Workers & Pages › **Create** › **Import a repository** (Continue with GitHub) e escolha o repositório.
+2. Preencha:
+   - **Project name:** `crm-simples` (o mesmo `name` do `wrangler.jsonc`)
+   - **Build command:** `pnpm run build`
+   - **Deploy command:** `pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy`
+3. Clique em **Deploy**. Daí em diante, cada push no `main` publica sozinho e aplica as migrações novas do banco.
+
+Os segredos do passo 6 continuam valendo; não precisa gravar de novo.
+
+## Atualizar à mão
+
+Puxou uma versão nova do código? Repita o passo 5 (build, migrações e deploy).
 
 ---
 
 ## Rodar no seu computador
 
-Precisa de Node 22+ e pnpm 11.
+```bash
+cp .dev.vars.example .dev.vars
+```
 
 ```bash
-pnpm install
-cp .dev.vars.example .dev.vars
 pnpm db:migrate:local
+```
+
+```bash
 pnpm bootstrap:admin --local --email voce@exemplo.com --name "Seu Nome" --password 'uma-senha-forte'
+```
+
+```bash
 pnpm dev
 ```
 
 Abra http://localhost:5173. O `.dev.vars` fica fora do git.
 
-Para testar com clientes falsos, sem WhatsApp de verdade, existe um ambiente de teste em `.wrangler/demo/` (CRM na
-porta 5190 e uma Uazapi falsa na 4020). Os comandos para simular cliente e queda do número estão em
-[`.scratch/design-whatsapp/jornada-de-teste.md`](.scratch/design-whatsapp/jornada-de-teste.md).
-
 ## Testes
 
 ```bash
-pnpm check       # tipos + regras dos testes + testes de borda (roda sozinho antes de cada commit)
-pnpm test:e2e    # navegador de verdade (Playwright), no computador e no celular
+pnpm check
 ```
 
-Na primeira vez com o Playwright: `pnpm exec playwright install chromium`. Detalhes e pegadinhas em
-[`docs/agents/testing.md`](docs/agents/testing.md).
-
-## Publicar
-
-**Cada push no `main` publica sozinho.** A Cloudflare (Workers Builds) baixa o código do GitHub, roda `pnpm build`,
-aplica as migrações do banco e publica o Worker. O andamento aparece no painel da Cloudflare, em Workers › crm-simples ›
-Deployments.
-
-O que existe na conta Cloudflare "Thales Laray" (já apontado em [`wrangler.jsonc`](wrangler.jsonc)):
-
-| Recurso | Nome | Para quê |
-| --- | --- | --- |
-| Worker | `crm-simples` | API e site, no mesmo endereço |
-| Banco D1 | `crm-simples` | Conversas, contatos, equipe, configurações |
-| Bucket R2 | `crm-simples-media` | Fotos, vídeos e áudios (apagados depois de 365 dias) |
-| Filas | `crm-simples-media`, `crm-simples-media-dlq` | Baixar a mídia que chega, com nova tentativa |
-
-**Segredos** (gravados na Cloudflare, nunca no repositório):
-
-- `BETTER_AUTH_SECRET`: protege o login e a cifra dos tokens da Uazapi. **Não troque:** trocar desloga todo mundo e
-  obriga a informar a Uazapi de novo.
-- `WEBHOOK_URL_SECRET`: entra no endereço do webhook que o CRM cadastra na Uazapi.
-
-Para trocar um segredo: `pnpm exec wrangler secret put <NOME> --name crm-simples`.
-
-**Criar um admin no site no ar** (pede `pnpm exec wrangler login` na primeira vez):
+Tipos, regras dos testes e testes de borda (roda sozinho antes de cada commit).
 
 ```bash
-pnpm bootstrap:admin --remote --email voce@exemplo.com --name "Seu Nome" --password 'uma-senha-forte'
+pnpm test:e2e
 ```
+
+Navegador de verdade (Playwright), no computador e no celular, com uma Uazapi falsa. Na primeira vez:
+`pnpm exec playwright install chromium`. Detalhes em [`docs/agents/testing.md`](docs/agents/testing.md).
 
 ---
 
 ## Como funciona por dentro
 
-- **Um Worker da Cloudflare** (Hono) responde a API em `/api/*` e entrega o site (React + Vite) no mesmo endereço.
-- **Banco:** D1 com Drizzle. Mudou `src/worker/db/schema.ts`? Rode `pnpm db:generate` para criar a migração em
-  `migrations/`.
-- **Tempo real:** um Durable Object (`InboxHub`) avisa as telas abertas por WebSocket.
-- **Mídia:** a fila baixa os arquivos da Uazapi e guarda no R2.
-- **Rotina a cada 5 minutos:** confere a conexão do número e busca mensagens que possam ter escapado.
-- **Login:** Better Auth, com e-mail e senha. Não existe cadastro aberto: usuário só nasce pelo comando de admin ou por
-  convite.
+| Peça da Cloudflare | Para quê |
+| --- | --- |
+| Worker | API em `/api/*` e o site (React + Vite), no mesmo endereço |
+| D1 | Conversas, contatos, equipe e configurações |
+| R2 | Fotos, vídeos e áudios das conversas |
+| Filas | Baixar a mídia que chega, com nova tentativa |
+| Durable Object | Avisar as telas abertas em tempo real (WebSocket) |
+| Cron (a cada 5 min) | Conferir a conexão do número e buscar mensagens que escaparam |
+
+- **Login:** Better Auth, com e-mail e senha. Usuário só nasce pelo comando de admin ou por convite.
+- **Banco:** Drizzle. Mudou `src/worker/db/schema.ts`? `pnpm db:generate` cria a migração em `migrations/`.
 
 | Pasta | O que tem |
 | --- | --- |
 | `src/worker/` | API, webhook da Uazapi, fila, rotina, login |
 | `src/worker/uazapi/` | Cliente da Uazapi e os dados de conexão salvos pela tela |
-| `src/web/` | Site (React): páginas em `pages/`, componentes em `components/` |
+| `src/web/` | Site: páginas em `pages/`, componentes em `components/` |
 | `migrations/` | Migrações do banco |
 | `test/` | Testes de borda, com uma Uazapi falsa |
 | `e2e/` | Testes no navegador |
@@ -120,21 +230,18 @@ pnpm bootstrap:admin --remote --email voce@exemplo.com --name "Seu Nome" --passw
 
 ### Segurança
 
-- Toda rota que muda algo confere a sessão no banco, então rebaixar ou remover alguém vale na hora. Telas só de
-  leitura aceitam a sessão em cache por até 60 segundos.
-- Admin token e token da instância da Uazapi ficam cifrados no banco (AES-GCM) e nunca voltam ao navegador. A tela
-  mostra só os 4 últimos caracteres.
+- Toda rota que muda algo confere a sessão no banco: rebaixar ou remover alguém vale na hora. Telas só de leitura
+  aceitam a sessão em cache por até 60 segundos.
+- O Admin Token e o token da instância da Uazapi ficam cifrados no banco (AES-GCM) e nunca voltam ao navegador; a
+  tela mostra só os 4 últimos caracteres.
 - O webhook só aceita chamadas com o segredo no endereço e o token da instância em uso.
+- Os segredos ficam na Cloudflare, nunca no repositório.
 
 ### Uazapi: de onde vêm os dados
 
-O CRM usa, nesta ordem:
-
-1. a instância escolhida em Configurações › Conexão do número;
-2. o token de instância salvo pela versão anterior dessa tela;
-3. os segredos opcionais `UAZAPI_BASE_URL` e `UAZAPI_INSTANCE_TOKEN`, usados pelos testes.
-
-`DELETE /api/admin/uazapi` (só admin) apaga o que foi salvo pela tela.
+O CRM usa, nesta ordem: a instância escolhida em Configurações › Conexão do número; o token de instância salvo pela
+versão anterior dessa tela; e os segredos opcionais `UAZAPI_BASE_URL` e `UAZAPI_INSTANCE_TOKEN` (usados pelos
+testes). `DELETE /api/admin/uazapi` (só admin) apaga o que foi salvo pela tela.
 
 ## Para quem vai mexer no código
 
