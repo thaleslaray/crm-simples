@@ -77,6 +77,9 @@ export interface FunnelCard {
   conversationId: string | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  status: ConversationStatus | null;
+  avatarUrl: string | null;
+  lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
   labels: Label[];
 }
 

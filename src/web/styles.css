@@ -14,6 +14,7 @@
   --text: #111b21;
   --text-2: #667781;
   --divider: #e9edef;
+  --shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
   --green: #25d366;
   --green-strong: #1daa61;
   --green-text: #008069;
@@ -36,6 +37,7 @@
   font-family: var(--font);
 }
 :root[data-theme="dark"] {
+  --shadow: 0 1px 0.5px rgba(0, 0, 0, 0.4);
   --bg-rail: #202c33;
   --bg-panel: #111b21;
   --bg-hover: #202c33;
@@ -271,35 +273,60 @@ button.quote { display: grid; gap: 1px; text-align: left; width: 100%; min-heigh
 .team-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 button.danger { color: var(--danger); }
 
-/* Funis (ticket 15) */
+/* Funis em largura total (ticket design-08) */
 .funnels-page { min-height: 0; }
 .funnels-msg { margin: 0; padding: 12px 16px; }
-.funnels-bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px; background: var(--card); border-bottom: 1px solid var(--border); }
-.funnels-bar select, .add-contact select, .ficha-funnel select, .stage-destination select { flex: 1 1 140px; min-width: 0; font: inherit; font-size: 16px; padding: 8px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--fg); }
-.add-contact { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 12px; }
-.add-contact summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--brand); font-weight: 600; }
+.board-wrap { background: var(--bg-chat); }
+.board-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 14px 20px; background: var(--bg-panel); border-bottom: 1px solid var(--divider); }
+.board-head h1 { font-size: 1.4rem; font-weight: 700; }
+.chip-row { display: flex; gap: 8px; overflow-x: auto; min-width: 0; max-width: 100%; }
+.chip { flex: none; min-height: 36px; padding: 0 14px; border: 1px solid var(--divider); border-radius: 999px; background: transparent; color: var(--text-2); font-size: 0.9rem; white-space: nowrap; }
+.chip:hover { background: var(--bg-hover); }
+.chip.on { background: var(--bg-active); color: var(--text); border-color: transparent; font-weight: 600; }
+.board-head-end { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.board-manage { color: var(--green-text); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; min-height: 44px; }
+.funnels-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+.funnels-bar input { flex: 1 1 200px; min-width: 0; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--bg-input); }
+.funnels-bar select { flex: 0 1 170px; }
+.funnels-bar select, .add-contact select, .ficha-funnel select, .stage-destination select { flex: 1 1 140px; min-width: 0; font: inherit; font-size: 16px; padding: 8px; min-height: 40px; border: 1px solid var(--divider); border-radius: 8px; background: var(--bg-panel); color: var(--text); }
+.add-contact { margin: 10px 20px 0; background: var(--bg-panel); border-radius: 12px; padding: 0 12px; }
+.add-contact summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--green-text); font-weight: 600; }
 .add-contact-body { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; }
 .add-contact-body input { flex: 2 1 180px; min-height: 44px; }
 .add-contact-results { flex: 1 1 100%; list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .add-contact-results button { width: 100%; text-align: left; overflow-wrap: anywhere; }
-.board { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px; overflow: auto; align-items: flex-start; scroll-snap-type: x proximity; overscroll-behavior: contain; }
-.board-col { flex: 0 0 280px; max-width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; padding: 8px; display: grid; gap: 8px; align-content: start; scroll-snap-align: start; }
-.board-col--over { outline: 2px dashed var(--brand); outline-offset: -2px; }
-.board-col h2 { font-size: 0.95rem; margin: 0; padding: 4px 4px 0; overflow-wrap: anywhere; }
-.board-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; min-height: 56px; align-content: start; }
+.board { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 16px 20px; overflow: auto; align-items: stretch; scroll-snap-type: x proximity; overscroll-behavior: contain; }
+.board-col { flex: 0 0 280px; max-width: 100%; background: color-mix(in srgb, var(--bg-panel) 70%, transparent); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px; scroll-snap-align: start; }
+.board-col--over { outline: 2px dashed var(--green-strong); outline-offset: -2px; }
+.board-col h2 { font-size: 0.9rem; font-weight: 600; margin: 2px 4px 2px; display: flex; justify-content: space-between; gap: 8px; overflow-wrap: anywhere; }
+.board-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; min-height: 56px; align-content: start; overflow-y: auto; }
 .board-empty { padding: 8px 4px; font-size: 0.85rem; }
-.kcard { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; min-width: 0; }
+.kcard { position: relative; background: var(--bubble-in); border-radius: 8px; padding: 10px; box-shadow: var(--shadow); display: grid; gap: 4px; min-width: 0; }
 .kcard--dragging { position: relative; z-index: 5; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25); opacity: 0.92; pointer-events: none; }
-.kcard-drop { height: 6px; border-radius: 3px; background: var(--brand); }
-.kcard-head { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.kcard-grip { flex: none; width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 1.4rem; cursor: grab; touch-action: none; user-select: none; }
+.kcard-drop { height: 6px; border-radius: 3px; background: var(--green-strong); }
+.kcard-main { display: grid; gap: 6px; min-width: 0; padding-right: 64px; color: inherit; text-decoration: none; }
+.kcard-line { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.avatar--xs { width: 28px; height: 28px; font-size: 0.75rem; overflow: hidden; }
+.avatar--xs img { width: 100%; height: 100%; object-fit: cover; }
+.kcard-name { flex: 1; min-width: 0; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kcard-time { font-size: 0.75rem; color: var(--text-2); white-space: nowrap; }
+.kcard-preview { margin: 0; color: var(--text-2); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kcard-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.status-pill { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; background: var(--st-resolvida-bg); color: var(--st-resolvida-fg); }
+.status-pill--aberta { background: var(--st-aberta-bg); color: var(--st-aberta-fg); }
+.status-pill--em_andamento { background: var(--st-andamento-bg); color: var(--st-andamento-fg); }
+.status-pill--aguardando_cliente { background: var(--st-aguardando-bg); color: var(--st-aguardando-fg); }
+.status-pill--resolvida { background: var(--st-resolvida-bg); color: var(--st-resolvida-fg); }
+.label-tag { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 0.75rem; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); background: var(--bg-active); }
+.label-tag i { flex: none; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.kcard-tools { position: absolute; top: 4px; right: 4px; display: flex; align-items: center; }
+.kcard-tools .kcard-grip, .kcard-more { width: 32px; height: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--text-2); display: grid; place-items: center; border-radius: 50%; cursor: pointer; list-style: none; }
+.kcard-grip { cursor: grab; touch-action: none; user-select: none; }
+.kcard-menu-body { position: absolute; z-index: 3; top: 38px; right: 4px; left: 4px; display: grid; gap: 8px; padding: 10px; background: var(--bg-panel); border: 1px solid var(--divider); border-radius: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2); }
+.kcard-menu-body a { color: var(--green-text); display: inline-flex; align-items: center; min-height: 44px; }
+.kcard-menu-body select { font: inherit; font-size: 16px; padding: 6px; min-height: 44px; border: 1px solid var(--divider); border-radius: 8px; background: var(--bg-panel); color: var(--text); }
 .board--dragging { user-select: none; cursor: grabbing; }
 .board--dragging .kcard-grip { pointer-events: auto; }
-.kcard-id { display: grid; min-width: 0; overflow-wrap: anywhere; }
-.kcard-assignee { font-size: 0.8rem; }
-.kcard-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.kcard-actions a { color: var(--brand); display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
-.kcard-actions select { flex: 1 1 120px; min-width: 0; font: inherit; font-size: 16px; padding: 6px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--fg); }
 .funnels-admin { max-width: 640px; }
 .funnel-editor { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
 .funnel-editor-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -311,8 +338,18 @@ button.danger { color: var(--danger); }
 .ficha-funnel-row, .ficha-funnel-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
 .ficha-funnel { justify-items: stretch; }
 @media (max-width: 767px) {
-  .board { scroll-snap-type: x mandatory; scroll-padding-inline: 12px; }
+  .board { scroll-snap-type: x mandatory; scroll-padding-inline: 12px; padding: 12px; }
   .board-col { flex-basis: 82vw; }
+  .board-head { padding-inline: 12px; }
+  .board-head { gap: 6px 12px; padding-block: 10px; }
+  .board-head-end { display: contents; }
+  .board-head h1 { order: 1; }
+  .board-manage { order: 2; margin-left: auto; min-height: 36px; }
+  .chip-row { order: 3; width: 100%; }
+  .funnels-bar { order: 4; width: 100%; }
+  .funnels-bar input { flex: 1 1 100%; }
+  .funnels-bar select { flex: 1 1 40%; min-height: 36px; padding: 4px 8px; }
+  .add-contact { margin-inline: 12px; }
 }
 
 /* Ficha do contato e notas internas */
