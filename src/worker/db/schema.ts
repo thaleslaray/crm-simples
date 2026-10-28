@@ -71,6 +71,21 @@ export const verification = sqliteTable(
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
 
+// ---- Conexao do numero (ticket 18) ----
+
+export const CONNECTION_STATUSES = ["connected", "connecting", "disconnected"] as const;
+export type ConnectionStatus = (typeof CONNECTION_STATUSES)[number];
+
+/** Estado da conexao do numero: uma unica linha (id "instance"). Sem linha = ainda desconhecido. */
+export const connectionState = sqliteTable("connection_state", {
+  id: text("id").primaryKey(),
+  status: text("status", { enum: CONNECTION_STATUSES }).notNull(),
+  /** `type` do evento connection (Disconnected, TemporaryBan). */
+  disconnectType: text("disconnect_type"),
+  lastDisconnectReason: text("last_disconnect_reason"),
+  updatedAt: integer("updated_at").notNull(),
+});
+
 // ---- Caixa de entrada (ticket 02) ----
 
 export const CONVERSATION_STATUSES = ["aberta"] as const; // em_andamento/resolvida entram nos tickets de status
