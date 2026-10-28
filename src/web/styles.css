@@ -45,6 +45,10 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .conv-preview { font-size: 0.9rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .is-unsupported > p, .conv-preview.is-unsupported { font-style: italic; }
 
+.search-box { position: sticky; top: 0; z-index: 1; padding: 8px 12px; background: var(--card); border-bottom: 1px solid var(--border); }
+.search-heading { margin: 0; padding: 8px 16px 4px; font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.conv-preview mark { background: #fde68a; color: inherit; border-radius: 2px; }
+.bubble.is-found { outline: 2px solid var(--brand); outline-offset: 1px; }
 .conversation { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .conv-header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--border); }
 .conv-header-text { min-width: 0; }

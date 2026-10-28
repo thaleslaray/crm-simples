@@ -39,4 +39,26 @@ export const api = {
       `/api/conversations/${encodeURIComponent(id)}/messages${qs}`,
     );
   },
+  /** Janela do histórico centrada numa mensagem (resultado de busca). */
+  messagesAround: (id: string, messageId: string) =>
+    getJson<{ messages: Message[]; nextBefore: string | null; nextAfter: string | null }>(
+      `/api/conversations/${encodeURIComponent(id)}/messages?around=${encodeURIComponent(messageId)}`,
+    ),
+  messagesAfter: (id: string, after: string) =>
+    getJson<{ messages: Message[]; nextAfter: string | null }>(
+      `/api/conversations/${encodeURIComponent(id)}/messages?after=${encodeURIComponent(after)}`,
+    ),
+  search: (q: string) => getJson<SearchResults>(`/api/search?q=${encodeURIComponent(q)}`),
 };
+
+export interface SearchResults {
+  contacts: Conversation[];
+  messages: {
+    messageId: string;
+    conversationId: string;
+    contact: Conversation["contact"];
+    /** Trecho com o termo entre \u0001 e \u0002. */
+    snippet: string;
+    timestamp: number;
+  }[];
+}
