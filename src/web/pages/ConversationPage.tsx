@@ -358,7 +358,8 @@ export function ConversationPage() {
     [setSearchParams],
   );
 
-  const [fichaOpen, setFichaOpen] = useState(() => window.matchMedia("(min-width: 1100px)").matches);
+  // ?ficha=1: aberta a partir do card do funil, já na ficha.
+  const [fichaOpen, setFichaOpen] = useState(() => searchParams.get("ficha") === "1" || window.matchMedia("(min-width: 1100px)").matches);
 
   const sendNote = useCallback(async () => {
     const text = draft.trim();

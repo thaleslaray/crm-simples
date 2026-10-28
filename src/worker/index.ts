@@ -8,6 +8,7 @@ import { media } from "./media";
 import { accessLinks } from "./access-links";
 import { members, teamAdmin } from "./members";
 import { preferences } from "./preferences";
+import { funnels } from "./funnels";
 import { labels } from "./labels";
 import { handleQueue } from "./queue";
 import { quickReplies } from "./quick-replies";
@@ -39,6 +40,7 @@ app.route("/api/connection", connection);
 app.route("/api/me/preferences", preferences);
 app.route("/api/quick-replies", quickReplies);
 app.route("/api/labels", labels);
+app.route("/api/funnels", funnels);
 
 app.get("/api/health", (c) => c.json({ ok: true }));
 

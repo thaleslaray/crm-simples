@@ -198,6 +198,50 @@ button.quote { display: grid; gap: 1px; text-align: left; width: 100%; min-heigh
 .team-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 button.danger { color: var(--danger); }
 
+/* Funis (ticket 15) */
+.funnels-page { min-height: 0; }
+.funnels-msg { margin: 0; padding: 12px 16px; }
+.funnels-bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px; background: var(--card); border-bottom: 1px solid var(--border); }
+.funnels-bar select, .add-contact select, .ficha-funnel select, .stage-destination select { flex: 1 1 140px; min-width: 0; font: inherit; font-size: 16px; padding: 8px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--fg); }
+.add-contact { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 12px; }
+.add-contact summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--brand); font-weight: 600; }
+.add-contact-body { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; }
+.add-contact-body input { flex: 2 1 180px; min-height: 44px; }
+.add-contact-results { flex: 1 1 100%; list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.add-contact-results button { width: 100%; text-align: left; overflow-wrap: anywhere; }
+.board { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px; overflow: auto; align-items: flex-start; scroll-snap-type: x proximity; overscroll-behavior: contain; }
+.board-col { flex: 0 0 280px; max-width: 100%; background: #e8eeed; border: 1px solid var(--border); border-radius: 10px; padding: 8px; display: grid; gap: 8px; align-content: start; scroll-snap-align: start; }
+.board-col--over { outline: 2px dashed var(--brand); outline-offset: -2px; }
+.board-col h2 { font-size: 0.95rem; margin: 0; padding: 4px 4px 0; overflow-wrap: anywhere; }
+.board-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; min-height: 56px; align-content: start; }
+.board-empty { padding: 8px 4px; font-size: 0.85rem; }
+.kcard { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; min-width: 0; }
+.kcard--dragging { position: relative; z-index: 5; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25); opacity: 0.92; pointer-events: none; }
+.kcard-drop { height: 6px; border-radius: 3px; background: var(--brand); }
+.kcard-head { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.kcard-grip { flex: none; width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 1.4rem; cursor: grab; touch-action: none; user-select: none; }
+.board--dragging { user-select: none; cursor: grabbing; }
+.board--dragging .kcard-grip { pointer-events: auto; }
+.kcard-id { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.kcard-assignee { font-size: 0.8rem; }
+.kcard-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.kcard-actions a { color: var(--brand); display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
+.kcard-actions select { flex: 1 1 120px; min-width: 0; font: inherit; font-size: 16px; padding: 6px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--fg); }
+.funnels-admin { max-width: 640px; }
+.funnel-editor { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
+.funnel-editor-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.funnel-editor-head input { flex: 1 1 160px; min-width: 0; }
+.stage-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.stage-row { display: grid; gap: 8px; }
+.stage-destination { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px; background: #fef9c3; border: 1px solid #f3e08a; border-radius: 8px; }
+.stage-destination p { margin: 0; flex: 1 1 100%; }
+.ficha-funnel-row, .ficha-funnel-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
+.ficha-funnel { justify-items: stretch; }
+@media (max-width: 767px) {
+  .board { scroll-snap-type: x mandatory; scroll-padding-inline: 12px; }
+  .board-col { flex-basis: 82vw; }
+}
+
 /* Ficha do contato e notas internas */
 .conv-body { flex: 1; min-height: 0; display: flex; }
 .conv-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }

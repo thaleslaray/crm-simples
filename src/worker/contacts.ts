@@ -2,6 +2,7 @@ import { and, asc, eq, exists, like, or, type SQL, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { loadConversation } from "./conversations";
 import { createDb, type Db, schema } from "./db";
+import { funnelsOfContact } from "./funnels";
 import { labelsByContact } from "./labels";
 import { ftsExpression, MIN_PHONE_DIGITS } from "./search";
 import { type AppEnv, requireAuth } from "./middleware";
@@ -151,6 +152,7 @@ contacts.get("/:id", async (c) => {
     contact: await loadContact(db, id),
     conversations: history,
     notes: await listNotes(db, convs.map((conv) => conv.id)),
+    funnels: await funnelsOfContact(db, id),
   });
 });
 

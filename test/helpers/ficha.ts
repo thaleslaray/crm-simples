@@ -24,6 +24,7 @@ export interface FichaView {
   };
   conversations: { id: string; status: string; assigneeName: string | null; assignees: string[]; createdAt: number }[];
   notes: NoteView[];
+  funnels: { funnelId: string; funnelName: string; stageId: string; stageName: string }[];
 }
 
 export function addNote(cookie: string, conversationId: string, text: string) {

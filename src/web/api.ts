@@ -58,7 +58,49 @@ export interface Contact {
   labels: Label[];
 }
 
+export interface Stage {
+  id: string;
+  name: string;
+}
+
+export interface Funnel {
+  id: string;
+  name: string;
+  stages: Stage[];
+}
+
+/** Card do kanban: um contato numa etapa. */
+export interface FunnelCard {
+  contactId: string;
+  name: string | null;
+  phone: string | null;
+  conversationId: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  labels: Label[];
+}
+
+export interface Board {
+  funnel: Funnel;
+  stages: (Stage & { cards: FunnelCard[] })[];
+}
+
+/** Filtros do kanban: etiqueta (id) e responsável da conversa ("me", "none" ou o id do membro). */
+export interface BoardFilter {
+  label: string;
+  assignee: string;
+}
+
+/** Posição do contato num funil, como a ficha mostra. */
+export interface ContactFunnel {
+  funnelId: string;
+  funnelName: string;
+  stageId: string;
+  stageName: string;
+}
+
 export interface Ficha {
+  funnels: ContactFunnel[];
   contact: Contact;
   conversations: { id: string; status: ConversationStatus; assigneeName: string | null; assignees: string[]; createdAt: number }[];
   notes: Note[];
@@ -273,6 +315,38 @@ export const api = {
     if (label) qs.set("label", label);
     return getJson<{ contacts: ContactRow[] }>(`/api/contacts${qs.size ? `?${qs}` : ""}`);
   },
+  funnels: () => getJson<{ funnels: Funnel[] }>("/api/funnels"),
+  createFunnel: (name: string) => sendJson<{ funnel: Funnel }>("POST", "/api/funnels", { name }),
+  renameFunnel: (id: string, name: string) => sendJson<{ ok: true }>("PATCH", `/api/funnels/${encodeURIComponent(id)}`, { name }),
+  deleteFunnel: (id: string) => sendJson<{ ok: true }>("DELETE", `/api/funnels/${encodeURIComponent(id)}`, {}),
+  addStage: (funnelId: string, name: string) =>
+    sendJson<{ stage: Stage }>("POST", `/api/funnels/${encodeURIComponent(funnelId)}/stages`, { name }),
+  renameStage: (funnelId: string, stageId: string, name: string) =>
+    sendJson<{ ok: true }>("PATCH", `/api/funnels/${encodeURIComponent(funnelId)}/stages/${encodeURIComponent(stageId)}`, { name }),
+  reorderStages: (funnelId: string, stageIds: string[]) =>
+    sendJson<{ ok: true }>("PUT", `/api/funnels/${encodeURIComponent(funnelId)}/stages/order`, { stageIds }),
+  /** Etapa com cards: `moveTo` é a etapa que recebe os cards (sem ele o servidor responde 409). */
+  deleteStage: (funnelId: string, stageId: string, moveTo?: string) =>
+    sendJson<{ ok: true }>(
+      "DELETE",
+      `/api/funnels/${encodeURIComponent(funnelId)}/stages/${encodeURIComponent(stageId)}`,
+      moveTo ? { moveTo } : {},
+    ),
+  board: (funnelId: string, filter: BoardFilter) => {
+    const qs = new URLSearchParams();
+    if (filter.label) qs.set("label", filter.label);
+    if (filter.assignee) qs.set("assignee", filter.assignee);
+    return getJson<Board>(`/api/funnels/${encodeURIComponent(funnelId)}/board${qs.size ? `?${qs}` : ""}`);
+  },
+  addCard: (funnelId: string, contactId: string, stageId: string) =>
+    sendJson<{ ok: true }>("POST", `/api/funnels/${encodeURIComponent(funnelId)}/cards`, { contactId, stageId }),
+  moveCard: (funnelId: string, contactId: string, stageId: string, index?: number) =>
+    sendJson<{ ok: true }>("PUT", `/api/funnels/${encodeURIComponent(funnelId)}/cards/${encodeURIComponent(contactId)}`, {
+      stageId,
+      index,
+    }),
+  removeCard: (funnelId: string, contactId: string) =>
+    sendJson<{ ok: true }>("DELETE", `/api/funnels/${encodeURIComponent(funnelId)}/cards/${encodeURIComponent(contactId)}`, {}),
   connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
   /** Só admin: consulta a Uazapi e devolve o QR code atual. */
   connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),
