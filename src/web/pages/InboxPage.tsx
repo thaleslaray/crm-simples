@@ -6,6 +6,7 @@ import { clearDrafts } from "../drafts";
 import { contactLabel, initials, listTime, messagePreview, STATUS_LABEL } from "../format";
 import { LabelChip, useLabels } from "../labels";
 import { onRealtime } from "../realtime";
+import { NewConversationDialog } from "./NewConversation";
 
 /** Caixa de entrada: lista à esquerda e conversa aberta à direita (no celular, uma tela de cada vez). */
 export function InboxPage() {
@@ -15,6 +16,7 @@ export function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
+  const [newOpen, setNewOpen] = useState(false);
   const results = useSearch(query);
   const [filter, setFilter] = useState<InboxFilter>({ status: "", assignee: "", label: "" });
   const labels = useLabels();
@@ -97,6 +99,9 @@ export function InboxPage() {
       <div className="inbox-body">
         <nav className="conv-list" aria-label="Conversas">
           <div className="search-box">
+            <button type="button" className="new-conv" onClick={() => setNewOpen(true)}>
+              Nova conversa
+            </button>
             <input
               type="search"
               aria-label="Buscar"
@@ -165,6 +170,7 @@ export function InboxPage() {
           <Outlet />
         </section>
       </div>
+      {newOpen && <NewConversationDialog onClose={() => setNewOpen(false)} />}
     </div>
   );
 }

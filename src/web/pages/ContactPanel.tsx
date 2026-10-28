@@ -3,6 +3,7 @@ import { api, type Contact, type Ficha } from "../api";
 import { contactLabel, formatPhone, initials, messageTime, STATUS_LABEL } from "../format";
 import { LabelChip, useLabels } from "../labels";
 import { onRealtime } from "../realtime";
+import { NewConversationDialog } from "./NewConversation";
 
 function dateTime(ts: number): string {
   return `${new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${messageTime(ts)}`;
@@ -40,6 +41,7 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [starting, setStarting] = useState(false);
   const allLabels = useLabels();
   const [labelError, setLabelError] = useState(false);
 
@@ -132,6 +134,15 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
               </p>
             </div>
           </div>
+          <button type="button" className="ficha-start" onClick={() => setStarting(true)}>
+            Iniciar conversa
+          </button>
+          {starting && (
+            <NewConversationDialog
+              contact={{ id: ficha.contact.id, label: contactLabel(ficha.contact) }}
+              onClose={() => setStarting(false)}
+            />
+          )}
           <section aria-label="Etiquetas do contato">
             <h3>Etiquetas</h3>
             <ul className="chips chips--edit">

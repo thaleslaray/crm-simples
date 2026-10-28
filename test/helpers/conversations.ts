@@ -150,3 +150,8 @@ export async function inboxFiltered(cookie: string, query: string): Promise<Inbo
   const res = await api(`/api/conversations?${query}`, { cookie });
   return ((await res.json()) as { conversations: InboxConversation[] }).conversations;
 }
+
+/** O atendente inicia uma conversa pela API (contato existente por `contactId` ou numero digitado em `phone`). */
+export function startConversation(cookie: string, body: { contactId?: string; phone?: string; text: string }) {
+  return postJson("/api/conversations/start", body, { cookie });
+}
