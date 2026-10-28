@@ -2,7 +2,9 @@ import { Hono } from "hono";
 import { createDb, schema } from "./db";
 import { eq } from "drizzle-orm";
 import { ingestMessage, type UazapiMessage } from "./ingest";
+import { loadConversation } from "./conversations";
 import type { AppEnv } from "./middleware";
+import { publish } from "./realtime";
 
 /** Comparacao em tempo constante: hasheia os dois lados (tamanho fixo) e compara os digests. */
 async function safeEqual(a: unknown, b: string): Promise<boolean> {
@@ -38,8 +40,13 @@ webhook.post("/:secret", async (c) => {
   // Outros tipos de evento (messages_update, connection...) ficam gravados sem processar: sao de tickets futuros.
   if (payload.EventType === "messages") {
     try {
-      await ingestMessage(db, (payload.message ?? {}) as UazapiMessage);
+      const ingested = await ingestMessage(db, (payload.message ?? {}) as UazapiMessage);
       await db.update(schema.webhookEvent).set({ processedAt: Date.now() }).where(eq(schema.webhookEvent.id, eventId));
+      // Mensagem nova (nao duplicada): avisa o hub. Depois de gravar tudo; falha de publicacao nao some com a mensagem.
+      if (ingested) {
+        const conversation = await loadConversation(db, ingested.conversationId);
+        if (conversation) await publish(c.env, { type: "message.created", conversation, message: ingested.message });
+      }
     } catch (err) {
       // Nunca logar payload/token: so o tipo do erro e o id do evento. O evento fica sem processedAt.
       console.error("webhook: falha ao processar evento", { eventId, erro: err instanceof Error ? err.name : "desconhecido" });

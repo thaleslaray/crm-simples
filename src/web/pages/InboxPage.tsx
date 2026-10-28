@@ -1,29 +1,35 @@
-import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, useMatch, useNavigate } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import { NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { api, type Conversation } from "../api";
 import { authClient } from "../auth-client";
 import { contactLabel, initials, listTime, messagePreview } from "../format";
+import { onRealtime, useRealtimeConnection } from "../realtime";
 
 /** Caixa de entrada: lista à esquerda e conversa aberta à direita (no celular, uma tela de cada vez). */
 export function InboxPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { data } = authClient.useSession();
   const detailOpen = useMatch("/conversas/:id") !== null;
   const [conversations, setConversations] = useState<Conversation[] | null>(null);
   const [failed, setFailed] = useState(false);
 
-  // Sem tempo real ainda: recarrega a lista a cada navegação dentro da caixa.
-  useEffect(() => {
-    let alive = true;
+  useRealtimeConnection();
+
+  const load = useCallback(() => {
     api
       .conversations()
-      .then((r) => alive && (setConversations(r.conversations), setFailed(false)))
-      .catch(() => alive && setFailed(true));
-    return () => {
-      alive = false;
-    };
-  }, [location.pathname]);
+      .then((r) => (setConversations(r.conversations), setFailed(false)))
+      .catch(() => setFailed(true));
+  }, []);
+
+  useEffect(() => {
+    load();
+    return onRealtime((event) => {
+      if (event.type === "reconnected") return load(); // pode ter perdido eventos: busca a lista de novo
+      // Mensagem nova: a conversa (nova ou existente) vai para o topo com a prévia atualizada.
+      setConversations((list) => [event.conversation, ...(list ?? []).filter((c) => c.id !== event.conversation.id)]);
+    });
+  }, [load]);
 
   async function signOut() {
     await authClient.signOut();
