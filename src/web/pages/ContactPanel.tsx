@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Contact, type Ficha } from "../api";
 import { contactLabel, formatPhone, initials, messageTime, STATUS_LABEL } from "../format";
+import { LabelChip, useLabels } from "../labels";
 import { onRealtime } from "../realtime";
 
 function dateTime(ts: number): string {
@@ -39,6 +40,8 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const allLabels = useLabels();
+  const [labelError, setLabelError] = useState(false);
 
   const fill = (c: Contact) => setForm({ name: c.name ?? "", email: c.email ?? "", company: c.company ?? "", notes: c.notes ?? "" });
 
@@ -88,6 +91,16 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
     }
   }
 
+  async function changeLabel(action: () => Promise<{ contact: Contact }>) {
+    setLabelError(false);
+    try {
+      const { contact } = await action();
+      setFicha((f) => (f ? { ...f, contact: { ...f.contact, labels: contact.labels } } : f));
+    } catch {
+      setLabelError(true);
+    }
+  }
+
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
     setDirty(true);
@@ -119,6 +132,49 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
               </p>
             </div>
           </div>
+          <section aria-label="Etiquetas do contato">
+            <h3>Etiquetas</h3>
+            <ul className="chips chips--edit">
+              {ficha.contact.labels.map((l) => (
+                <li key={l.id}>
+                  <LabelChip label={l} />
+                  <button
+                    type="button"
+                    className="chip-remove"
+                    aria-label={`Remover etiqueta ${l.name}`}
+                    onClick={() => void changeLabel(() => api.removeLabel(contactId, l.id))}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {ficha.contact.labels.length === 0 && <p className="muted">Nenhuma etiqueta.</p>}
+            {(() => {
+              const free = allLabels.filter((l) => !ficha.contact.labels.some((x) => x.id === l.id));
+              return free.length > 0 ? (
+                <select
+                  aria-label="Adicionar etiqueta"
+                  value=""
+                  onChange={(e) => e.target.value && void changeLabel(() => api.applyLabel(contactId, e.target.value))}
+                >
+                  <option value="">Adicionar etiqueta…</option>
+                  {free.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              ) : allLabels.length === 0 ? (
+                <p className="muted">O admin ainda não criou etiquetas.</p>
+              ) : null;
+            })()}
+            {labelError && (
+              <p className="error" role="alert">
+                Não foi possível alterar a etiqueta.
+              </p>
+            )}
+          </section>
           <form className="ficha-form" onSubmit={(e) => void save(e)}>
             <label>
               Telefone

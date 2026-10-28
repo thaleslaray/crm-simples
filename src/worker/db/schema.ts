@@ -1,7 +1,7 @@
 // Esquema D1 (Drizzle). Tabelas user/session/account/verification seguem o contrato do Better Auth;
 // `role` e `signatureEnabled` sao campos adicionais do usuario (declarados tambem em auth.ts).
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const ROLES = ["admin", "atendente"] as const;
 export type Role = (typeof ROLES)[number];
@@ -266,4 +266,31 @@ export const conversationNote = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (t) => [index("conversation_note_conv_idx").on(t.conversationId, t.createdAt)],
+);
+
+/** Etiqueta (ticket 14): nome + cor, criada pelo admin. O nome e unico sem diferenciar maiusculas. */
+export const label = sqliteTable(
+  "label",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    /** Cor em hex `#rrggbb`. */
+    color: text("color").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("label_name_nocase_idx").on(sql`lower(${t.name})`)],
+);
+
+/** Etiquetas aplicadas ao contato. Apagar a etiqueta (ou o contato) apaga a ligacao. */
+export const contactLabel = sqliteTable(
+  "contact_label",
+  {
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => contact.id, { onDelete: "cascade" }),
+    labelId: text("label_id")
+      .notNull()
+      .references(() => label.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.contactId, t.labelId] }), index("contact_label_label_idx").on(t.labelId)],
 );
