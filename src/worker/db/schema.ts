@@ -72,6 +72,28 @@ export const verification = sqliteTable(
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
 
+/** Link de uso unico com validade (ticket 06): convite (define o papel) ou redefinicao de senha (aponta o membro). So o hash do token e gravado. */
+export const ACCESS_LINK_KINDS = ["convite", "redefinicao"] as const;
+export type AccessLinkKind = (typeof ACCESS_LINK_KINDS)[number];
+
+export const accessLink = sqliteTable(
+  "access_link",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind", { enum: ACCESS_LINK_KINDS }).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    /** So convite: papel que o convidado recebe. */
+    role: text("role", { enum: ROLES }),
+    /** So redefinicao: o membro que troca a senha. Sai junto com o membro removido. */
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+    createdById: text("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+    usedAt: integer("used_at"),
+  },
+  (t) => [index("access_link_user_idx").on(t.userId)],
+);
+
 // ---- Conexao do numero (ticket 18) ----
 
 export const CONNECTION_STATUSES = ["connected", "connecting", "disconnected"] as const;

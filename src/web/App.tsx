@@ -4,7 +4,9 @@ import { ConnectionBanner, ConnectionProvider } from "./connection";
 import { ConnectionPage } from "./pages/ConnectionPage";
 import { ConversationPage } from "./pages/ConversationPage";
 import { InboxPage, NoConversationSelected } from "./pages/InboxPage";
+import { InvitePage, ResetPasswordPage } from "./pages/LinkPages";
 import { LoginPage } from "./pages/LoginPage";
+import { TeamPage } from "./pages/TeamPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { QuickRepliesPage } from "./pages/QuickRepliesPage";
 import { useRealtimeConnection } from "./realtime";
@@ -40,6 +42,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/convite/:token" element={<InvitePage />} />
+      <Route path="/redefinir-senha/:token" element={<ResetPasswordPage />} />
       <Route element={<RequireSession />}>
         <Route path="/perfil" element={<ProfilePage />} />
         <Route path="/respostas-rapidas" element={<QuickRepliesPage />} />
@@ -49,6 +53,7 @@ export function App() {
         </Route>
         <Route element={<RequireAdmin />}>
           <Route path="/conexao" element={<ConnectionPage />} />
+          <Route path="/equipe" element={<TeamPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

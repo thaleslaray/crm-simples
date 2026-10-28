@@ -74,6 +74,7 @@ export function InboxPage() {
         <h1>Caixa de entrada</h1>
         <div className="user">
           {isAdmin && <Link to="/respostas-rapidas">Respostas rápidas</Link>}
+          {isAdmin && <Link to="/equipe">Equipe</Link>}
           {isAdmin && (
             <Link to="/conexao" className="link">
               Conexão
