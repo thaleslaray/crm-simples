@@ -1,6 +1,11 @@
-import type { APIRequestContext, Page, Route } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { signInAsAdmin, spyOnSockets, waitForRealtime } from "./navegacao";
+import {
+  holdResponses,
+  signInAsAdmin,
+  spyOnSockets,
+  waitForRealtime,
+} from "./navegacao";
 import { E2E_WEBHOOK } from "./e2e-env";
 
 const connectionEvent = (request: APIRequestContext, status: string) =>
@@ -61,24 +66,14 @@ test("resposta atrasada da busca não desfaz um evento mais novo", async ({
 }) => {
   try {
     await spyOnSockets(page);
-    // Segura as respostas de /api/connection (o corpo é o de quando o pedido saiu) até o teste soltar.
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((r) => (release = r));
-    const delivered: Promise<void>[] = [];
-    await page.route("**/api/connection", async (route: Route) => {
-      const real = await route.fetch();
-      delivered.push(gate.then(() => route.fulfill({ response: real })));
-    });
+    const held = await holdResponses(page, "**/api/connection");
     await signInAsAdmin(page);
     await waitForRealtime(page);
 
     await connectionEvent(request, "disconnected");
     await expect(banner(page)).toBeVisible();
 
-    release();
-    await Promise.all(delivered);
-    // Uma ida e volta ao servidor para a tela processar as respostas soltas.
-    await page.evaluate(() => fetch("/api/health").then(() => undefined));
+    await held.release();
     await expect(banner(page)).toBeVisible();
   } finally {
     await connectionEvent(request, "connected");
@@ -91,14 +86,7 @@ test("nome da empresa: resposta atrasada da busca não desfaz a troca mais nova"
   const name = `Loja ${info.project.name} ${Date.now()}`;
   try {
     await spyOnSockets(page);
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((r) => (release = r));
-    const delivered: Promise<void>[] = [];
-    await page.route("**/api/workspace", async (route: Route) => {
-      if (route.request().method() !== "GET") return route.continue();
-      const real = await route.fetch();
-      delivered.push(gate.then(() => route.fulfill({ response: real })));
-    });
+    const held = await holdResponses(page, "**/api/workspace");
     await signInAsAdmin(page);
     await waitForRealtime(page);
 
@@ -108,14 +96,48 @@ test("nome da empresa: resposta atrasada da busca não desfaz a troca mais nova"
     expect(saved.ok()).toBe(true);
     await expect(page).toHaveTitle(new RegExp(`${name}$`));
 
-    release();
-    await Promise.all(delivered);
-    await page.evaluate(() => fetch("/api/health").then(() => undefined));
+    await held.release();
     await expect(page).toHaveTitle(new RegExp(`${name}$`));
   } finally {
-    await page.unroute("**/api/workspace");
     await page.request.patch("/api/workspace", {
       data: { companyName: "Atendimento" },
     });
   }
+});
+
+test("lista de conversas: resposta atrasada da busca não apaga a conversa que chegou ao vivo", async ({
+  page,
+  request,
+}, info) => {
+  const run = `${info.project.name}${Date.now()}`;
+  const phone = `55119${String(Date.now()).slice(-8)}`;
+  await spyOnSockets(page);
+  const held = await holdResponses(page, "**/api/conversations");
+  await signInAsAdmin(page);
+  await waitForRealtime(page);
+
+  const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
+    data: {
+      EventType: "messages",
+      token: E2E_WEBHOOK.instanceToken,
+      message: {
+        id: `trc-${run}`,
+        messageid: `WATRC${run}`,
+        chatid: `${phone}@s.whatsapp.net`,
+        sender: `${phone}@s.whatsapp.net`,
+        senderName: `Ao vivo ${run}`,
+        fromMe: false,
+        isGroup: false,
+        messageType: "conversation",
+        text: "Cheguei",
+        messageTimestamp: Date.now(),
+      },
+    },
+  });
+  expect(res.status()).toBe(200);
+  const row = page.getByRole("link", { name: new RegExp(`Ao vivo ${run}`) });
+  await expect(row).toBeVisible();
+
+  await held.release();
+  await expect(row).toBeVisible();
 });

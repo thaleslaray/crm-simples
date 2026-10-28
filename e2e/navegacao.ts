@@ -81,3 +81,27 @@ export async function loggedInPage(browser: Browser, info: TestInfo) {
   await waitForRealtime(page);
   return { context, page };
 }
+
+/**
+ * Segura as respostas GET que casam com `pattern` (o corpo é o de quando o pedido saiu) até `release()`:
+ * simula uma busca lenta que termina depois de um evento do tempo real. `release` espera a tela receber tudo.
+ */
+export async function holdResponses(page: Page, pattern: string) {
+  let open: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => (open = resolve));
+  const pending: Promise<void>[] = [];
+  await page.route(pattern, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const real = await route.fetch().catch(() => null);
+    if (!real) return; // o teste acabou no meio do pedido
+    pending.push(gate.then(() => route.fulfill({ response: real })).catch(() => undefined));
+  });
+  return {
+    async release() {
+      open();
+      await Promise.all(pending);
+      // Uma ida e volta ao servidor para a tela processar as respostas soltas.
+      await page.evaluate(() => fetch("/api/health").then(() => undefined));
+    },
+  };
+}

@@ -2,8 +2,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { api } from "./api";
 import { onRealtime } from "./realtime";
-
-export const DEFAULT_COMPANY_NAME = "Atendimento";
+import { DEFAULT_COMPANY_NAME } from "../shared/workspace";
 
 let name = DEFAULT_COMPANY_NAME;
 let inFlight = false;

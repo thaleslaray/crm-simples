@@ -3,8 +3,8 @@ import { Hono } from "hono";
 import { createDb, schema } from "./db";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
 import { publish } from "./realtime";
+import { DEFAULT_COMPANY_NAME } from "../shared/workspace";
 
-export const DEFAULT_COMPANY_NAME = "Atendimento";
 const MAX_NAME = 60;
 const ROW_ID = "workspace";
 

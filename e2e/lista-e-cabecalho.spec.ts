@@ -109,6 +109,10 @@ for (const width of [1280, 1440]) {
     const more = await page.getByRole("button", { name: "Mais filtros" }).boundingBox();
     const list = await page.getByRole("navigation", { name: "Conversas" }).boundingBox();
     expect(more!.x + more!.width).toBeLessThanOrEqual(list!.x + list!.width);
+    // Print da revisão visual (só com E2E_PRINTS): a lista em 1440px, tema claro.
+    const dir = process.env.E2E_PRINTS;
+    if (dir && width === 1440)
+      await page.screenshot({ path: `${dir}/lista-1440-claro-${info.project.name}.png` });
   });
 }
 

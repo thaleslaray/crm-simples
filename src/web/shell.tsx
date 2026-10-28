@@ -25,11 +25,15 @@ function UnreadProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true;
+    let issued = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const load = () =>
+    // Só vale a resposta da busca mais recente.
+    const load = () => {
+      const mine = ++issued;
       fetchTotal()
-        .then((n) => alive && setTotal(n))
+        .then((n) => alive && mine === issued && setTotal(n))
         .catch(() => undefined);
+    };
     // Vários eventos seguidos viram uma busca só.
     const soon = () => {
       clearTimeout(timer);

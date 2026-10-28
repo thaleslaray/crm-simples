@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   Link,
   NavLink,
@@ -47,12 +47,16 @@ function useAllConversations(): Conversation[] {
   const { pathname } = useLocation();
   useEffect(() => {
     let alive = true;
+    let issued = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const load = () =>
+    // Só vale a resposta da busca mais recente (uma lenta não sobrescreve a que saiu depois).
+    const load = () => {
+      const mine = ++issued;
       api
         .conversations()
-        .then((r) => alive && setAll(r.conversations))
+        .then((r) => alive && mine === issued && setAll(r.conversations))
         .catch(() => undefined);
+    };
     const soon = (ms: number) => {
       clearTimeout(timer);
       timer = setTimeout(load, ms);
@@ -114,12 +118,25 @@ export function InboxPage() {
     chip === "minhas" ? "me" : chip === "semdono" ? "none" : extra.assignee;
   const fLabel = extra.label;
 
+  // `issued` conta as buscas (só a mais nova vale); `events` conta os eventos que mexem na lista (uma resposta que
+  // viajou durante um evento pode estar velha: não apaga o que o evento mostrou, e a lista é buscada de novo).
+  const issued = useRef(0);
+  const events = useRef(0);
+  const loadRef = useRef<() => void>(() => undefined);
   const load = useCallback(() => {
+    const mine = ++issued.current;
+    const seen = events.current;
     api
       .conversations({ status: fStatus, assignee: fAssignee, label: fLabel })
-      .then((r) => (setConversations(r.conversations), setFailed(false)))
+      .then((r) => {
+        if (mine !== issued.current) return;
+        if (seen !== events.current) return loadRef.current();
+        setConversations(r.conversations);
+        setFailed(false);
+      })
       .catch(() => setFailed(true));
   }, [fStatus, fAssignee, fLabel]);
+  loadRef.current = load;
 
   useEffect(() => {
     load();
@@ -144,6 +161,7 @@ export function InboxPage() {
       )
         return;
       const next = event.conversation;
+      events.current++;
       if (event.type === "message.created") {
         // Mensagem nova: a conversa (nova ou existente) vai para o topo com a prévia atualizada, se passa no filtro.
         setConversations((list) => {
