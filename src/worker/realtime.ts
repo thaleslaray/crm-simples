@@ -14,6 +14,8 @@ export type RealtimeEvent =
   | { type: "conversation.updated"; conversation: Conversation; event?: TimelineEvent | null }
   | { type: "note.created"; conversationId: string; note: Note }
   | { type: "contact.updated"; contact: ContactView }
+  // Etiqueta criada, renomeada, recolorida ou apagada: o cliente busca as etiquetas e a lista de novo.
+  | { type: "labels.changed" }
   | { type: "connection.changed"; connection: ConnectionState };
 
 const hub = (env: Cloudflare.Env) => env.INBOX_HUB.getByName("inbox");

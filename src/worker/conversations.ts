@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, gt, isNull, lt, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gt, isNull, lt, lte, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { type Context, Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
 import { CONVERSATION_STATUSES, type ConversationStatus, type SendStatus } from "./db/schema";
+import { labelsByContact } from "./labels";
 import { createNote, listNotes } from "./notes";
 import { type AppEnv, requireAuth } from "./middleware";
 import { publish } from "./realtime";
@@ -46,22 +47,25 @@ export async function selectConversations(db: Db, where?: SQL) {
     .where(where)
     .orderBy(desc(schema.conversation.lastMessageAt), desc(schema.conversation.id))
     .limit(INBOX_LIMIT);
+  const labels = await labelsByContact(db, rows.map((r) => r.contactId));
   return rows.map((r) => ({
     id: r.id,
     status: r.status,
     assigneeId: r.assigneeId,
     assigneeName: r.assigneeName,
     unreadCount: r.unreadCount,
-    contact: { id: r.contactId, name: r.contactName, phone: r.contactPhone },
+    contact: { id: r.contactId, name: r.contactName, phone: r.contactPhone, labels: labels.get(r.contactId) ?? [] },
     lastMessage:
       r.msgType && r.msgTimestamp != null ? { type: r.msgType, text: r.msgText, timestamp: r.msgTimestamp } : null,
   }));
 }
 
-// Filtros da caixa: ?status=<status>&assignee=me|none|<id do membro>.
+// Filtros da caixa: ?status=<status>&assignee=me|none|<id do membro>&label=<id da etiqueta>.
 conversations.get("/", async (c) => {
   const status = c.req.query("status");
   const assignee = c.req.query("assignee");
+  const label = c.req.query("label");
+  const db = createDb(c.env.DB);
   if (status && !CONVERSATION_STATUSES.some((s) => s === status)) return c.json({ error: "status_invalido" }, 400);
   const filters = [
     status ? eq(schema.conversation.status, status as ConversationStatus) : undefined,
@@ -70,8 +74,16 @@ conversations.get("/", async (c) => {
       : assignee
         ? eq(schema.conversation.assigneeId, assignee === "me" ? c.get("user").id : assignee)
         : undefined,
+    label
+      ? exists(
+          db
+            .select({ one: sql`1` })
+            .from(schema.contactLabel)
+            .where(and(eq(schema.contactLabel.contactId, schema.conversation.contactId), eq(schema.contactLabel.labelId, label))),
+        )
+      : undefined,
   ];
-  return c.json({ conversations: await selectConversations(createDb(c.env.DB), and(...filters)) });
+  return c.json({ conversations: await selectConversations(db, and(...filters)) });
 });
 
 conversations.get("/:id", async (c) => {

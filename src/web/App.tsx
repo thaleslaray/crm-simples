@@ -2,8 +2,10 @@ import { Navigate, Outlet, Route, Routes } from "react-router";
 import { authClient } from "./auth-client";
 import { ConnectionBanner, ConnectionProvider } from "./connection";
 import { ConnectionPage } from "./pages/ConnectionPage";
+import { ContactsPage } from "./pages/ContactsPage";
 import { ConversationPage } from "./pages/ConversationPage";
 import { InboxPage, NoConversationSelected } from "./pages/InboxPage";
+import { LabelsPage } from "./pages/LabelsPage";
 import { InvitePage, ResetPasswordPage } from "./pages/LinkPages";
 import { LoginPage } from "./pages/LoginPage";
 import { TeamPage } from "./pages/TeamPage";
@@ -48,6 +50,7 @@ export function App() {
       <Route path="/redefinir-senha/:token" element={<ResetPasswordPage />} />
       <Route element={<RequireSession />}>
         <Route path="/perfil" element={<ProfilePage />} />
+        <Route path="/contatos" element={<ContactsPage />} />
         <Route path="/respostas-rapidas" element={<QuickRepliesPage />} />
         <Route element={<InboxPage />}>
           <Route path="/" element={<NoConversationSelected />} />
@@ -56,6 +59,7 @@ export function App() {
         <Route element={<RequireAdmin />}>
           <Route path="/conexao" element={<ConnectionPage />} />
           <Route path="/equipe" element={<TeamPage />} />
+          <Route path="/etiquetas" element={<LabelsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

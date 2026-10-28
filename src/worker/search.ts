@@ -9,14 +9,14 @@ search.use("*", requireAuth);
 
 const CONTACT_LIMIT = 20;
 const MESSAGE_LIMIT = 30;
-const MIN_PHONE_DIGITS = 3;
+export const MIN_PHONE_DIGITS = 3;
 
 // Marcadores do trecho destacado (caracteres de controle: nao aparecem em texto de WhatsApp).
 export const SNIPPET_START = "\u0001";
 export const SNIPPET_END = "\u0002";
 
 /** Palavras da busca viram termos de prefixo AND ("bole" acha "boleto"). So letras e digitos: nada de sintaxe FTS. */
-function ftsExpression(q: string): string | null {
+export function ftsExpression(q: string): string | null {
   const terms = q.match(/[\p{L}\p{N}]+/gu);
   return terms ? terms.map((t) => `"${t}"*`).join(" ") : null;
 }

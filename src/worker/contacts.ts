@@ -1,7 +1,9 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, exists, like, or, type SQL, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { loadConversation } from "./conversations";
 import { createDb, type Db, schema } from "./db";
+import { labelsByContact } from "./labels";
+import { ftsExpression, MIN_PHONE_DIGITS } from "./search";
 import { type AppEnv, requireAuth } from "./middleware";
 import { listNotes } from "./notes";
 import { publish } from "./realtime";
@@ -30,8 +32,77 @@ async function loadContact(db: Db, id: string) {
     company: row.company,
     notes: row.notes,
     avatarUrl: row.avatarUrl,
+    labels: (await labelsByContact(db, [id])).get(id) ?? [],
   };
 }
+
+/** Publica a mudanca de etiquetas do contato: a ficha e a caixa de entrada se atualizam. */
+async function publishContactChange(env: Cloudflare.Env, db: Db, contactId: string) {
+  await publish(env, { type: "contact.updated", contact: (await loadContact(db, contactId))! });
+  const conv = await db.query.conversation.findFirst({ where: eq(schema.conversation.contactId, contactId), columns: { id: true } });
+  const conversation = conv ? await loadConversation(db, conv.id) : null;
+  if (conversation) await publish(env, { type: "conversation.updated", conversation });
+}
+
+const LIST_LIMIT = 200;
+
+// Lista de contatos: ?q=<nome ou telefone>&label=<id da etiqueta>.
+contacts.get("/", async (c) => {
+  const db = createDb(c.env.DB);
+  const q = (c.req.query("q") ?? "").trim();
+  const label = c.req.query("label");
+  const filters: (SQL | undefined)[] = [];
+  if (q) {
+    const expr = ftsExpression(q);
+    const digits = q.replace(/\D/g, "");
+    const byName = expr ? sql`${schema.contact}.rowid IN (SELECT rowid FROM contact_fts WHERE contact_fts MATCH ${expr})` : undefined;
+    const byPhone = digits.length >= MIN_PHONE_DIGITS ? like(schema.contact.phone, `%${digits}%`) : undefined;
+    filters.push(or(byName, byPhone) ?? sql`0`);
+  }
+  if (label) {
+    filters.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(schema.contactLabel)
+          .where(and(eq(schema.contactLabel.contactId, schema.contact.id), eq(schema.contactLabel.labelId, label))),
+      ),
+    );
+  }
+  const rows = await db
+    .select({ id: schema.contact.id, name: schema.contact.name, phone: schema.contact.phone, conversationId: schema.conversation.id })
+    .from(schema.contact)
+    .leftJoin(schema.conversation, eq(schema.conversation.contactId, schema.contact.id))
+    .where(and(...filters))
+    .orderBy(sql`lower(coalesce(${schema.contact.name}, ${schema.contact.phone}, ''))`, asc(schema.contact.id))
+    .limit(LIST_LIMIT);
+  const labels = await labelsByContact(db, rows.map((r) => r.id));
+  return c.json({ contacts: rows.map((r) => ({ ...r, labels: labels.get(r.id) ?? [] })) });
+});
+
+contacts.put("/:id/labels/:labelId", async (c) => {
+  const db = createDb(c.env.DB);
+  const { id, labelId } = c.req.param();
+  const [contact, label] = await Promise.all([
+    db.query.contact.findFirst({ where: eq(schema.contact.id, id), columns: { id: true } }),
+    db.query.label.findFirst({ where: eq(schema.label.id, labelId), columns: { id: true } }),
+  ]);
+  if (!contact || !label) return c.json({ error: "nao_encontrado" }, 404);
+  await db.insert(schema.contactLabel).values({ contactId: id, labelId }).onConflictDoNothing();
+  await publishContactChange(c.env, db, id);
+  return c.json({ contact: await loadContact(db, id) });
+});
+
+contacts.delete("/:id/labels/:labelId", async (c) => {
+  const db = createDb(c.env.DB);
+  const { id, labelId } = c.req.param();
+  if (!(await db.query.contact.findFirst({ where: eq(schema.contact.id, id), columns: { id: true } }))) {
+    return c.json({ error: "nao_encontrado" }, 404);
+  }
+  await db.delete(schema.contactLabel).where(and(eq(schema.contactLabel.contactId, id), eq(schema.contactLabel.labelId, labelId)));
+  await publishContactChange(c.env, db, id);
+  return c.json({ contact: await loadContact(db, id) });
+});
 
 /** Busca a foto na Uazapi e grava; falha (ou sem foto) mantem a que ja existia. */
 async function refreshAvatar(env: Cloudflare.Env, db: Db, contactId: string): Promise<void> {
