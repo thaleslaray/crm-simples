@@ -1,9 +1,9 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
-import { api, type Conversation, type SearchResults } from "../api";
+import { api, type Conversation, type InboxFilter, type Member, type SearchResults } from "../api";
 import { authClient } from "../auth-client";
 import { clearDrafts } from "../drafts";
-import { contactLabel, initials, listTime, messagePreview } from "../format";
+import { contactLabel, initials, listTime, messagePreview, STATUS_LABEL } from "../format";
 import { onRealtime, useRealtimeConnection } from "../realtime";
 
 /** Caixa de entrada: lista à esquerda e conversa aberta à direita (no celular, uma tela de cada vez). */
@@ -15,24 +15,51 @@ export function InboxPage() {
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
   const results = useSearch(query);
+  const [filter, setFilter] = useState<InboxFilter>({ status: "", assignee: "" });
+  const [members, setMembers] = useState<Member[]>([]);
+  const me = data?.user.id;
 
   useRealtimeConnection();
 
+  useEffect(() => {
+    api.members().then((r) => setMembers(r.members)).catch(() => undefined);
+  }, []);
+
   const load = useCallback(() => {
     api
-      .conversations()
+      .conversations(filter)
       .then((r) => (setConversations(r.conversations), setFailed(false)))
       .catch(() => setFailed(true));
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
     load();
+    const matches = (c: Conversation) =>
+      (!filter.status || c.status === filter.status) &&
+      (!filter.assignee ||
+        (filter.assignee === "none" ? c.assigneeId === null : c.assigneeId === (filter.assignee === "me" ? me : filter.assignee)));
     return onRealtime((event) => {
       if (event.type === "reconnected") return load(); // pode ter perdido eventos: busca a lista de novo
-      // Mensagem nova: a conversa (nova ou existente) vai para o topo com a prévia atualizada.
-      setConversations((list) => [event.conversation, ...(list ?? []).filter((c) => c.id !== event.conversation.id)]);
+      const next = event.conversation;
+      if (event.type === "message.created") {
+        // Mensagem nova: a conversa (nova ou existente) vai para o topo com a prévia atualizada, se passa no filtro.
+        setConversations((list) => {
+          const rest = (list ?? []).filter((c) => c.id !== next.id);
+          return matches(next) ? [next, ...rest] : rest;
+        });
+        return;
+      }
+      // Status ou responsável mudou: troca no lugar; se passou a casar com o filtro e não estava na lista, busca de novo.
+      setConversations((list) => {
+        const has = (list ?? []).some((c) => c.id === next.id);
+        if (!has) {
+          if (matches(next)) load();
+          return list;
+        }
+        return (list ?? []).flatMap((c) => (c.id !== next.id ? [c] : matches(next) ? [next] : []));
+      });
     });
-  }, [load]);
+  }, [load, filter, me]);
 
   async function signOut() {
     clearDrafts();
@@ -64,6 +91,34 @@ export function InboxPage() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
+          <div className="filters">
+            <select
+              aria-label="Filtrar por status"
+              value={filter.status}
+              onChange={(e) => setFilter((f) => ({ ...f, status: e.target.value as InboxFilter["status"] }))}
+            >
+              <option value="">Todos os status</option>
+              {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filtrar por responsável"
+              value={filter.assignee}
+              onChange={(e) => setFilter((f) => ({ ...f, assignee: e.target.value }))}
+            >
+              <option value="">Todos os responsáveis</option>
+              <option value="me">Minhas</option>
+              <option value="none">Sem responsável</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
           {query.trim() ? (
             <SearchPanel results={results} />
           ) : failed && conversations === null ? (
@@ -73,7 +128,7 @@ export function InboxPage() {
           ) : conversations === null ? (
             <p className="empty">Carregando…</p>
           ) : conversations.length === 0 ? (
-            <p className="empty">Nenhuma conversa ainda</p>
+            <p className="empty">{filter.status || filter.assignee ? "Nenhuma conversa neste filtro" : "Nenhuma conversa ainda"}</p>
           ) : (
             <ul>
               {conversations.map((c) => (
@@ -110,6 +165,10 @@ function ConversationItem({ conversation: c }: { conversation: Conversation }) {
         </span>
         <span className={`conv-preview${c.lastMessage?.type === "unsupported" ? " is-unsupported" : ""}`}>
           {c.lastMessage ? messagePreview(c.lastMessage.type, c.lastMessage.text) : ""}
+        </span>
+        <span className="conv-meta">
+          <span className={`badge badge--${c.status}`}>{STATUS_LABEL[c.status]}</span>
+          <span className="conv-assignee">{c.assigneeName ?? "Sem responsável"}</span>
         </span>
       </span>
     </NavLink>

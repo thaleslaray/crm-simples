@@ -1,6 +1,7 @@
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import type { Db } from "./db";
 import { schema } from "./db";
+import { reopenOnClientMessage } from "./status";
 
 /** Campos do evento `messages` da Uazapi que usamos. */
 export interface UazapiMessage {
@@ -126,7 +127,7 @@ export async function ingestMessage(
   db: Db,
   msg: UazapiMessage,
   queue: Queue<MediaJob>,
-): Promise<{ conversationId: string; messageId: string } | null> {
+): Promise<{ conversationId: string; messageId: string; reopened: { eventId: string | null } | undefined } | null> {
   if (msg.isGroup || msg.fromMe) return null;
   if (!msg.id) throw new Error("mensagem sem id");
 
@@ -172,7 +173,10 @@ export async function ingestMessage(
       ),
     );
 
+  // Cliente voltou a escrever: resolvida/aguardando cliente reabrem (o webhook avisa o hub).
+  const reopened = await reopenOnClientMessage(db, conversationId);
+
   // Fora da requisicao do webhook: o consumer baixa o arquivo. Se o envio falhar, a midia fica "pendente" (reenfileirada na reconciliacao).
   if (parsed.media) await queue.send({ messageId });
-  return { conversationId, messageId };
+  return { conversationId, messageId, reopened };
 }

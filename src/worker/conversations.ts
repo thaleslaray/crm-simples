@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, gt, lt, lte, or, type SQL } from "drizzle-orm";
-import { Hono } from "hono";
+import { and, asc, desc, eq, gt, isNull, lt, lte, or, type SQL } from "drizzle-orm";
+import { type Context, Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
-import type { SendStatus } from "./db/schema";
+import { CONVERSATION_STATUSES, type ConversationStatus, type SendStatus } from "./db/schema";
 import { type AppEnv, requireAuth } from "./middleware";
 import { sendOutgoingText } from "./send";
+import { assignConversation, assumeConversation, type ChangeOutcome, listEvents, resolveConversation } from "./status";
 
 export const conversations = new Hono<AppEnv>();
 conversations.use("*", requireAuth);
@@ -23,6 +24,7 @@ export async function selectConversations(db: Db, where?: SQL) {
       id: schema.conversation.id,
       status: schema.conversation.status,
       assigneeId: schema.conversation.assigneeId,
+      assigneeName: schema.user.name,
       contactId: schema.contact.id,
       contactName: schema.contact.name,
       contactPhone: schema.contact.phone,
@@ -33,6 +35,7 @@ export async function selectConversations(db: Db, where?: SQL) {
     .from(schema.conversation)
     .innerJoin(schema.contact, eq(schema.contact.id, schema.conversation.contactId))
     .leftJoin(schema.message, eq(schema.message.id, schema.conversation.lastMessageId))
+    .leftJoin(schema.user, eq(schema.user.id, schema.conversation.assigneeId))
     .where(where)
     .orderBy(desc(schema.conversation.lastMessageAt), desc(schema.conversation.id))
     .limit(INBOX_LIMIT);
@@ -40,13 +43,28 @@ export async function selectConversations(db: Db, where?: SQL) {
     id: r.id,
     status: r.status,
     assigneeId: r.assigneeId,
+    assigneeName: r.assigneeName,
     contact: { id: r.contactId, name: r.contactName, phone: r.contactPhone },
     lastMessage:
       r.msgType && r.msgTimestamp != null ? { type: r.msgType, text: r.msgText, timestamp: r.msgTimestamp } : null,
   }));
 }
 
-conversations.get("/", async (c) => c.json({ conversations: await selectConversations(createDb(c.env.DB)) }));
+// Filtros da caixa: ?status=<status>&assignee=me|none|<id do membro>.
+conversations.get("/", async (c) => {
+  const status = c.req.query("status");
+  const assignee = c.req.query("assignee");
+  if (status && !CONVERSATION_STATUSES.some((s) => s === status)) return c.json({ error: "status_invalido" }, 400);
+  const filters = [
+    status ? eq(schema.conversation.status, status as ConversationStatus) : undefined,
+    assignee === "none"
+      ? isNull(schema.conversation.assigneeId)
+      : assignee
+        ? eq(schema.conversation.assigneeId, assignee === "me" ? c.get("user").id : assignee)
+        : undefined,
+  ];
+  return c.json({ conversations: await selectConversations(createDb(c.env.DB), and(...filters)) });
+});
 
 conversations.get("/:id", async (c) => {
   const conversation = await loadConversation(createDb(c.env.DB), c.req.param("id"));
@@ -234,4 +252,49 @@ conversations.post("/:id/messages/:messageId/resend", async (c) => {
   if (result === null) return c.json({ error: "nao_encontrado" }, 404);
   if (result === "not_failed") return c.json({ error: "reenvio_indisponivel" }, 409);
   return c.json({ message: result });
+});
+
+conversations.get("/:id/events", async (c) => {
+  const db = createDb(c.env.DB);
+  const id = c.req.param("id");
+  const exists = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { id: true } });
+  if (!exists) return c.json({ error: "nao_encontrado" }, 404);
+  return c.json({ events: await listEvents(db, id) });
+});
+
+const CHANGE_ERRORS = {
+  not_found: [404, "nao_encontrado"],
+  forbidden: [403, "proibido"],
+  bad_target: [400, "responsavel_invalido"],
+  same: [409, "mesmo_responsavel"],
+  invalid_state: [409, "transicao_invalida"],
+  conflict: [409, "conversa_alterada"],
+} as const;
+
+async function changeResponse(c: Context<AppEnv>, outcome: ChangeOutcome) {
+  if (outcome !== "ok") {
+    const [status, error] = CHANGE_ERRORS[outcome];
+    return c.json({ error }, status);
+  }
+  return c.json({ conversation: await loadConversation(createDb(c.env.DB), c.req.param("id") ?? "") });
+}
+
+conversations.post("/:id/assign", async (c) => {
+  const body = await c.req.json<{ userId?: unknown }>().catch(() => null);
+  const userId = typeof body?.userId === "string" ? body.userId : "";
+  const { id, role } = c.get("user");
+  return changeResponse(c, await assignConversation(c.env, c.req.param("id"), { id, role }, userId));
+});
+
+conversations.post("/:id/resolve", async (c) => {
+  const { id, role } = c.get("user");
+  return changeResponse(c, await resolveConversation(c.env, c.req.param("id"), { id, role }));
+});
+
+conversations.post("/:id/assume", async (c) => {
+  const outcome = await assumeConversation(c.env, c.req.param("id"), c.get("user").id);
+  if (outcome === "not_found") return c.json({ error: "nao_encontrado" }, 404);
+  if (outcome === "taken") return c.json({ error: "ja_assumida" }, 409);
+  if (outcome === "not_open") return c.json({ error: "conversa_nao_aberta" }, 409);
+  return c.json({ conversation: await loadConversation(createDb(c.env.DB), c.req.param("id")) });
 });

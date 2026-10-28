@@ -1,9 +1,13 @@
 import { Hono } from "hono";
 import type { Conversation, Message } from "./conversations";
+import type { TimelineEvent } from "./status";
 import { type AppEnv, requireAuth } from "./middleware";
 
 /** Eventos publicados no hub. A conversa traz o `assigneeId`, que decide quem recebe som e aviso. */
-export type RealtimeEvent = { type: "message.created"; conversation: Conversation; message: Message };
+export type RealtimeEvent =
+  | { type: "message.created"; conversation: Conversation; message: Message }
+  // Status ou responsavel mudou; `event` e o evento de sistema da linha do tempo (nulo no vaivem automatico).
+  | { type: "conversation.updated"; conversation: Conversation; event: TimelineEvent | null };
 
 const hub = (env: Cloudflare.Env) => env.INBOX_HUB.getByName("inbox");
 
