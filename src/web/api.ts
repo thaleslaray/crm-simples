@@ -44,11 +44,18 @@ export const api = {
     getJson<{ messages: Message[]; nextBefore: string | null; nextAfter: string | null }>(
       `/api/conversations/${encodeURIComponent(id)}/messages?around=${encodeURIComponent(messageId)}`,
     ),
-  messagesAfter: (id: string, after: string) =>
+  messagesNewer: (id: string, after: string) =>
     getJson<{ messages: Message[]; nextAfter: string | null }>(
       `/api/conversations/${encodeURIComponent(id)}/messages?after=${encodeURIComponent(after)}`,
     ),
   search: (q: string) => getJson<SearchResults>(`/api/search?q=${encodeURIComponent(q)}`),
+  /** Mensagens depois da última vista (ressincronização ao reconectar). */
+  messagesAfter: (id: string, last: Message) => {
+    const qs = `?after=${encodeURIComponent(`${last.timestamp}:${last.id}`)}`;
+    return getJson<{ messages: Message[]; nextBefore: string | null }>(
+      `/api/conversations/${encodeURIComponent(id)}/messages${qs}`,
+    );
+  },
 };
 
 export interface SearchResults {
