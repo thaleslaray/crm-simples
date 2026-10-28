@@ -181,6 +181,26 @@ export async function resolveConversation(env: Cloudflare.Env, conversationId: s
 }
 
 /**
+ * Membro removido: as conversas dele em andamento ou aguardando cliente voltam a aberta sem responsavel (sem evento:
+ * quem agiu foi o admin ao remover, nao ha atendente a citar). As resolvidas so perdem o dono pela FK ao apagar o
+ * usuario; quando o cliente escrever, `reopenOnClientMessage` as reabre como aberta (sem dono).
+ */
+export async function releaseConversationsOf(env: Cloudflare.Env, userId: string): Promise<void> {
+  const db = createDb(env.DB);
+  const released = await db
+    .update(schema.conversation)
+    .set({ status: "aberta", assigneeId: null })
+    .where(
+      and(
+        eq(schema.conversation.assigneeId, userId),
+        inArray(schema.conversation.status, ["em_andamento", "aguardando_cliente"]),
+      ),
+    )
+    .returning({ id: schema.conversation.id });
+  for (const { id } of released) await publishUpdate(env, db, id, null);
+}
+
+/**
  * Assumir e condicional: so tem efeito se a conversa ainda esta aberta e sem dono. Com dois atendentes ao mesmo tempo,
  * o UPDATE atomico deixa so um vencer; o outro recebe "taken".
  */

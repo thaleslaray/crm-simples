@@ -112,7 +112,48 @@ async function sendJson<T>(method: string, path: string, body: unknown): Promise
   return res.json() as Promise<T>;
 }
 
+export interface TeamMember extends Member {
+  email: string;
+}
+
+/** Resposta de uma rota publica de link (convite/redefinição): o corpo de erro traz a mensagem pronta para mostrar. */
+export type LinkResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string; message: string | null };
+
+async function linkCall<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<LinkResult<T>> {
+  const res = await fetch(path, {
+    method,
+    credentials: "same-origin",
+    headers: body ? { "content-type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (res.ok) return { ok: true, data: json as T };
+  return {
+    ok: false,
+    status: res.status,
+    error: String(json.error ?? "erro"),
+    message: typeof json.message === "string" ? json.message : null,
+  };
+}
+
+export const links = {
+  invite: (token: string) => linkCall<{ role: "admin" | "atendente" }>("GET", `/api/invites/${encodeURIComponent(token)}`),
+  acceptInvite: (token: string, input: { name: string; email: string; password: string }) =>
+    linkCall<{ ok: true }>("POST", `/api/invites/${encodeURIComponent(token)}`, input),
+  reset: (token: string) => linkCall<{ name: string }>("GET", `/api/password-resets/${encodeURIComponent(token)}`),
+  resetPassword: (token: string, password: string) =>
+    linkCall<{ ok: true }>("POST", `/api/password-resets/${encodeURIComponent(token)}`, { password }),
+};
+
 export const api = {
+  team: () => getJson<{ members: TeamMember[] }>("/api/admin/members"),
+  createInvite: (role: Member["role"]) =>
+    sendJson<{ path: string; expiresAt: number }>("POST", "/api/admin/invites", { role }),
+  changeRole: (id: string, role: Member["role"]) =>
+    sendJson<{ ok: true }>("PATCH", `/api/admin/members/${encodeURIComponent(id)}`, { role }),
+  removeMember: (id: string) => sendJson<{ ok: true }>("DELETE", `/api/admin/members/${encodeURIComponent(id)}`, {}),
+  createResetLink: (id: string) =>
+    sendJson<{ path: string; expiresAt: number }>("POST", `/api/admin/members/${encodeURIComponent(id)}/reset-link`, {}),
   sendText: (id: string, text: string, replyTo?: string) =>
     sendJson<{ message: Message }>("POST", `/api/conversations/${encodeURIComponent(id)}/messages`, { text, replyTo }),
   /** Anexo (legenda opcional) ou nota de voz (`voice`, sem legenda). */
