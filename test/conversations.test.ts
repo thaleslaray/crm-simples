@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { api } from "./helpers/api";
-import { history, inbox } from "./helpers/conversations";
+import { conversationWithClient, history, inbox, sendText } from "./helpers/conversations";
+import { fakeUazapi } from "./helpers/fake-uazapi";
 import { loginAsAtendente } from "./helpers/session";
-import { postWebhook, textMessageEvent } from "./helpers/webhook";
+import { postWebhook, statusUpdateEvent, textMessageEvent } from "./helpers/webhook";
 
 /** Cliente `n` manda uma mensagem por vez, em ordem, com texto "m1", "m2"... */
 async function enviar(sender: string, textos: string[], t0 = 1_700_000_000_000) {
@@ -111,5 +112,31 @@ describe("API de conversas: historico paginado", () => {
     const pagina = await history(cookie, conversa!.id, "?limit=500");
     expect(pagina.messages).toHaveLength(100);
     expect(pagina.nextBefore).not.toBeNull();
+  });
+});
+
+describe("API de conversas: autoria da última mensagem", () => {
+  const uazapi = fakeUazapi();
+
+  it("mensagem do cliente vem como entrada, sem autor nem status", async () => {
+    const cookie = await loginAsAtendente();
+    await enviar("5511900000001@s.whatsapp.net", ["oi"]);
+    const [conversa] = await inbox(cookie);
+    expect(conversa!.lastMessage).toMatchObject({ direction: "in", status: null, authorId: null, authorName: null });
+  });
+
+  it("resposta do atendente traz autor e estado de entrega, e o estado acompanha o webhook", async () => {
+    const cookie = await loginAsAtendente();
+    const conversa = await conversationWithClient(cookie);
+    await uazapi.program("POST", "/send/text", [{ body: { id: "owner:LM1", messageid: "LM1" } }]);
+    await sendText(cookie, conversa, "Já vou ver");
+    const [antes] = await inbox(cookie);
+    expect(antes!.lastMessage).toMatchObject({ direction: "out", status: "sent" });
+    expect(antes!.lastMessage!.authorId).toBeTruthy();
+    expect(antes!.lastMessage!.authorName).toBeTruthy();
+
+    await postWebhook(statusUpdateEvent(["LM1"], "Read"));
+    const [depois] = await inbox(cookie);
+    expect(depois!.lastMessage).toMatchObject({ status: "read" });
   });
 });

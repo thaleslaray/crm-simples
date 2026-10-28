@@ -9,7 +9,15 @@ export interface InboxConversation {
   assigneeId: string | null;
   assigneeName: string | null;
   contact: { id: string; name: string | null; phone: string | null };
-  lastMessage: { type: string; text: string | null; timestamp: number } | null;
+  lastMessage: {
+    type: string;
+    text: string | null;
+    timestamp: number;
+    direction: string;
+    status: string | null;
+    authorId: string | null;
+    authorName: string | null;
+  } | null;
   unreadCount: number;
 }
 
