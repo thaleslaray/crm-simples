@@ -17,7 +17,7 @@ test("entra com e-mail e senha, ve a caixa de entrada, sai e volta para o login"
   await page.getByLabel("Senha").fill(E2E_ADMIN.password);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "Caixa de entrada" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Atendimento" })).toBeVisible();
   await expect(page.getByTestId("user-name")).toHaveText(E2E_ADMIN.name);
 
   // Nada estoura a tela (sem rolagem horizontal), inclusive no celular

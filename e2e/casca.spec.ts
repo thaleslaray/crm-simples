@@ -8,7 +8,7 @@ async function signInAsAdmin(page: Page) {
   await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
   await page.getByLabel("Senha").fill(E2E_ADMIN.password);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Caixa de entrada" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Atendimento" })).toBeVisible();
 }
 
 // Com E2E_PRINTS, guarda um print nomeado (claro/escuro) além do print automático de cada teste.
@@ -156,7 +156,7 @@ test("faixa de desconexão: admin vê Reconectar, atendente não", async ({ page
     await page.getByLabel("E-mail").fill(`atendente-${stamp}@exemplo.com`);
     await page.getByLabel("Senha").fill("senha-do-atendente-1");
     await page.getByRole("button", { name: "Criar acesso e entrar" }).click();
-    await expect(page.getByRole("heading", { name: "Caixa de entrada" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Atendimento" })).toBeVisible();
     await expect(banner).toBeVisible();
     await expect(page.getByRole("link", { name: "Reconectar" })).toHaveCount(0);
     await page.goto("/perfil");

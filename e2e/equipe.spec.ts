@@ -28,7 +28,7 @@ test("admin gera um convite, o convidado aceita e entra; o link nao serve de nov
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
   await page.getByRole("button", { name: "Criar acesso e entrar" }).click();
 
-  await expect(page.getByRole("heading", { name: "Caixa de entrada" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Atendimento" })).toBeVisible();
   await expect(page.getByTestId("user-name")).toHaveText(name);
   // Atendente nao ve o link da equipe
   await expect(page.getByRole("link", { name: "Equipe" })).toHaveCount(0);

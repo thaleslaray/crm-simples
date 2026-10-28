@@ -113,7 +113,7 @@ test("mensagem nova com a aba em segundo plano toca som, notifica com nome e pr�
   await expect.poll(() => page.evaluate(() => window.__notifications.length)).toBe(1);
   expect(await page.evaluate(() => window.__notifications[0])).toMatchObject({ title: `Cliente ${run}`, body: "Aviso 1" });
   expect(await page.evaluate(() => window.__beeps)).toBe(1);
-  await expect(page).toHaveTitle(/^\(\d+\) CRM WhatsApp$/);
+  await expect(page).toHaveTitle(/^\(\d+\) Atendimento$/);
 
   // Clicar na notificação abre a conversa
   await page.evaluate(() => window.__notifications[0]!.click());

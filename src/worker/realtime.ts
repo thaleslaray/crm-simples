@@ -19,7 +19,9 @@ export type RealtimeEvent =
   | { type: "labels.changed" }
   // Funil, etapa ou card mudou (inclusive apagar): o cliente busca o quadro e a ficha de novo.
   | { type: "funnel.changed"; funnelId: string }
-  | { type: "connection.changed"; connection: ConnectionState };
+  | { type: "connection.changed"; connection: ConnectionState }
+  // O admin trocou o nome da empresa: os clientes trocam o titulo sem recarregar.
+  | { type: "workspace.changed"; companyName: string };
 
 const hub = (env: Cloudflare.Env) => env.INBOX_HUB.getByName("inbox");
 

@@ -106,6 +106,13 @@
       "when": 1793155578227,
       "tag": "0014_certain_rhino",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1793192120776,
+      "tag": "0015_sticky_magdalene",
+      "breakpoints": true
     }
   ]
 }

@@ -59,7 +59,7 @@ async function login(page: Page) {
   await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
   await page.getByLabel("Senha").fill(E2E_ADMIN.password);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Caixa de entrada" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Atendimento" })).toBeVisible();
 }
 
 /** Arrasta o card pela alca ate o centro da coluna: mouse no desktop, toque (CDP) no celular. */

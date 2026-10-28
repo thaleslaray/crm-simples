@@ -6,10 +6,12 @@ import { clearDrafts } from "../drafts";
 import { contactLabel, initials, listTime, messagePreview, STATUS_LABEL } from "../format";
 import { LabelChip, useLabels } from "../labels";
 import { onRealtime } from "../realtime";
+import { useCompanyName } from "../workspace";
 import { NewConversationDialog } from "./NewConversation";
 
 /** Caixa de entrada: lista à esquerda e conversa aberta à direita (no celular, uma tela de cada vez). */
 export function InboxPage() {
+  const companyName = useCompanyName();
   const navigate = useNavigate();
   const { data } = authClient.useSession();
   const detailOpen = useMatch("/conversas/:id") !== null;
@@ -77,7 +79,7 @@ export function InboxPage() {
   return (
     <div className={`shell inbox${detailOpen ? " inbox--detail" : ""}`}>
       <header className="topbar">
-        <h1>Caixa de entrada</h1>
+        <h1>{companyName}</h1>
         <div className="user">
           {isAdmin && <Link to="/etiquetas">Etiquetas</Link>}
           {isAdmin && <Link to="/respostas-rapidas">Respostas rápidas</Link>}
@@ -312,8 +314,10 @@ function SearchPanel({ results }: { results: SearchResults | "error" | null }) {
 
 /** Painel da direita no desktop quando nenhuma conversa está aberta. */
 export function NoConversationSelected() {
+  const companyName = useCompanyName();
   return (
     <div className="empty">
+      <p className="company-name" data-testid="company-name-empty">{companyName}</p>
       <p>Selecione uma conversa</p>
     </div>
   );

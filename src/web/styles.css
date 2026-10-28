@@ -367,3 +367,4 @@ button.danger { color: var(--danger); }
   .modal-backdrop { align-items: center; }
   .modal { border-radius: 12px; }
 }
+.company-name { font-weight: 600; font-size: 1.1rem; margin: 0; }
