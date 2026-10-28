@@ -1,9 +1,12 @@
 import { Hono } from "hono";
+import type { ConnectionState } from "./connection";
 import type { Conversation, Message } from "./conversations";
 import { type AppEnv, requireAuth } from "./middleware";
 
 /** Eventos publicados no hub. A conversa traz o `assigneeId`, que decide quem recebe som e aviso. */
-export type RealtimeEvent = { type: "message.created"; conversation: Conversation; message: Message };
+export type RealtimeEvent =
+  | { type: "message.created"; conversation: Conversation; message: Message }
+  | { type: "connection.changed"; connection: ConnectionState };
 
 const hub = (env: Cloudflare.Env) => env.INBOX_HUB.getByName("inbox");
 
