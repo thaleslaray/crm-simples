@@ -4,6 +4,7 @@ import { ArrowLeft, Building2, Kanban, LogOut, Smartphone, Tag, UserRound, Users
 import { authClient } from "../auth-client";
 import { TwoColumnPage } from "../components/TwoColumnPage";
 import { clearDrafts } from "../drafts";
+import { useConnection } from "../connection";
 import { initials } from "../format";
 
 interface SettingsItem {
@@ -30,6 +31,13 @@ const matches = (pathname: string, to: string) => pathname === to || pathname.st
 /** Caminhos que abrem dentro das Configurações (a barra de ícones marca "Configurações" em todos). */
 export const inSettings = (pathname: string) => matches(pathname, "/configuracoes") || SETTINGS_ITEMS.some((i) => matches(pathname, i.to));
 
+const CONNECTION_HINT = {
+  connected: "WhatsApp conectado",
+  connecting: "WhatsApp conectando",
+  disconnected: "WhatsApp desconectado",
+  unknown: "Estado do WhatsApp indisponível",
+} as const;
+
 const ROLE_LABEL = { admin: "Administrador", atendente: "Atendente" } as const;
 
 function SettingsList() {
@@ -37,6 +45,7 @@ function SettingsList() {
   const navigate = useNavigate();
   const user = data?.user as { name: string; email: string; role?: string } | undefined;
   const isAdmin = user?.role === "admin";
+  const { state } = useConnection();
 
   async function signOut() {
     clearDrafts();
@@ -59,7 +68,9 @@ function SettingsList() {
         </span>
       </div>
       <ul>
-        {SETTINGS_ITEMS.filter((i) => isAdmin || !i.adminOnly).map(({ to, title, hint, icon: Icon }) => (
+        {SETTINGS_ITEMS.filter((i) => isAdmin || !i.adminOnly).map(({ to, title, hint: fixedHint, icon: Icon }) => {
+          const hint = to === "/conexao" && state ? CONNECTION_HINT[state.status] : fixedHint;
+          return (
           <li key={to}>
             <NavLink to={to} className="settings-item" aria-label={title}>
               <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
@@ -69,7 +80,8 @@ function SettingsList() {
               </span>
             </NavLink>
           </li>
-        ))}
+          );
+        })}
         <li>
           <button type="button" className="settings-item settings-item--danger" onClick={() => void signOut()}>
             <LogOut size={22} strokeWidth={1.75} aria-hidden="true" />

@@ -4,7 +4,19 @@ import { api } from "./api";
 import { onRealtime } from "./realtime";
 import { DEFAULT_COMPANY_NAME } from "../shared/workspace";
 
-let name = DEFAULT_COMPANY_NAME;
+// Último nome conhecido neste navegador: a aba já abre com ele, sem piscar o padrão até a resposta chegar.
+// O index.html lê a mesma chave antes do React subir.
+export const COMPANY_NAME_KEY = "crm.company-name";
+
+function remembered(): string {
+  try {
+    return localStorage.getItem(COMPANY_NAME_KEY)?.trim() || DEFAULT_COMPANY_NAME;
+  } catch {
+    return DEFAULT_COMPANY_NAME;
+  }
+}
+
+let name = remembered();
 let inFlight = false;
 // Cada troca (evento) invalida a busca que saiu antes dela: a resposta velha não desfaz o nome novo.
 let version = 0;
@@ -13,6 +25,11 @@ const subscribers = new Set<() => void>();
 function set(next: string) {
   if (next === name) return;
   name = next;
+  try {
+    localStorage.setItem(COMPANY_NAME_KEY, next);
+  } catch {
+    // sem armazenamento (janela privada): só perde o cache
+  }
   subscribers.forEach((s) => s());
 }
 

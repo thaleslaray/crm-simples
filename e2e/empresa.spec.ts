@@ -66,3 +66,39 @@ test("nome vazio não salva", async ({ browser }, info) => {
   await expect(page.getByRole("button", { name: "Salvar" })).toBeDisabled();
   await context.close();
 });
+
+test("depois de conhecido, o nome já está no título desde o primeiro quadro de cada navegação", async ({
+  browser,
+}, info) => {
+  const name = `Loja ${info.project.name} ${Date.now()}`;
+  const admin = await loggedInPage(browser, info);
+  try {
+    await saveName(admin.page, name);
+    const { page } = admin;
+    await page.reload(); // abre a página já sabendo o nome novo
+    await expect(page).toHaveTitle(new RegExp(`${name}$`));
+
+    // Amostra o título a cada quadro pintado numa nova navegação completa.
+    await page.addInitScript(() => {
+      const seen: string[] = [];
+      (window as unknown as { __titles: string[] }).__titles = seen;
+      const sample = () => {
+        if (seen.at(-1) !== document.title) seen.push(document.title);
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    await page.goto("/conversas");
+    await expect(page).toHaveTitle(new RegExp(`${name}$`));
+    await page.waitForTimeout(300);
+    const seen = await page.evaluate(
+      () => (window as unknown as { __titles: string[] }).__titles,
+    );
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen).not.toContain(DEFAULT_NAME);
+    expect(seen.every((t) => t.endsWith(name))).toBe(true);
+  } finally {
+    await saveName(admin.page, DEFAULT_NAME);
+    await admin.context.close();
+  }
+});

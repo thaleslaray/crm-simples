@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { api, type ContactRow } from "../api";
 import { LabelTag } from "../components/LabelTag";
 import { TwoColumnPage } from "../components/TwoColumnPage";
-import { contactLabel, initials } from "../format";
+import { contactLabel, formatPhone, initials } from "../format";
 import { useLabels } from "../labels";
 import { onRealtime } from "../realtime";
 import { ContactPanel, StartConversationButton } from "./ContactPanel";
@@ -83,7 +83,7 @@ export function ContactsPage() {
                   </span>
                   <span className="conv-main">
                     <span className="conv-name">{name}</span>
-                    {c.phone && c.name?.trim() && <span className="muted">{c.phone}</span>}
+                    {c.phone && c.name?.trim() && <span className="muted">{formatPhone(c.phone)}</span>}
                     {c.labels.length > 0 && (
                       <span className="contact-tags" aria-label="Etiquetas">
                         {c.labels.slice(0, MAX_TAGS).map((l) => (

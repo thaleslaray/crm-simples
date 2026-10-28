@@ -244,3 +244,95 @@ test("contatos: chips de etiqueta filtram a lista", async ({
   ).toBeVisible();
   await print(page, info.project.name, "contatos-chips");
 });
+
+test("contatos: com uma etiqueta à direita ativa, o chip Todos continua inteiro à vista", async ({
+  page,
+}, info) => {
+  await signInAsAdmin(page);
+  const stamp = Date.now();
+  let last = "";
+  for (let i = 0; i < 10; i++) {
+    last = `Etiqueta comprida ${i} ${stamp}`;
+    const created = await page.request.post("/api/labels", {
+      data: { name: last, color: "#2563eb" },
+    });
+    expect(created.ok()).toBe(true);
+  }
+  await page.goto("/contatos");
+  const row = page.getByRole("group", { name: "Filtrar por etiqueta" });
+  const todos = row.getByRole("button", { name: "Todos" });
+  const inside = async () => {
+    const [r, t] = await Promise.all([row.boundingBox(), todos.boundingBox()]);
+    return t!.x >= r!.x - 0.5;
+  };
+  await expect(todos).toBeVisible();
+  expect(await inside()).toBe(true);
+
+  await row.getByRole("button", { name: last }).click();
+  await expect(row.getByRole("button", { name: last })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(await inside()).toBe(true);
+  await print(page, info.project.name, "contatos-chips-direita");
+});
+
+test("contatos: a lista mostra o telefone formatado, igual ao da ficha", async ({
+  page,
+  request,
+}) => {
+  const run = `ctf${Date.now()}`;
+  const tail = String(Date.now()).slice(-8);
+  await receiveFrom(request, run, `55119${tail}`);
+  await signInAsAdmin(page);
+  await page.goto("/contatos");
+  await page.getByLabel("Buscar contato").fill(run);
+  const row = contactList(page).getByRole("link", {
+    name: new RegExp(`Cliente ${run}`),
+  });
+  await expect(row).toContainText(`+55 11 9${tail.slice(0, 4)}-${tail.slice(4)}`);
+  await expect(row).not.toContainText(`55119${tail}`);
+});
+
+test("configurações: o subtítulo de Conexão do número acompanha o estado do número", async ({
+  page,
+  request,
+}, info) => {
+  await signInAsAdmin(page);
+  const hook = (status: string) =>
+    request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
+      data: {
+        EventType: "connection",
+        token: E2E_WEBHOOK.instanceToken,
+        instance: { status },
+      },
+    });
+  await page.goto("/configuracoes");
+  const item = settingsList(page).getByRole("link", {
+    name: /Conexão do número/,
+  });
+  try {
+    expect((await hook("disconnected")).status()).toBe(200);
+    await expect(item).toContainText("WhatsApp desconectado");
+    await expect(item).not.toContainText("WhatsApp conectado");
+    await print(page, info.project.name, "config-desconectado");
+    expect((await hook("connecting")).status()).toBe(200);
+    await expect(item).toContainText("WhatsApp conectando");
+  } finally {
+    await hook("connected");
+  }
+  await expect(item).toContainText("WhatsApp conectado");
+});
+
+test("nomes acessíveis: Sair nas Configurações e rádios de tema no Perfil", async ({
+  page,
+}) => {
+  await signInAsAdmin(page);
+  await page.goto("/configuracoes");
+  await expect(
+    settingsList(page).getByRole("button", { name: "Sair", exact: true }),
+  ).toBeVisible();
+  await page.goto("/perfil");
+  for (const name of ["Claro", "Escuro", "Automático"])
+    await expect(page.getByRole("radio", { name })).toBeVisible();
+});
