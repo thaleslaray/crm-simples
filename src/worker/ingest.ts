@@ -1,6 +1,7 @@
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import type { Db } from "./db";
 import { schema } from "./db";
+import type { Message } from "./conversations";
 
 /** Campos do evento `messages` da Uazapi que usamos. */
 export interface UazapiMessage {
@@ -64,12 +65,15 @@ async function resolveConversation(db: Db, contactId: string, now: number): Prom
  * Processa o evento `messages`. Descarta grupo e `fromMe`; idempotente por `message.id`.
  * Lanca se o payload nao tem `message.id` (o evento fica sem `processedAt`).
  */
-export async function ingestMessage(db: Db, msg: UazapiMessage): Promise<void> {
-  if (msg.isGroup || msg.fromMe) return;
+export async function ingestMessage(
+  db: Db,
+  msg: UazapiMessage,
+): Promise<{ conversationId: string; message: Message } | null> {
+  if (msg.isGroup || msg.fromMe) return null;
   if (!msg.id) throw new Error("mensagem sem id");
 
   const already = await db.query.message.findFirst({ where: eq(schema.message.externalId, msg.id) });
-  if (already) return;
+  if (already) return null;
 
   const now = Date.now();
   const contactId = await resolveContact(db, msg, now);
@@ -94,7 +98,7 @@ export async function ingestMessage(db: Db, msg: UazapiMessage): Promise<void> {
     })
     .onConflictDoNothing({ target: schema.message.externalId })
     .returning({ id: schema.message.id });
-  if (inserted.length === 0) return; // corrida com outro request: ja ingerida
+  if (inserted.length === 0) return null; // corrida com outro request: ja ingerida
 
   // So avanca o "ultimo" se esta for a mais recente (evento atrasado nao volta a previa).
   await db
@@ -106,4 +110,8 @@ export async function ingestMessage(db: Db, msg: UazapiMessage): Promise<void> {
         or(isNull(schema.conversation.lastMessageAt), lte(schema.conversation.lastMessageAt, timestamp)),
       ),
     );
+  return {
+    conversationId,
+    message: { id: messageId, direction: "in", type: isText ? "text" : "unsupported", text: isText ? (msg.text ?? null) : null, timestamp },
+  };
 }
