@@ -9,6 +9,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { TeamPage } from "./pages/TeamPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { QuickRepliesPage } from "./pages/QuickRepliesPage";
+import { useAlerts } from "./alerts";
 import { useRealtimeConnection } from "./realtime";
 
 /** Rota protegida: sem sessão, redireciona para /login. Com sessão, tempo real e faixa de conexão valem para todas as telas. */
@@ -21,6 +22,7 @@ function RequireSession() {
 
 function SignedInLayout() {
   useRealtimeConnection();
+  useAlerts();
   return (
     <ConnectionProvider>
       <div className="app">
