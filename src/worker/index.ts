@@ -17,6 +17,7 @@ import { quickReplies } from "./quick-replies";
 import { realtime } from "./realtime";
 import { handleScheduled } from "./scheduled";
 import { search } from "./search";
+import { setup } from "./setup";
 import { signedFiles } from "./signed-files";
 import { webhook } from "./webhook";
 
@@ -38,6 +39,7 @@ app.use("*", async (c, next) => {
 // Todas as rotas do Better Auth (login, logout, sessao...). Cadastro publico esta desligado na config.
 app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env, c.req.url).handler(c.req.raw));
 
+app.route("/api/setup", setup);
 app.route("/api/webhook", webhook);
 app.route("/api/conversations", conversations);
 app.route("/api/contacts", contacts);

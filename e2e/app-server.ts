@@ -6,6 +6,7 @@ import {
   E2E_ADMIN,
   E2E_APP_PORT,
   E2E_CONFIG_DIR,
+  E2E_SETUP_CODE,
   E2E_STATE_DIR,
   E2E_UAZAPI_PORT,
   E2E_WEBHOOK,
@@ -61,6 +62,7 @@ const vars = {
   UAZAPI_BASE_URL: `http://127.0.0.1:${E2E_UAZAPI_PORT}`,
   UAZAPI_INSTANCE_TOKEN: E2E_WEBHOOK.instanceToken,
   WEBHOOK_URL_SECRET: E2E_WEBHOOK.urlSecret,
+  SETUP_CODE: E2E_SETUP_CODE,
 };
 writeFileSync(
   `${E2E_CONFIG_DIR}/.dev.vars`,

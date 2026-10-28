@@ -17,6 +17,7 @@ export default defineConfig({
             UAZAPI_INSTANCE_TOKEN: "token-instancia-teste",
             UAZAPI_TIMEOUT_MS: "500",
             WEBHOOK_URL_SECRET: "segredo-webhook-teste",
+            SETUP_CODE: "frase-de-instalacao-teste",
           },
         },
       };

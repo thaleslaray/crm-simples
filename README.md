@@ -37,6 +37,25 @@ leva você do clone ao CRM no ar, com o seu número conectado.
 A instalação deixa você com um repositório **seu** no GitHub ligado à **sua** conta da Cloudflare: cada push no `main`
 publica o CRM sozinho.
 
+### Jeito mais fácil: pelo botão
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/thaleslaray/crm-simples)
+
+Sem terminal. Clique no botão, entre na Cloudflare e no GitHub se ele pedir, e confirme na tela:
+
+1. A Cloudflare cria **um repositório seu** no GitHub (dê o nome que quiser) e mostra os recursos que vai criar (banco,
+   mídia, filas).
+2. Ela pede **três segredos**. Os dois primeiros são valores aleatórios (a tela explica como gerar com
+   `openssl rand -base64 32`; `BETTER_AUTH_SECRET` não pode ser trocado depois). O terceiro, `SETUP_CODE`, é uma frase
+   só sua: você vai usá-la para criar o administrador.
+3. Clique em **Deploy**. O primeiro build leva de 1 a 3 minutos.
+4. Abra o endereço que a Cloudflare mostra (`https://<nome>.<subdominio>.workers.dev`). O CRM abre na tela de
+   **Primeiro acesso**: digite o código de instalação (`SETUP_CODE`), o seu nome, e-mail e uma senha de 12 caracteres ou
+   mais. Você já entra na caixa de entrada.
+
+Depois do primeiro admin a tela fecha para sempre; o `SETUP_CODE` só vale enquanto não existe nenhum usuário. Cada push
+no repositório criado publica o CRM de novo.
+
 ### Jeito fácil: com o Claude Code
 
 ```bash
@@ -91,12 +110,12 @@ preencha:
 
 - **Project name:** `crm-simples` (tem que ser igual ao `name` do `wrangler.jsonc`)
 - **Build command:** `pnpm run build`
-- **Deploy command:** `pnpm run deploy:cloudflare`
+- **Deploy command:** `pnpm run deploy`
 
 Clique em **Deploy**. O primeiro build cria sozinho o banco (D1), o armazenamento de mídia (R2) e as filas, com os
 nomes do `wrangler.jsonc`, e mostra o endereço do seu CRM, algo como `https://crm-simples.SEU-SUBDOMINIO.workers.dev`.
 
-**4. Gravar os dois segredos**
+**4. Gravar os segredos**
 
 Entre na Cloudflare pelo terminal (abre o navegador para autorizar):
 
@@ -114,20 +133,30 @@ openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET --nam
 openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET --name crm-simples
 ```
 
+Se for criar o admin pela tela de primeiro acesso (passo 5), grave também o código de instalação (o comando pergunta o
+valor; escolha uma frase só sua):
+
+```bash
+pnpm exec wrangler secret put SETUP_CODE --name crm-simples
+```
+
 - `BETTER_AUTH_SECRET` protege o login e cifra os tokens da Uazapi no banco. **Não troque depois:** trocar desloga
   todo mundo e obriga a informar a Uazapi de novo.
 - `WEBHOOK_URL_SECRET` entra no endereço que o CRM cadastra na Uazapi para receber as mensagens.
 
 **5. Criar o seu usuário admin**
 
-Não existe tela de cadastro aberta: o primeiro admin nasce por este comando. Troque o e-mail, o nome e a senha
-(mínimo de 12 caracteres).
+Não existe cadastro aberto. Com o `SETUP_CODE` do passo 4, abra o endereço do passo 3: o CRM mostra a tela de
+**Primeiro acesso** e você cria o admin ali. Sem `SETUP_CODE`, ou se preferir o terminal, o primeiro admin nasce por
+este comando (troque o e-mail, o nome e a senha, de no mínimo 12 caracteres):
 
 ```bash
 pnpm bootstrap:admin --remote --email voce@empresa.com --name "Seu Nome" --password 'uma-senha-forte-de-verdade'
 ```
 
 Pronto: abra o endereço do passo 3 e entre.
+
+Se o `SETUP_CODE` ficou gravado e você já criou o admin, ele não faz mais nada (a tela só abre sem usuários).
 
 Opcional: apagar fotos, vídeos e áudios com mais de 1 ano (a conversa passa a mostrar "mídia expirada").
 

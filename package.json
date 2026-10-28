@@ -33,6 +33,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "deploy": "bash scripts/deploy-cloudflare.sh",
     "deploy:cloudflare": "bash scripts/deploy-cloudflare.sh",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.worker.json && tsc -p tsconfig.web.json && tsc -p tsconfig.test.json && tsc -p tsconfig.node.json",
@@ -45,6 +46,20 @@
     "lint:tests": "tsx scripts/lint-tests.ts",
     "check": "pnpm typecheck && pnpm lint:tests && pnpm test",
     "prepare": "simple-git-hooks"
+  },
+  "cloudflare": {
+    "label": "CRM Simples",
+    "bindings": {
+      "BETTER_AUTH_SECRET": {
+        "description": "Gere um valor aleatório com `openssl rand -base64 32`. Protege o login; **não troque depois**."
+      },
+      "WEBHOOK_URL_SECRET": {
+        "description": "Gere outro valor aleatório com `openssl rand -base64 32`."
+      },
+      "SETUP_CODE": {
+        "description": "Um código que só você sabe (ex.: uma frase). O CRM pede ele para criar o primeiro admin."
+      }
+    }
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm check"

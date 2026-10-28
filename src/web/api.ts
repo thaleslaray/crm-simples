@@ -269,6 +269,13 @@ async function linkCall<T>(method: "GET" | "POST", path: string, body?: unknown)
   };
 }
 
+/** Primeiro acesso: a tela só abre enquanto não há usuário e o SETUP_CODE está configurado. */
+export const firstAccess = {
+  needed: () => linkCall<{ needed: boolean }>("GET", "/api/setup"),
+  create: (input: { code: string; name: string; email: string; password: string }) =>
+    linkCall<{ ok: true }>("POST", "/api/setup", input),
+};
+
 export const links = {
   invite: (token: string) => linkCall<{ role: "admin" | "atendente" }>("GET", `/api/invites/${encodeURIComponent(token)}`),
   acceptInvite: (token: string, input: { name: string; email: string; password: string }) =>

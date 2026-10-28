@@ -13,6 +13,11 @@ export interface NewUser {
   password: string;
   role: Role;
   signatureEnabled?: boolean;
+  /**
+   * So cria se a tabela `user` estiver vazia, dentro do proprio INSERT: duas chamadas simultaneas (o D1 serializa o batch)
+   * nunca criam dois. Quem chama confere `meta.changes` do primeiro statement (0 = ja havia usuario).
+   */
+  onlyIfNoUsers?: boolean;
 }
 
 export interface SqlStatement {
@@ -27,16 +32,25 @@ export async function buildUserStatements(input: NewUser): Promise<{ userId: str
   const email = input.email.trim().toLowerCase(); // o Better Auth normaliza e-mail para minusculas
   const passwordHash = await hashPassword(input.password);
 
+  const cols = "INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at, role, signature_enabled)";
+  const accCols = "INSERT INTO account (id, account_id, provider_id, user_id, password, created_at, updated_at)";
+  const first = input.onlyIfNoUsers === true;
+
   return {
     userId,
     statements: [
       {
-        sql: "INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at, role, signature_enabled) VALUES (?, ?, ?, 1, NULL, ?, ?, ?, ?)",
+        sql: first
+          ? `${cols} SELECT ?, ?, ?, 1, NULL, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM user)`
+          : `${cols} VALUES (?, ?, ?, 1, NULL, ?, ?, ?, ?)`,
         params: [userId, input.name, email, now, now, input.role, input.signatureEnabled === false ? 0 : 1],
       },
       {
-        sql: "INSERT INTO account (id, account_id, provider_id, user_id, password, created_at, updated_at) VALUES (?, ?, 'credential', ?, ?, ?, ?)",
-        params: [accountId, userId, userId, passwordHash, now, now],
+        // Com `onlyIfNoUsers`, a conta so nasce se o usuario acima nasceu.
+        sql: first
+          ? `${accCols} SELECT ?, ?, 'credential', ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM user WHERE id = ?)`
+          : `${accCols} VALUES (?, ?, 'credential', ?, ?, ?, ?)`,
+        params: [accountId, userId, userId, passwordHash, now, now, ...(first ? [userId] : [])],
       },
     ],
   };

@@ -17,6 +17,8 @@ declare global {
       /** Opcional: timeout das chamadas a Uazapi em ms (padrao 15000). */
       UAZAPI_TIMEOUT_MS?: string;
       WEBHOOK_URL_SECRET: string;
+      /** Segredo da tela de primeiro acesso. Sem ele (vazio ou ausente) a tela nunca abre. */
+      SETUP_CODE?: string;
     }
   }
   /** Job do pipeline de midia (ticket futuro). */

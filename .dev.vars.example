@@ -1,5 +1,6 @@
-# Copie para .dev.vars (ignorado pelo git) e ajuste. Em producao, use `wrangler secret put`.
+# Copie para .dev.vars (ignorado pelo git) e ajuste. Em producao, o botao "Deploy to Cloudflare" pede estes tres
+# segredos; na mao, use `wrangler secret put`. Os dados da Uazapi (endereco e token) entram pela tela de Conexao do CRM.
 BETTER_AUTH_SECRET=troque-por-uma-string-aleatoria-com-32-ou-mais-caracteres
-UAZAPI_BASE_URL=https://seu-subdominio.uazapi.com
-UAZAPI_INSTANCE_TOKEN=token-da-instancia
 WEBHOOK_URL_SECRET=segredo-aleatorio-que-vai-na-url-do-webhook
+# Codigo que a tela de primeiro acesso pede para criar o admin. Sem ele, a tela nunca abre.
+SETUP_CODE=troque-por-uma-frase-so-sua

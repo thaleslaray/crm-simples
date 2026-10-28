@@ -6,6 +6,7 @@ import { CompanyPage } from "./pages/CompanyPage";
 import { ConnectionPage } from "./pages/ConnectionPage";
 import { ContactsPage } from "./pages/ContactsPage";
 import { ConversationPage } from "./pages/ConversationPage";
+import { FirstAccessPage } from "./pages/FirstAccessPage";
 import { FunnelsAdminPage } from "./pages/FunnelsAdminPage";
 import { FunnelsPage } from "./pages/FunnelsPage";
 import { InboxPage, NoConversationSelected } from "./pages/InboxPage";
@@ -49,6 +50,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/primeiro-acesso" element={<FirstAccessPage />} />
       <Route path="/convite/:token" element={<InvitePage />} />
       <Route path="/redefinir-senha/:token" element={<ResetPasswordPage />} />
       <Route element={<RequireSession />}>

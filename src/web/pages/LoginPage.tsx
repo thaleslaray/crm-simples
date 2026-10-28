@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { Navigate } from "react-router";
 import { authClient } from "../auth-client";
 import { useCompanyName } from "../workspace";
+import { useSetupNeeded } from "./FirstAccessPage";
 
 export function LoginPage() {
   const companyName = useCompanyName();
@@ -12,7 +13,11 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const setupNeeded = useSetupNeeded();
+
   if (!isPending && session) return <Navigate to="/" replace />;
+  // CRM recém-instalado, sem nenhum usuário: o caminho é criar o primeiro admin.
+  if (setupNeeded) return <Navigate to="/primeiro-acesso" replace />;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

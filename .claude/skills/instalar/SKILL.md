@@ -59,7 +59,7 @@ exatos e espere ele confirmar:
 3. Preencha:
    - **Project name:** `crm-simples` (tem que ser igual ao `name` do `wrangler.jsonc`)
    - **Build command:** `pnpm run build`
-   - **Deploy command:** `pnpm run deploy:cloudflare`
+   - **Deploy command:** `pnpm run deploy`
 4. **Deploy**.
 
 O primeiro build leva de 1 a 3 minutos e cria banco, mídia e filas. A conta precisa do plano **Workers Paid** (filas e
@@ -94,6 +94,13 @@ openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET --nam
 openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET --name crm-simples
 ```
 
+Se o usuário vai criar o admin pela tela de primeiro acesso (passo 6), grave também o código de instalação. Ele mesmo
+digita o valor (uma frase só dele), então entregue o comando para rodar com `!`:
+
+```bash
+! pnpm exec wrangler secret put SETUP_CODE --name crm-simples
+```
+
 Avise: o `BETTER_AUTH_SECRET` protege o login e cifra os tokens da Uazapi; trocar depois desloga todo mundo e obriga a
 informar a Uazapi de novo.
 
@@ -101,8 +108,12 @@ informar a Uazapi de novo.
 
 ## 6. Criar o admin
 
-A senha é do usuário: ele mesmo roda o comando, para a senha não passar pela conversa. Pergunte o e-mail e o nome e
-entregue o comando pronto para ele rodar com `!` (senha de 12 caracteres ou mais):
+Há dois caminhos. O mais simples: com o `SETUP_CODE` gravado no passo 5, o usuário abre o endereço do Worker e cria o
+admin na tela de **Primeiro acesso** (código de instalação, nome, e-mail, senha de 12 caracteres ou mais); a senha não
+passa pela conversa. **Pronto quando** ele entra na caixa de entrada; pule o comando abaixo.
+
+Alternativa, sem `SETUP_CODE`: a senha é do usuário, ele mesmo roda o comando. Pergunte o e-mail e o nome e entregue o
+comando pronto para ele rodar com `!` (senha de 12 caracteres ou mais):
 
 ```bash
 ! pnpm bootstrap:admin --remote --email <email> --name "<nome>" --password '<senha>'
