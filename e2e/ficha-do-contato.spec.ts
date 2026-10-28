@@ -95,9 +95,10 @@ for (const scheme of ["light", "dark"] as const) {
     ]) {
       await expect(ficha.getByRole("region", { name: bloco })).toBeVisible();
     }
+    // Já estamos na conversa: a ficha daqui não oferece "Iniciar conversa"
     await expect(
       ficha.getByRole("button", { name: "Iniciar conversa" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
 
     if (!mobile) {
       // Terceira coluna de 400px que estreita o chat; o chat continua visivel

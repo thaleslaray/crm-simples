@@ -31,7 +31,7 @@ test("atendente inicia conversa com um número novo; número inválido é recusa
   ).toBeVisible();
 });
 
-test("a ficha tem a ação de iniciar conversa com o contato", async ({
+test("atendente inicia conversa com um contato que já existe, escolhido na busca", async ({
   page,
 }) => {
   const phone = `55118${String(Date.now()).slice(-8)}`;
@@ -43,13 +43,18 @@ test("a ficha tem a ação de iniciar conversa com o contato", async ({
   await dialog.getByRole("button", { name: "Enviar" }).click();
   await expect(page).toHaveURL(/\/conversas\//);
 
-  const ficha = page.getByRole("complementary", { name: "Ficha do contato" });
-  const toggle = page.getByRole("button", { name: "Ficha do contato" });
-  await expect(toggle).toBeVisible();
-  if ((await toggle.getAttribute("aria-expanded")) !== "true")
-    await toggle.click();
-  await ficha.getByRole("button", { name: "Iniciar conversa" }).click();
+  await page.goto("/");
+  await expect(
+    page.getByRole("navigation", { name: "Conversas" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Nova conversa" }).click();
   const again = page.getByRole("dialog", { name: "Nova conversa" });
+  await again.getByLabel("Contato ou número").fill(phone.slice(-8));
+  await again
+    .getByRole("list", { name: "Sugestões" })
+    .getByRole("button")
+    .first()
+    .click();
   await expect(again.getByText("Para:")).toBeVisible();
   await again.getByLabel("Mensagem").fill("Segunda");
   await again.getByRole("button", { name: "Enviar" }).click();

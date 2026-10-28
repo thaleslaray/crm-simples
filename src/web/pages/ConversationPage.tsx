@@ -6,7 +6,7 @@ import { getDraft, setDraft } from "../drafts";
 import { contactLabel, dayLabel, eventText, formatSize, messagePreview, messageTime, sameDay } from "../format";
 import { onRealtime } from "../realtime";
 import { readFichaAberta, saveFichaAberta } from "../ficha-aberta";
-import { ContactPanel, StartConversationButton } from "./ContactPanel";
+import { ContactPanel } from "./ContactPanel";
 import { ChatHeader } from "../components/ChatHeader";
 import { EventPill } from "../components/EventPill";
 import { MessageBubble } from "../components/MessageBubble";
@@ -678,10 +678,16 @@ export function ConversationPage() {
                 }
               }
               if (slashOpen && e.key === "Escape") setSlashDismissed(true);
-              // Ctrl/Cmd+Enter envia; Enter sozinho quebra a linha (no celular não há outra forma de quebrar).
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                void (noteMode ? sendNote() : attachment ? sendAttachment() : sendDraft());
+              // Como no WhatsApp Web: no computador Enter envia e Shift+Enter quebra a linha; no celular
+              // Enter quebra a linha (envia pelo botão). Ctrl/Cmd+Enter envia em qualquer tela.
+              // Nunca envia durante composição de IME nem com o campo vazio (a não ser com anexo).
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                const withModifier = e.ctrlKey || e.metaKey;
+                if (withModifier || (!narrow && !e.shiftKey)) {
+                  e.preventDefault();
+                  if (!draft.trim() && !(attachment && !noteMode)) return;
+                  void (noteMode ? sendNote() : attachment ? sendAttachment() : sendDraft());
+                }
               }
             }}
           />
@@ -704,7 +710,6 @@ export function ConversationPage() {
         <ContactPanel
           contactId={conversation.contact.id}
           onClose={() => setFichaOpen(false)}
-          heroAction={(contact) => <StartConversationButton contact={contact} />}
         />
       )}
       </div>

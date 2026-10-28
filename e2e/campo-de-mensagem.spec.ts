@@ -147,6 +147,10 @@ test("campo de mensagem: nota não vai ao cliente, / filtra e insere, microfone 
   await field.press("Enter");
   await expect(field).toHaveValue(`Olá Paula ${run}, já te ajudo`);
   await expect(menu).toHaveCount(0);
+  // Enter com "/" aberto escolheu a resposta e não enviou nada
+  expect(
+    (await calls(request)).filter((c) => c.path.startsWith("/send")),
+  ).toHaveLength(0);
   // Esc fecha o menu sem inserir
   await field.fill("/");
   await expect(menu).toBeVisible();
@@ -201,4 +205,53 @@ test("campo de mensagem: nota não vai ao cliente, / filtra e insere, microfone 
   page.once("dialog", (d) => void d.accept());
   await page.getByRole("button", { name: `Apagar /${shortcut}` }).click();
   await expect(page.getByText(`/${shortcut}`)).toHaveCount(0);
+});
+
+test("campo de mensagem: Enter envia no computador (Shift+Enter quebra linha); no celular Enter quebra linha", async ({
+  page,
+  request,
+}, info) => {
+  if (info.project.name === "desktop")
+    await page.setViewportSize({ width: 1440, height: 900 });
+  const mobile = info.project.name !== "desktop";
+  const run = `en${info.project.name}${Date.now()}`;
+  await receive(request, run, `55119${String(Date.now()).slice(-8)}`);
+  await request.post(`${FAKE}/reset`);
+  await signInAsAdmin(page);
+  await page
+    .getByRole("link", { name: new RegExp(`Paula ${run}`) })
+    .first()
+    .click();
+  const conversation = page.getByRole("article", {
+    name: `Conversa com Paula ${run}`,
+  });
+  const field = conversation.locator("form.composer textarea");
+  const sends = async () =>
+    (await calls(request)).filter((c) => c.path.startsWith("/send")).length;
+
+  if (mobile) {
+    await field.fill("linha um");
+    await field.press("Enter");
+    await field.pressSequentially("linha dois");
+    await expect(field).toHaveValue("linha um\nlinha dois");
+    expect(await sends()).toBe(0);
+    return;
+  }
+
+  // Shift+Enter quebra a linha, não envia
+  await field.fill("linha um");
+  await field.press("Shift+Enter");
+  await field.pressSequentially("linha dois");
+  await expect(field).toHaveValue("linha um\nlinha dois");
+  expect(await sends()).toBe(0);
+
+  // Enter envia
+  await field.press("Enter");
+  await expect(field).toHaveValue("");
+  await expect.poll(sends).toBe(1);
+
+  // Campo vazio: Enter não envia
+  await field.press("Enter");
+  await page.waitForTimeout(300);
+  expect(await sends()).toBe(1);
 });
