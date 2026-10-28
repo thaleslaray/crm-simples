@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "crm-whatsapp",
+  "name": "crm-simples",
+  "account_id": "4a1961760bc2292fab3733dc2b3c811c",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -12,25 +13,25 @@
     "run_worker_first": ["/api/*"]
   },
 
-  // IDs abaixo sao PLACEHOLDERS: crie os recursos e troque (veja README).
+  // Recursos da conta "Thales Laray" (criados com o cf em 2026-10-28).
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "crm-whatsapp",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_name": "crm-simples",
+      "database_id": "6b799034-10bc-405a-9470-8a2033e13b6e",
       "migrations_dir": "migrations"
     }
   ],
 
-  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "crm-whatsapp-media" }],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "crm-simples-media" }],
 
   "queues": {
-    "producers": [{ "binding": "MEDIA_QUEUE", "queue": "crm-media" }],
+    "producers": [{ "binding": "MEDIA_QUEUE", "queue": "crm-simples-media" }],
     "consumers": [
       {
-        "queue": "crm-media",
+        "queue": "crm-simples-media",
         "max_retries": 5,
-        "dead_letter_queue": "crm-media-dlq"
+        "dead_letter_queue": "crm-simples-media-dlq"
       }
     ]
   },

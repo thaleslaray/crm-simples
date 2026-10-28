@@ -50,17 +50,21 @@ pnpm test:e2e    # Playwright (desktop + celular 375px); sobe o app com D1 limpo
 em cookie dura 60 s: `requireRole` ignora o cache e relê a sessão do D1, então rebaixar/remover alguém vale na hora
 nas rotas de admin. Rotas só com `requireAuth` podem aceitar uma sessão revogada por até 60 s.
 
-## O que falta configurar para o deploy
+## Deploy (Cloudflare, conta "Thales Laray")
 
-Nada foi criado na conta Cloudflare. Os IDs em `wrangler.jsonc` são placeholders.
+Recursos criados com o `cf` em 2026-10-28 e já apontados em `wrangler.jsonc`:
 
-1. `wrangler login`; plano **Workers Paid**.
-2. `wrangler d1 create crm-whatsapp` e colocar o `database_id` em `wrangler.jsonc`.
-3. `wrangler r2 bucket create crm-whatsapp-media` e a regra de expiração: `wrangler r2 bucket lifecycle add crm-whatsapp-media expire-365d --expire-days 365` (apaga objetos com mais de 365 dias; a mídia passa a aparecer como "mídia expirada").
-4. `wrangler queues create crm-media` e `wrangler queues create crm-media-dlq`.
-5. Secrets: `wrangler secret put` para `BETTER_AUTH_SECRET`, `UAZAPI_BASE_URL`, `UAZAPI_INSTANCE_TOKEN`,
-   `UAZAPI_ADMIN_TOKEN`, `WEBHOOK_URL_SECRET`.
-6. `pnpm build && wrangler d1 migrations apply DB --remote && wrangler deploy`.
-7. `pnpm bootstrap:admin --remote ...`.
+- Worker `crm-simples`; D1 `crm-simples` (migrações aplicadas); R2 `crm-simples-media` com expiração de 365 dias
+  (a mídia mais velha passa a aparecer como "mídia expirada"); filas `crm-simples-media` e `crm-simples-media-dlq`.
+
+O deploy é pelo GitHub (Workers Builds): cada push no `main` de `thaleslaray/crm-simples` builda e publica.
+
+- Build: `pnpm build`
+- Deploy: `pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy`
+
+Secrets do Worker (fora do repositório): `BETTER_AUTH_SECRET`, `WEBHOOK_URL_SECRET`, `UAZAPI_BASE_URL`,
+`UAZAPI_INSTANCE_TOKEN`, `UAZAPI_ADMIN_TOKEN`. Para trocar um: `pnpm exec wrangler secret put <NOME>`.
+
+Primeiro admin: `pnpm bootstrap:admin --remote --email ... --name ... --password ...` (precisa de `pnpm exec wrangler login`).
 
 O `Env` está tipado à mão em `src/worker/env.d.ts` (atualize ao adicionar bindings/secrets).
