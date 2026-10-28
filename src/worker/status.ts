@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { loadConversation } from "./conversations";
 import { createDb, type Db, schema } from "./db";
-import type { EventType } from "./db/schema";
+import type { EventType, Role } from "./db/schema";
 import { publish } from "./realtime";
 
 /** Evento de sistema no formato da API (linha do tempo). */
@@ -44,11 +44,13 @@ type NewEvent = {
   actorId: string | null;
   toUserId?: string | null;
   fromUserId?: string | null;
+  /** So para ordenar eventos gravados no mesmo instante; o padrao e agora. */
+  timestamp?: number;
 };
 
 export async function recordEvent(db: Db, e: NewEvent): Promise<string> {
   const id = crypto.randomUUID();
-  await db.insert(schema.conversationEvent).values({ id, timestamp: Date.now(), ...e });
+  await db.insert(schema.conversationEvent).values({ id, ...e, timestamp: e.timestamp ?? Date.now() });
   return id;
 }
 
@@ -110,10 +112,18 @@ export async function reopenOnClientMessage(db: Db, conversationId: string): Pro
   return { eventId };
 }
 
-export type Outcome = "ok" | "not_found" | "taken" | "not_open";
-export type ChangeOutcome = "ok" | "not_found" | "forbidden" | "bad_target" | "same" | "invalid_state" | "conflict";
+export type ChangeOutcome =
+  | "ok"
+  | "not_found"
+  | "forbidden"
+  | "bad_target"
+  | "same"
+  | "invalid_state"
+  | "conflict"
+  | "taken"
+  | "not_open";
 
-type Actor = { id: string; role: "admin" | "atendente" };
+type Actor = { id: string; role: Role };
 
 /**
  * Atribui (sem responsavel, so admin) ou transfere (so o responsavel ou o admin) para um membro.
@@ -158,12 +168,11 @@ export async function assignConversation(
   return "ok";
 }
 
-/** Resolve uma conversa em andamento ou aguardando cliente; so o responsavel ou o admin. */
+/** Resolve uma conversa em andamento ou aguardando cliente; qualquer atendente ou o admin (nao so o responsavel). */
 export async function resolveConversation(env: Cloudflare.Env, conversationId: string, by: Actor): Promise<ChangeOutcome> {
   const db = createDb(env.DB);
-  const conv = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, conversationId) });
+  const conv = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, conversationId), columns: { id: true } });
   if (!conv) return "not_found";
-  if (by.role !== "admin" && conv.assigneeId !== by.id) return "forbidden";
   const done = await db
     .update(schema.conversation)
     .set({ status: "resolvida" })
@@ -181,11 +190,11 @@ export async function resolveConversation(env: Cloudflare.Env, conversationId: s
 }
 
 /**
- * Membro removido: as conversas dele em andamento ou aguardando cliente voltam a aberta sem responsavel (sem evento:
- * quem agiu foi o admin ao remover, nao ha atendente a citar). As resolvidas so perdem o dono pela FK ao apagar o
- * usuario; quando o cliente escrever, `reopenOnClientMessage` as reabre como aberta (sem dono).
+ * Membro removido: as conversas dele em andamento ou aguardando cliente voltam a aberta sem responsavel, com o evento
+ * "devolvida" (autor = o admin que removeu). As resolvidas so perdem o dono pela FK ao apagar o usuario; quando o
+ * cliente escrever, `reopenOnClientMessage` as reabre como aberta (sem dono).
  */
-export async function releaseConversationsOf(env: Cloudflare.Env, userId: string): Promise<void> {
+export async function releaseConversationsOf(env: Cloudflare.Env, userId: string, byId: string): Promise<void> {
   const db = createDb(env.DB);
   const released = await db
     .update(schema.conversation)
@@ -197,14 +206,17 @@ export async function releaseConversationsOf(env: Cloudflare.Env, userId: string
       ),
     )
     .returning({ id: schema.conversation.id });
-  for (const { id } of released) await publishUpdate(env, db, id, null);
+  for (const { id } of released) {
+    const eventId = await recordEvent(db, { conversationId: id, type: "devolvida", actorId: byId, fromUserId: userId });
+    await publishUpdate(env, db, id, eventId);
+  }
 }
 
 /**
  * Assumir e condicional: so tem efeito se a conversa ainda esta aberta e sem dono. Com dois atendentes ao mesmo tempo,
  * o UPDATE atomico deixa so um vencer; o outro recebe "taken".
  */
-export async function assumeConversation(env: Cloudflare.Env, conversationId: string, userId: string): Promise<Outcome> {
+export async function assumeConversation(env: Cloudflare.Env, conversationId: string, userId: string): Promise<ChangeOutcome> {
   const db = createDb(env.DB);
   const won = await db
     .update(schema.conversation)

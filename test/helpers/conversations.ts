@@ -111,7 +111,7 @@ export function setSignature(cookie: string, enabled: boolean) {
 
 export interface TimelineEvent {
   id: string;
-  type: "assumida" | "atribuida" | "transferida" | "resolvida" | "reaberta";
+  type: "assumida" | "atribuida" | "transferida" | "resolvida" | "reaberta" | "devolvida";
   timestamp: number;
   actorName: string | null;
   toName: string | null;

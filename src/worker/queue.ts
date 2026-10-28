@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { createDb, schema } from "./db";
 import { streamToR2 } from "./stream-to-r2";
 import { createUazapiClient } from "./uazapi/client";
+import { errorName } from "./errors";
 
 /** Igual a `max_retries` do consumer em wrangler.jsonc: a tentativa seguinte ja iria para a DLQ. */
 const MAX_RETRIES = 5;
@@ -35,7 +36,7 @@ export async function handleQueue(batch: MessageBatch<MediaJob>, env: Cloudflare
       message.ack();
     } catch (err) {
       // Sem payload nem URL no log (o link da Uazapi e uma credencial de fato).
-      console.error("midia: falha no download", { messageId: message.body.messageId, tentativa: message.attempts, erro: err instanceof Error ? err.name : "desconhecido" });
+      console.error("midia: falha no download", { messageId: message.body.messageId, tentativa: message.attempts, erro: errorName(err) });
       if (message.attempts > MAX_RETRIES) {
         await createDb(env.DB).update(schema.message).set({ mediaStatus: "failed" }).where(eq(schema.message.id, message.body.messageId));
         message.retry(); // sem tentativas restantes: a fila move para a DLQ

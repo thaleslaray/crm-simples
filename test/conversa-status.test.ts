@@ -15,7 +15,7 @@ import {
 } from "./helpers/conversations";
 import { fakeUazapi } from "./helpers/fake-uazapi";
 import { connectRealtime } from "./helpers/realtime";
-import { createUser, deleteUser } from "./helpers/users";
+import { createUser, deleteUser, setUserRole } from "./helpers/users";
 
 async function login(email: string, name: string, role: "admin" | "atendente" = "atendente") {
   const id = await createUser({ email, password: "senha-segura-123", name, role });
@@ -344,6 +344,18 @@ describe("Atribuir, transferir e resolver", () => {
     expect((await conversationOf(admin.cookie, conversa)).assigneeId).toBe(beto.id);
   });
 
+  it("o admin rebaixado a atendente perde na hora o poder de atribuir conversa alheia, mesmo com o cookie no cache", async () => {
+    const chefe = await login("chefe@exemplo.com", "Chefe", "admin");
+    const ana = await login("ana@exemplo.com", "Ana");
+    const beto = await login("beto@exemplo.com", "Beto");
+    const conversa = await conversationWithClient(ana.cookie);
+    await assume(ana.cookie, conversa);
+    await setUserRole(chefe.id, "atendente");
+
+    expect((await assign(chefe.cookie, conversa, beto.id)).status).toBe(403);
+    expect((await conversationOf(ana.cookie, conversa)).assigneeId).toBe(ana.id);
+  });
+
   it("transferir para um membro que nao existe responde 400", async () => {
     const ana = await login("ana@exemplo.com", "Ana");
     const conversa = await conversationWithClient(ana.cookie);
@@ -370,15 +382,18 @@ describe("Atribuir, transferir e resolver", () => {
     expect((await resolve(admin.cookie, conversa)).status).toBe(409);
   });
 
-  it("atendente que nao e o responsavel nao resolve, mas o admin resolve", async () => {
+  it("qualquer atendente resolve a conversa de um colega, e o admin tambem", async () => {
     const admin = await login("admin@exemplo.com", "Chefe", "admin");
     const ana = await login("ana@exemplo.com", "Ana");
     const beto = await login("beto@exemplo.com", "Beto");
-    const conversa = await conversationWithClient(ana.cookie);
-    await assume(ana.cookie, conversa);
+    const daAna = await conversationWithClient(ana.cookie);
+    await assume(ana.cookie, daAna);
+    const outra = await conversationWithClient(ana.cookie, "5511900000055");
+    await assume(ana.cookie, outra);
 
-    expect((await resolve(beto.cookie, conversa)).status).toBe(403);
-    expect((await resolve(admin.cookie, conversa)).status).toBe(200);
+    expect((await resolve(beto.cookie, daAna)).status).toBe(200);
+    expect((await resolve(admin.cookie, outra)).status).toBe(200);
+    expect((await events(admin.cookie, daAna)).at(-1)).toMatchObject({ type: "resolvida", actorName: "Beto" });
   });
 });
 

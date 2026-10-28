@@ -31,7 +31,7 @@ export type ConversationStatus = "aberta" | "em_andamento" | "aguardando_cliente
 /** Evento de sistema da linha do tempo (assumir, atribuir, transferir, resolver, reabrir). */
 export interface TimelineEvent {
   id: string;
-  type: "assumida" | "atribuida" | "transferida" | "resolvida" | "reaberta";
+  type: "assumida" | "atribuida" | "transferida" | "resolvida" | "reaberta" | "devolvida";
   timestamp: number;
   actorName: string | null;
   toName: string | null;
