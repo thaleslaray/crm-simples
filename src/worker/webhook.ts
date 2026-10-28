@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { createDb, schema } from "./db";
 import { eq } from "drizzle-orm";
 import { ingestMessage, type UazapiMessage } from "./ingest";
-import { loadConversation } from "./conversations";
+import { loadConversation, loadMessage } from "./conversations";
 import type { AppEnv } from "./middleware";
 import { publish } from "./realtime";
 
@@ -40,12 +40,15 @@ webhook.post("/:secret", async (c) => {
   // Outros tipos de evento (messages_update, connection...) ficam gravados sem processar: sao de tickets futuros.
   if (payload.EventType === "messages") {
     try {
-      const ingested = await ingestMessage(db, (payload.message ?? {}) as UazapiMessage);
+      const ingested = await ingestMessage(db, (payload.message ?? {}) as UazapiMessage, c.env.MEDIA_QUEUE);
       await db.update(schema.webhookEvent).set({ processedAt: Date.now() }).where(eq(schema.webhookEvent.id, eventId));
       // Mensagem nova (nao duplicada): avisa o hub. Depois de gravar tudo; falha de publicacao nao some com a mensagem.
       if (ingested) {
-        const conversation = await loadConversation(db, ingested.conversationId);
-        if (conversation) await publish(c.env, { type: "message.created", conversation, message: ingested.message });
+        const [conversation, message] = await Promise.all([
+          loadConversation(db, ingested.conversationId),
+          loadMessage(db, c.env.MEDIA, ingested.messageId),
+        ]);
+        if (conversation && message) await publish(c.env, { type: "message.created", conversation, message });
       }
     } catch (err) {
       // Nunca logar payload/token: so o tipo do erro e o id do evento. O evento fica sem processedAt.

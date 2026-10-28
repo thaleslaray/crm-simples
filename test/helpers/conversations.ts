@@ -16,6 +16,9 @@ export interface HistoryMessage {
   type: string;
   direction: string;
   timestamp: number;
+  media: { status: "pending" | "available" | "failed" | "expired"; mime: string | null; size: number | null; name: string | null } | null;
+  location: { lat: number; lng: number; name: string | null; address: string | null } | null;
+  contact: { name: string | null; phone: string | null } | null;
 }
 
 export async function inbox(cookie: string): Promise<InboxConversation[]> {

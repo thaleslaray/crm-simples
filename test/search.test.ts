@@ -144,7 +144,13 @@ describe("busca: texto das mensagens", () => {
 
   it("mensagem sem texto (tipo nao suportado) nao aparece", async () => {
     const cookie = await loginAsAtendente();
-    await postWebhook(textMessageEvent({ messageType: "imageMessage", text: "legenda da foto" }));
+    await postWebhook(textMessageEvent({ messageType: "pollCreationMessage", text: "legenda da enquete" }));
     expect((await search(cookie, "legenda")).body.messages).toHaveLength(0);
+  });
+
+  it("legenda de midia (ticket 08) entra na busca", async () => {
+    const cookie = await loginAsAtendente();
+    await postWebhook(textMessageEvent({ messageType: "imageMessage", text: "legenda da foto" }));
+    expect((await search(cookie, "legenda")).body.messages).toHaveLength(1);
   });
 });

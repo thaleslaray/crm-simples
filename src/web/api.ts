@@ -8,7 +8,15 @@ export interface Conversation {
   lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
 }
 
-export type MessageType = "text" | "unsupported";
+export type MessageType =
+  | "text" | "image" | "video" | "audio" | "voice" | "document" | "sticker" | "location" | "contact" | "unsupported";
+
+export interface MessageMedia {
+  status: "pending" | "available" | "failed" | "expired";
+  mime: string | null;
+  size: number | null;
+  name: string | null;
+}
 
 export interface Message {
   id: string;
@@ -16,6 +24,9 @@ export interface Message {
   type: MessageType;
   text: string | null;
   timestamp: number;
+  media: MessageMedia | null;
+  location: { lat: number; lng: number; name: string | null; address: string | null } | null;
+  contact: { name: string | null; phone: string | null } | null;
 }
 
 export class ApiError extends Error {
