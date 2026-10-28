@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type Contact, type Ficha } from "../api";
 import { contactLabel, formatPhone, initials, messageTime, STATUS_LABEL } from "../format";
 import { onRealtime } from "../realtime";
+import { NewConversationDialog } from "./NewConversation";
 
 function dateTime(ts: number): string {
   return `${new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${messageTime(ts)}`;
@@ -39,6 +40,7 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   const fill = (c: Contact) => setForm({ name: c.name ?? "", email: c.email ?? "", company: c.company ?? "", notes: c.notes ?? "" });
 
@@ -119,6 +121,15 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
               </p>
             </div>
           </div>
+          <button type="button" className="ficha-start" onClick={() => setStarting(true)}>
+            Iniciar conversa
+          </button>
+          {starting && (
+            <NewConversationDialog
+              contact={{ id: ficha.contact.id, label: contactLabel(ficha.contact) }}
+              onClose={() => setStarting(false)}
+            />
+          )}
           <form className="ficha-form" onSubmit={(e) => void save(e)}>
             <label>
               Telefone

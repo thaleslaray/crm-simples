@@ -260,6 +260,20 @@ export const api = {
     getJson<{ messages: Message[]; nextAfter: string | null }>(
       `/api/conversations/${encodeURIComponent(id)}/messages?after=${encodeURIComponent(after)}`,
     ),
+  /** Nova conversa: contato existente ou número digitado. O erro traz o `code` da API (ex.: `numero_invalido`). */
+  startConversation: async (input: { contactId: string; text: string } | { phone: string; text: string }) => {
+    const res = await fetch("/api/conversations/start", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw Object.assign(new ApiError(res.status), { code: body.error });
+    }
+    return (await res.json()) as { conversation: Conversation; message: Message; created: boolean };
+  },
   search: (q: string) => getJson<SearchResults>(`/api/search?q=${encodeURIComponent(q)}`),
   /** Mensagens depois da última vista (ressincronização ao reconectar). */
   messagesAfter: (id: string, last: Message) => {

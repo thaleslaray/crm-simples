@@ -218,3 +218,20 @@ button.danger { color: var(--danger); }
   .ficha { width: 100%; border-left: 0; }
   .ficha-close { display: inline-block; }
 }
+
+/* Nova conversa */
+.new-conv { width: 100%; margin-bottom: 8px; }
+.ficha-start { width: 100%; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.45); display: flex; align-items: flex-end; justify-content: center; }
+.modal { width: 100%; max-width: 460px; max-height: 100dvh; overflow-y: auto; background: var(--card); border-radius: 12px 12px 0 0; padding: 16px; display: grid; gap: 12px; }
+.modal h2 { margin: 0; font-size: 1.1rem; }
+.modal textarea { font: inherit; font-size: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; width: 100%; resize: vertical; }
+.modal .chosen { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.picker { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.picker button { width: 100%; text-align: left; background: transparent; color: var(--fg); border-radius: 0; }
+.picker-note { display: block; padding: 12px; font-size: 0.9rem; }
+@media (min-width: 768px) {
+  .modal-backdrop { align-items: center; }
+  .modal { border-radius: 12px; }
+}

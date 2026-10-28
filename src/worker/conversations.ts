@@ -6,7 +6,9 @@ import { CONVERSATION_STATUSES, type ConversationStatus, type SendStatus } from 
 import { createNote, listNotes } from "./notes";
 import { type AppEnv, requireAuth } from "./middleware";
 import { publish } from "./realtime";
+import { normalizePhone } from "../shared/phone";
 import { sendOutgoingText } from "./send";
+import { startConversation } from "./start-conversation";
 import { assignConversation, assumeConversation, type ChangeOutcome, listEvents, resolveConversation } from "./status";
 import { createUazapiClient } from "./uazapi/client";
 
@@ -299,6 +301,21 @@ const MAX_TEXT_LENGTH = 4096;
 
 /** Teto do anexo: o arquivo passa pela memoria do Worker antes de ir ao R2. */
 const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
+
+// Nova conversa: contato existente (`contactId`) ou numero digitado (`phone`); cria o contato se for novo.
+conversations.post("/start", async (c) => {
+  const body = await c.req.json<{ contactId?: unknown; phone?: unknown; text?: unknown }>().catch(() => null);
+  const text = typeof body?.text === "string" ? body.text : "";
+  const target =
+    typeof body?.contactId === "string" && body.contactId
+      ? { contactId: body.contactId }
+      : { phone: typeof body?.phone === "string" ? body.phone : "" };
+  if ("phone" in target && !normalizePhone(target.phone ?? "")) return c.json({ error: "numero_invalido" }, 400);
+  if (!text.trim() || text.length > MAX_TEXT_LENGTH) return c.json({ error: "texto_invalido" }, 400);
+  const result = await startConversation(c.env, { ...target, text, userId: c.get("user").id, origin: new URL(c.req.url).origin });
+  if (!result.ok) return c.json({ error: result.error }, result.error === "numero_invalido" ? 400 : 404);
+  return c.json({ conversation: result.conversation, message: result.message, created: result.created }, 201);
+});
 
 conversations.post("/:id/messages", async (c) => {
   const base = { conversationId: c.req.param("id"), userId: c.get("user").id, origin: new URL(c.req.url).origin };
