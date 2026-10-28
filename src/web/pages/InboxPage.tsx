@@ -6,7 +6,8 @@ import { authClient } from "../auth-client";
 import { clearDrafts } from "../drafts";
 import { contactLabel, initials, listTime, messagePreview, STATUS_LABEL } from "../format";
 import { useLabels } from "../labels";
-import { LabelTag, StatusPill } from "../pills";
+import { LabelTag } from "../components/LabelTag";
+import { StatusPill } from "../components/StatusPill";
 import { onRealtime } from "../realtime";
 import { NewConversationDialog } from "./NewConversation";
 

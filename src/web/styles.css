@@ -201,13 +201,13 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .conv-assignee { flex: none; }
 .conv-assignee.is-none { font-style: italic; }
 .conv-dot { color: var(--text-2); }
-.status-pill { display: inline-flex; align-items: center; flex: none; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.status-pill { display: inline-flex; align-items: center; flex: none; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-pill--aberta { background: var(--st-aberta-bg); color: var(--st-aberta-fg); }
 .status-pill--em_andamento { background: var(--st-andamento-bg); color: var(--st-andamento-fg); }
 .status-pill--aguardando_cliente { background: var(--st-aguardando-bg); color: var(--st-aguardando-fg); }
 .status-pill--resolvida { background: var(--st-resolvida-bg); color: var(--st-resolvida-fg); }
-.label-tag { display: inline-flex; align-items: center; flex: none; gap: 5px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; white-space: nowrap; color: var(--text-2); background: var(--bg-active); }
-.label-tag i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.label-tag { display: inline-flex; align-items: center; flex: none; gap: 5px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); background: var(--bg-active); }
+.label-tag i { flex: none; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .label-tag--more { padding: 0 6px; }
 .menu .label-tag { background: transparent; padding: 0; font-size: 14.5px; color: var(--text); }
 
@@ -221,11 +221,6 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .conv-who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 0; min-height: 44px; background: transparent; color: var(--text); text-align: left; border-radius: 8px; }
 .conv-sub { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-2); white-space: nowrap; overflow: hidden; }
 .conv-sub [data-testid="conversation-assignee"] { overflow: hidden; text-overflow: ellipsis; }
-.status-pill { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.status-pill--aberta { background: var(--st-aberta-bg); color: var(--st-aberta-fg); }
-.status-pill--em_andamento { background: var(--st-andamento-bg); color: var(--st-andamento-fg); }
-.status-pill--aguardando_cliente { background: var(--st-aguardando-bg); color: var(--st-aguardando-fg); }
-.status-pill--resolvida { background: var(--st-resolvida-bg); color: var(--st-resolvida-fg); }
 .action { display: inline-flex; align-items: center; gap: 8px; height: 40px; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--divider); background: transparent; color: var(--text); font-size: 0.95rem; font-weight: 600; flex-shrink: 0; }
 .action:hover:not(:disabled) { background: var(--bg-hover); }
 .action--assume { border-color: var(--green-strong); color: var(--green-text); }
@@ -441,8 +436,6 @@ button.danger { color: var(--danger); }
 .kcard-time { font-size: 0.75rem; color: var(--text-2); white-space: nowrap; }
 .kcard-preview { margin: 0; color: var(--text-2); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kcard-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
-.label-tag { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 0.75rem; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); background: var(--bg-active); }
-.label-tag i { flex: none; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .kcard-tools { position: absolute; top: 4px; right: 4px; display: flex; align-items: center; }
 .kcard-tools .kcard-grip, .kcard-more { width: 32px; height: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--text-2); display: grid; place-items: center; border-radius: 50%; cursor: pointer; list-style: none; }
 .kcard-grip { cursor: grab; touch-action: none; user-select: none; }
