@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { ConnectionState } from "./connection";
 import type { Conversation, Message } from "./conversations";
 import { type AppEnv, requireAuth } from "./middleware";
 
@@ -6,7 +7,8 @@ import { type AppEnv, requireAuth } from "./middleware";
 export type RealtimeEvent =
   | { type: "message.created"; conversation: Conversation; message: Message }
   | { type: "message.status"; conversationId: string; messageId: string; status: NonNullable<Message["status"]> }
-  | { type: "conversation.updated"; conversation: Conversation };
+  | { type: "conversation.updated"; conversation: Conversation }
+  | { type: "connection.changed"; connection: ConnectionState };
 
 const hub = (env: Cloudflare.Env) => env.INBOX_HUB.getByName("inbox");
 

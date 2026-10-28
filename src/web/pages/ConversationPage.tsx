@@ -110,7 +110,7 @@ export function ConversationPage() {
           );
         return;
       }
-      if (event.type === "conversation.updated") return;
+      if (event.type !== "reconnected") return;
       const last = lastSeen.current;
       if (hasNewerGap.current) return; // janela de busca: o que falta vem ao rolar
       if (!last) return load(() => alive, { around: target }); // conversa vazia ou ainda carregando: busca tudo de novo

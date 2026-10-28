@@ -122,6 +122,17 @@ export function statusUpdateEvent(messageIds: string[], state: string, timestamp
   };
 }
 
+/** Evento `connection` no formato da Uazapi. */
+export function connectionEvent(input: { status: string; type?: string; lastDisconnectReason?: string; token?: string }) {
+  return {
+    EventType: "connection",
+    token: input.token ?? env.UAZAPI_INSTANCE_TOKEN,
+    instance: { status: input.status },
+    ...(input.type ? { type: input.type } : {}),
+    ...(input.lastDisconnectReason ? { lastDisconnectReason: input.lastDisconnectReason } : {}),
+  };
+}
+
 /** Chama o webhook como a Uazapi chamaria (segredo da URL + token no corpo). */
 export function postWebhook(body: unknown, secret: string = env.WEBHOOK_URL_SECRET) {
   return postJson(`/api/webhook/${secret}`, body);

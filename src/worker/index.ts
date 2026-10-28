@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { connection } from "./connection";
 import { conversations } from "./conversations";
 import { createAuth } from "./auth";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
@@ -22,6 +23,7 @@ app.route("/api/conversations", conversations);
 app.route("/api/search", search);
 app.route("/api/media", media);
 app.route("/api/realtime", realtime);
+app.route("/api/connection", connection);
 
 app.route("/api/me/preferences", preferences);
 

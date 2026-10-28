@@ -35,6 +35,19 @@ export interface Message {
 
 export type SendStatus = "sending" | "sent" | "delivered" | "read" | "played" | "failed" | "uncertain";
 
+/** Conexão do número do WhatsApp. `unknown` = ainda sem informação (nenhum aviso é mostrado). */
+export interface ConnectionState {
+  status: "connected" | "connecting" | "disconnected" | "unknown";
+  temporaryBan: boolean;
+  lastDisconnectReason: string | null;
+  updatedAt: number | null;
+}
+
+export interface ConnectionWithQr {
+  connection: ConnectionState;
+  qrcode?: string;
+}
+
 export class ApiError extends Error {
   constructor(readonly status: number) {
     super(`Falha na API (${status})`);
@@ -72,6 +85,11 @@ export const api = {
   preferences: () => getJson<{ signatureEnabled: boolean }>("/api/me/preferences"),
   setSignature: (signatureEnabled: boolean) =>
     sendJson<{ signatureEnabled: boolean }>("PATCH", "/api/me/preferences", { signatureEnabled }),
+  connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
+  /** Só admin: consulta a Uazapi e devolve o QR code atual. */
+  connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),
+  /** Só admin: inicia o pareamento. */
+  connect: () => sendJson<ConnectionWithQr>("POST", "/api/connection/connect", {}),
   conversations: () => getJson<{ conversations: Conversation[] }>("/api/conversations"),
   conversation: (id: string) => getJson<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`),
   messages: (id: string, before?: string) => {

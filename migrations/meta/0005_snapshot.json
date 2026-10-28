@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c34a3eaa-5f73-4619-9278-99751999323e",
+  "id": "ed7a7c06-1553-4e67-9925-6124084e1bba",
   "prevId": "b599474d-7126-48b7-ab48-25c50a013433",
   "tables": {
     "account": {
@@ -127,6 +127,51 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "connection_state": {
+      "name": "connection_state",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "disconnect_type": {
+          "name": "disconnect_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_disconnect_reason": {
+          "name": "last_disconnect_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "contact": {
       "name": "contact",
       "columns": {
@@ -246,14 +291,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "unread_count": {
-          "name": "unread_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
         },
         "created_at": {
           "name": "created_at",

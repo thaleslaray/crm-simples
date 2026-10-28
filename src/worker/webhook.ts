@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { createDb, schema } from "./db";
 import { eq } from "drizzle-orm";
 import { ingestMessage, type UazapiMessage } from "./ingest";
+import { normalizeStatus, recordConnection } from "./connection";
 import { loadConversation, loadMessage } from "./conversations";
 import type { AppEnv } from "./middleware";
 import { applyStatusUpdate } from "./delivery";
@@ -38,7 +39,22 @@ webhook.post("/:secret", async (c) => {
     payload: JSON.stringify(payload),
     receivedAt: Date.now(),
   });
-  // Outros tipos de evento (connection...) ficam gravados sem processar: sao de tickets futuros.
+  if (payload.EventType === "connection") {
+    try {
+      const instance = (payload.instance ?? {}) as { status?: unknown; lastDisconnectReason?: unknown };
+      const type = typeof payload.type === "string" ? payload.type : null;
+      const reason = payload.lastDisconnectReason ?? instance.lastDisconnectReason;
+      // Disconnected/TemporaryBan sao quedas, qualquer que seja o `instance.status` que acompanhe.
+      await recordConnection(c.env, db, {
+        status: type ? "disconnected" : normalizeStatus(instance.status),
+        disconnectType: type,
+        lastDisconnectReason: typeof reason === "string" ? reason : null,
+      });
+      await db.update(schema.webhookEvent).set({ processedAt: Date.now() }).where(eq(schema.webhookEvent.id, eventId));
+    } catch (err) {
+      console.error("webhook: falha ao processar evento", { eventId, erro: err instanceof Error ? err.name : "desconhecido" });
+    }
+  }
   if (payload.EventType === "messages") {
     try {
       const ingested = await ingestMessage(db, (payload.message ?? {}) as UazapiMessage, c.env.MEDIA_QUEUE);

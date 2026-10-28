@@ -1,5 +1,6 @@
 // Esquema D1 (Drizzle). Tabelas user/session/account/verification seguem o contrato do Better Auth;
 // `role` e `signatureEnabled` sao campos adicionais do usuario (declarados tambem em auth.ts).
+import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const ROLES = ["admin", "atendente"] as const;
@@ -70,6 +71,27 @@ export const verification = sqliteTable(
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
+
+// ---- Conexao do numero (ticket 18) ----
+
+export const CONNECTION_STATUSES = ["connected", "connecting", "disconnected"] as const;
+export type ConnectionStatus = (typeof CONNECTION_STATUSES)[number];
+
+/** Estado da conexao do numero: uma unica linha (id "instance"). Sem linha = ainda desconhecido. */
+export const connectionState = sqliteTable("connection_state", {
+  id: text("id").primaryKey(),
+  status: text("status", { enum: CONNECTION_STATUSES }).notNull(),
+  /** `type` do evento connection (Disconnected, TemporaryBan). */
+  disconnectType: text("disconnect_type"),
+  lastDisconnectReason: text("last_disconnect_reason"),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+/** Reconciliacao (ticket 19): uma unica linha (id "inbox") com o inicio da ultima conferencia bem-sucedida. */
+export const reconciliationState = sqliteTable("reconciliation_state", {
+  id: text("id").primaryKey(),
+  lastRunAt: integer("last_run_at").notNull(),
+});
 
 // ---- Caixa de entrada (ticket 02) ----
 
@@ -161,5 +183,9 @@ export const message = sqliteTable(
     /** Localizacao e contato recebidos: JSON `{lat,lng,name,address}` ou `{name,vcard}`. */
     extra: text("extra"),
   },
-  (t) => [index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id)],
+  (t) => [
+    index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id),
+    // Parcial: so as pendentes entram, a reconciliacao acha as presas sem varrer a tabela.
+    index("message_media_pending_idx").on(t.timestamp).where(sql`${t.mediaStatus} = 'pending'`),
+  ],
 );
