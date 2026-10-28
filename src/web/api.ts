@@ -50,4 +50,11 @@ export const api = {
       `/api/conversations/${encodeURIComponent(id)}/messages${qs}`,
     );
   },
+  /** Mensagens depois da última vista (ressincronização ao reconectar). */
+  messagesAfter: (id: string, last: Message) => {
+    const qs = `?after=${encodeURIComponent(`${last.timestamp}:${last.id}`)}`;
+    return getJson<{ messages: Message[]; nextBefore: string | null }>(
+      `/api/conversations/${encodeURIComponent(id)}/messages${qs}`,
+    );
+  },
 };

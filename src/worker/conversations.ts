@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, or, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
 import { type AppEnv, requireAuth } from "./middleware";
@@ -10,8 +10,12 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 const INBOX_LIMIT = 200;
 
+export type Message = Awaited<ReturnType<typeof messageView>>;
+
+export type Conversation = Awaited<ReturnType<typeof selectConversations>>[number];
+
 /** Conversa com contato e ultima mensagem, no formato da API. */
-async function selectConversations(db: Db, where?: SQL) {
+export async function selectConversations(db: Db, where?: SQL) {
   const rows = await db
     .select({
       id: schema.conversation.id,
@@ -43,12 +47,18 @@ async function selectConversations(db: Db, where?: SQL) {
 conversations.get("/", async (c) => c.json({ conversations: await selectConversations(createDb(c.env.DB)) }));
 
 conversations.get("/:id", async (c) => {
-  const [conversation] = await selectConversations(createDb(c.env.DB), eq(schema.conversation.id, c.req.param("id")));
+  const conversation = await loadConversation(createDb(c.env.DB), c.req.param("id"));
   if (!conversation) return c.json({ error: "nao_encontrado" }, 404);
   return c.json({ conversation });
 });
 
 // Cursor opaco para o cliente: "<timestamp>:<id da mensagem>" (desempate por id quando o horario empata).
+/** Uma conversa no formato da API (a mesma da lista e do detalhe), ou null se nao existe. */
+export async function loadConversation(db: Db, id: string): Promise<Conversation | null> {
+  const [conversation] = await selectConversations(db, eq(schema.conversation.id, id));
+  return conversation ?? null;
+}
+
 const encodeCursor = (m: { timestamp: number; id: string }) => `${m.timestamp}:${m.id}`;
 function decodeCursor(raw: string): { timestamp: number; id: string } | null {
   const i = raw.indexOf(":");
@@ -57,10 +67,10 @@ function decodeCursor(raw: string): { timestamp: number; id: string } | null {
   return { timestamp, id: raw.slice(i + 1) };
 }
 
-type MessageRow = {
+export type MessageRow = {
   id: string;
   direction: "in";
-  type: string;
+  type: (typeof schema.message.$inferSelect)["type"];
   text: string | null;
   timestamp: number;
   mediaStatus: "pending" | "available" | "failed" | null;
@@ -72,7 +82,7 @@ type MessageRow = {
 };
 
 /** Mensagem no formato da API. Midia "disponivel" cujo objeto saiu do R2 (regra de 365 dias) aparece como "expired". */
-async function messageView(bucket: R2Bucket, m: MessageRow) {
+export async function messageView(bucket: R2Bucket, m: MessageRow) {
   const { mediaStatus, mediaKey, mediaMime, mediaSize, mediaName, extra, ...base } = m;
   let status: "pending" | "available" | "failed" | "expired" | null = mediaStatus;
   if (mediaStatus === "available" && (!mediaKey || !(await bucket.head(mediaKey)))) status = "expired";
@@ -92,6 +102,26 @@ function contactView(details: Record<string, unknown> | null) {
   return { name: (details?.name as string | null) ?? null, phone: tel };
 }
 
+const messageColumns = {
+  id: schema.message.id,
+  direction: schema.message.direction,
+  type: schema.message.type,
+  text: schema.message.text,
+  timestamp: schema.message.timestamp,
+  mediaStatus: schema.message.mediaStatus,
+  mediaKey: schema.message.mediaKey,
+  mediaMime: schema.message.mediaMime,
+  mediaSize: schema.message.mediaSize,
+  mediaName: schema.message.mediaName,
+  extra: schema.message.extra,
+};
+
+/** Uma mensagem no formato da API (a mesma do historico e do tempo real). */
+export async function loadMessage(db: Db, bucket: R2Bucket, id: string): Promise<Message | null> {
+  const [row] = await db.select(messageColumns).from(schema.message).where(eq(schema.message.id, id));
+  return row ? messageView(bucket, row) : null;
+}
+
 conversations.get("/:id/messages", async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
@@ -105,20 +135,30 @@ conversations.get("/:id/messages", async (c) => {
   const before = rawBefore ? decodeCursor(rawBefore) : null;
   if (rawBefore && !before) return c.json({ error: "cursor_invalido" }, 400);
 
+  // Ressincronizacao ao reconectar: so o que veio depois da ultima mensagem vista, em ordem cronologica.
+  const rawAfter = c.req.query("after");
+  const after = rawAfter ? decodeCursor(rawAfter) : null;
+  if (rawAfter && !after) return c.json({ error: "cursor_invalido" }, 400);
+  if (after) {
+    const newer = await db
+      .select(messageColumns)
+      .from(schema.message)
+      .where(
+        and(
+          eq(schema.message.conversationId, id),
+          or(
+            gt(schema.message.timestamp, after.timestamp),
+            and(eq(schema.message.timestamp, after.timestamp), gt(schema.message.id, after.id)),
+          ),
+        ),
+      )
+      .orderBy(asc(schema.message.timestamp), asc(schema.message.id))
+      .limit(limit);
+    return c.json({ messages: await Promise.all(newer.map((m) => messageView(c.env.MEDIA, m))), nextBefore: null });
+  }
+
   const rows = await db
-    .select({
-      id: schema.message.id,
-      direction: schema.message.direction,
-      type: schema.message.type,
-      text: schema.message.text,
-      timestamp: schema.message.timestamp,
-      mediaStatus: schema.message.mediaStatus,
-      mediaKey: schema.message.mediaKey,
-      mediaMime: schema.message.mediaMime,
-      mediaSize: schema.message.mediaSize,
-      mediaName: schema.message.mediaName,
-      extra: schema.message.extra,
-    })
+    .select(messageColumns)
     .from(schema.message)
     .where(
       and(

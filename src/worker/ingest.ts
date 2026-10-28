@@ -122,12 +122,16 @@ async function resolveConversation(db: Db, contactId: string, now: number): Prom
  * Processa o evento `messages`. Descarta grupo e `fromMe`; idempotente por `message.id`.
  * Lanca se o payload nao tem `message.id` (o evento fica sem `processedAt`).
  */
-export async function ingestMessage(db: Db, msg: UazapiMessage, queue: Queue<MediaJob>): Promise<void> {
-  if (msg.isGroup || msg.fromMe) return;
+export async function ingestMessage(
+  db: Db,
+  msg: UazapiMessage,
+  queue: Queue<MediaJob>,
+): Promise<{ conversationId: string; messageId: string } | null> {
+  if (msg.isGroup || msg.fromMe) return null;
   if (!msg.id) throw new Error("mensagem sem id");
 
   const already = await db.query.message.findFirst({ where: eq(schema.message.externalId, msg.id) });
-  if (already) return;
+  if (already) return null;
 
   const now = Date.now();
   const contactId = await resolveContact(db, msg, now);
@@ -155,7 +159,7 @@ export async function ingestMessage(db: Db, msg: UazapiMessage, queue: Queue<Med
     })
     .onConflictDoNothing({ target: schema.message.externalId })
     .returning({ id: schema.message.id });
-  if (inserted.length === 0) return; // corrida com outro request: ja ingerida
+  if (inserted.length === 0) return null; // corrida com outro request: ja ingerida
 
   // So avanca o "ultimo" se esta for a mais recente (evento atrasado nao volta a previa).
   await db
@@ -170,4 +174,5 @@ export async function ingestMessage(db: Db, msg: UazapiMessage, queue: Queue<Med
 
   // Fora da requisicao do webhook: o consumer baixa o arquivo. Se o envio falhar, a midia fica "pendente" (reenfileirada na reconciliacao).
   if (parsed.media) await queue.send({ messageId });
+  return { conversationId, messageId };
 }

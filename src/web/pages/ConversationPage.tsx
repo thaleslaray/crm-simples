@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { ApiError, api, type Conversation, type Message } from "../api";
 import { contactLabel, dayLabel, formatPhone, initials, messageTime, sameDay } from "../format";
 import { MessageBody } from "./MessageBody";
+import { onRealtime } from "../realtime";
 
 // Distância do topo (px) que dispara o carregamento das mensagens mais antigas.
 const LOAD_OLDER_THRESHOLD = 120;
@@ -21,21 +22,67 @@ export function ConversationPage() {
   // Altura antes de inserir mensagens antigas no topo, para manter o que o atendente estava lendo no lugar.
   const anchor = useRef<number | null>(null);
   const firstPaint = useRef(true);
+  // Quando chega mensagem nova com o atendente perto do fim, a lista acompanha; se ele lê o histórico, não pula.
+  const stickToBottom = useRef(false);
+  // Última mensagem vista, para a ressincronização ao reconectar.
+  const lastSeen = useRef<Message | null>(null);
+  lastSeen.current = state.kind === "ready" ? (state.messages.at(-1) ?? null) : null;
+
+  const load = useCallback(
+    (alive: () => boolean) => {
+      if (!id) return;
+      Promise.all([api.conversation(id), api.messages(id)])
+        .then(([c, m]) => {
+          if (alive()) setState({ kind: "ready", conversation: c.conversation, messages: m.messages, nextBefore: m.nextBefore });
+        })
+        .catch((e) => alive() && setState({ kind: e instanceof ApiError && e.status === 404 ? "not-found" : "error" }));
+    },
+    [id],
+  );
 
   useEffect(() => {
     if (!id) return;
     let alive = true;
     setState({ kind: "loading" });
     firstPaint.current = true;
-    Promise.all([api.conversation(id), api.messages(id)])
-      .then(([c, m]) => {
-        if (alive) setState({ kind: "ready", conversation: c.conversation, messages: m.messages, nextBefore: m.nextBefore });
-      })
-      .catch((e) => alive && setState({ kind: e instanceof ApiError && e.status === 404 ? "not-found" : "error" }));
+    load(() => alive);
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, load]);
+
+  // Tempo real: mensagem nova entra na conversa aberta; ao reconectar busca o que veio depois da última vista.
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    const append = (incoming: Message[]) =>
+      setState((s) => {
+        if (s.kind !== "ready" || s.conversation.id !== id) return s;
+        const known = new Set(s.messages.map((m) => m.id));
+        const fresh = incoming.filter((m) => !known.has(m.id));
+        if (fresh.length === 0) return s;
+        const el = scroller.current;
+        stickToBottom.current = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        return { ...s, messages: [...s.messages, ...fresh] };
+      });
+    const off = onRealtime((event) => {
+      if (event.type === "message.created") {
+        if (event.conversation.id === id) append([event.message]);
+        return;
+      }
+      const last = lastSeen.current;
+      if (!last) return load(() => alive); // conversa vazia ou ainda carregando: busca tudo de novo
+      api
+        .messagesAfter(id, last)
+        // Página cheia = pode ter mais atrás: recarrega a conversa em vez de remendar.
+        .then((r) => alive && (r.messages.length >= 100 ? load(() => alive) : append(r.messages)))
+        .catch(() => undefined);
+    });
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [id, load]);
 
   useLayoutEffect(() => {
     const el = scroller.current;
@@ -46,6 +93,9 @@ export function ConversationPage() {
     } else if (anchor.current !== null) {
       el.scrollTop += el.scrollHeight - anchor.current;
       anchor.current = null;
+    } else if (stickToBottom.current) {
+      el.scrollTop = el.scrollHeight;
+      stickToBottom.current = false;
     }
   }, [state]);
 
