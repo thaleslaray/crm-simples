@@ -196,7 +196,7 @@ export function FunnelsPage() {
   if (funnels && id && !funnels.some((f) => f.id === id) && funnels[0]) return <Navigate to={`/funis/${funnels[0].id}`} replace />;
 
   return (
-    <div className="shell funnels-page board-wrap">
+    <div className="shell funnels-page board-wrap doodle-bg">
       <header className="board-head">
         <h1>Funis</h1>
         {funnels && funnels.length > 0 && (

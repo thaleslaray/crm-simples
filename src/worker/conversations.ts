@@ -38,6 +38,7 @@ export async function selectConversations(db: Db, where?: SQL) {
       contactId: schema.contact.id,
       contactName: schema.contact.name,
       contactPhone: schema.contact.phone,
+      contactAvatarUrl: schema.contact.avatarUrl,
       msgType: schema.message.type,
       msgText: schema.message.text,
       msgTimestamp: schema.message.timestamp,
@@ -61,7 +62,7 @@ export async function selectConversations(db: Db, where?: SQL) {
     assigneeId: r.assigneeId,
     assigneeName: r.assigneeName,
     unreadCount: r.unreadCount,
-    contact: { id: r.contactId, name: r.contactName, phone: r.contactPhone, labels: labels.get(r.contactId) ?? [] },
+    contact: { id: r.contactId, name: r.contactName, phone: r.contactPhone, avatarUrl: r.contactAvatarUrl, labels: labels.get(r.contactId) ?? [] },
     lastMessage:
       r.msgType && r.msgTimestamp != null && r.msgDirection
         ? {

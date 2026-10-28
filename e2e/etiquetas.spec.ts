@@ -58,7 +58,8 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   const phone = `55117${String(Date.now()).slice(-8)}`;
   await clientWrites(request, run, phone);
 
-  await signInAsAdmin(page);// Cadastro (admin)
+  await signInAsAdmin(page);
+  // Cadastro (admin)
   await openSettingsItem(page, /Etiquetas/);
   await page.getByLabel("Nome da etiqueta").fill(labelName);
   await page.getByRole("button", { name: "Adicionar" }).click();

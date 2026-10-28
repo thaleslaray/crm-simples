@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { ApiError, api, type Conversation, type Message, type Note, type QuickReply, type TimelineEvent } from "../api";
 import { fillName, filterQuickReplies, slashQuery } from "../quick-replies";
 import { getDraft, setDraft } from "../drafts";
@@ -48,7 +48,6 @@ export function ConversationPage() {
   // ?m=<id da mensagem>: aberta a partir de um resultado de busca, posicionada nela.
   const [searchParams, setSearchParams] = useSearchParams();
   const target = searchParams.get("m");
-  const navigate = useNavigate();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [loadingOlder, setLoadingOlder] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
@@ -379,6 +378,11 @@ export function ConversationPage() {
 
   // ?ficha=1: aberta a partir do card do funil, já na ficha.
   const [fichaOpen, setFichaState] = useState(() => searchParams.get("ficha") === "1" || readFichaAberta());
+  // O link "Ficha" do funil navega dentro do app: com a conversa já montada o useState acima não roda de novo.
+  const wantsFicha = searchParams.get("ficha") === "1";
+  useEffect(() => {
+    if (wantsFicha) setFichaState(true);
+  }, [wantsFicha, id]);
   const setFichaOpen = useCallback((open: boolean) => {
     setFichaState(open);
     saveFichaAberta(open);
@@ -462,13 +466,6 @@ export function ConversationPage() {
     [id, replaceMessage, refreshConversation],
   );
 
-  // A busca de mensagens é a da caixa de entrada (resultados abrem a conversa posicionada): leva o foco até ela.
-  function focusSearch() {
-    navigate("/");
-    const focus = () => document.querySelector<HTMLInputElement>('input[type="search"][aria-label="Buscar"]')?.focus();
-    requestAnimationFrame(() => requestAnimationFrame(focus));
-  }
-
   if (state.kind === "loading") return <p className="empty">Carregando…</p>;
   if (state.kind === "not-found")
     return (
@@ -494,13 +491,12 @@ export function ConversationPage() {
         conversation={conversation}
         fichaOpen={fichaOpen}
         onToggleFicha={() => setFichaOpen(!fichaOpen)}
-        onSearch={focusSearch}
         onChanged={(c) => setState((s) => (s.kind === "ready" ? { ...s, conversation: c } : s))}
         onReload={refreshConversation}
       />
       <div className={`conv-body${fichaOpen ? " conv-body--ficha" : ""}`}>
       <div className="conv-col">
-      <div className="chat-surface">
+      <div className="chat-surface doodle-bg">
       <div
         className="messages"
         ref={scroller}

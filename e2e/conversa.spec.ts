@@ -91,7 +91,8 @@ test("conversa no estilo do WhatsApp: botão de ação por status, autor só no 
   await clientWrites(request, run, phone, 1, "Oi, vocês entregam?");
   await clientWrites(request, run, phone, 2, "Quero saber o prazo");
 
-  await signInAsAdmin(page);await page
+  await signInAsAdmin(page);
+  await page
     .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
     .first()
     .click();

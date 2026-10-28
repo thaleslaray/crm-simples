@@ -69,7 +69,8 @@ test("campo de mensagem: nota não vai ao cliente, / filtra e insere, microfone 
   await receive(request, run, `55119${String(Date.now()).slice(-8)}`);
   await request.post(`${FAKE}/reset`);
 
-  await signInAsAdmin(page);// Uma resposta rápida para o "/" achar
+  await signInAsAdmin(page);
+  // Uma resposta rápida para o "/" achar
   await openSettingsItem(page, /Respostas rápidas/);
   await page.getByLabel("Atalho (sem espaços)").fill(shortcut);
   await page

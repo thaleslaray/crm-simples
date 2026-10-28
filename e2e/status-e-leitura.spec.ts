@@ -63,7 +63,8 @@ test("não lidas aparecem na lista e zeram ao abrir; a mensagem enviada mostra e
     },
   });
 
-  await signInAsAdmin(page);const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}`) });
+  await signInAsAdmin(page);
+  const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}`) });
   await expect(item.getByLabel("2 não lidas")).toBeVisible();
   await noHorizontalOverflow(page);
 

@@ -9,7 +9,8 @@ test("admin gera um convite, o convidado aceita e entra; o link nao serve de nov
   const email = `convidado-${stamp}@exemplo.com`;
   const name = `Convidado ${stamp}`;
 
-  await signInAsAdmin(page);await openSettingsItem(page, /Equipe/);
+  await signInAsAdmin(page);
+  await openSettingsItem(page, /Equipe/);
 
   await page.getByRole("button", { name: "Gerar link de convite" }).click();
   const url = await page.getByLabel("Link gerado").inputValue();

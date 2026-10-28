@@ -49,7 +49,8 @@ test("atendente escreve nota interna, ve a ficha, edita o contato e nada disso v
   const phone = `55118${String(Date.now()).slice(-8)}`;
   await clientWrites(request, run, phone);
 
-  await signInAsAdmin(page);await page
+  await signInAsAdmin(page);
+  await page
     .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
     .first()
     .click();

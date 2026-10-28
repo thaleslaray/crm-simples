@@ -66,7 +66,8 @@ test("atendente responde com assinatura, reenvia o que falhou, preserva o rascun
   await receive(request, `${run}b`, other);
   await request.post(`${FAKE}/reset`);
 
-  await signInAsAdmin(page);// O D1 é compartilhado: garante a assinatura ligada antes de começar
+  await signInAsAdmin(page);
+  // O D1 é compartilhado: garante a assinatura ligada antes de começar
   await openSettingsItem(page, /Perfil/);
   const signature = page.getByLabel("Assinar minhas mensagens com meu nome");
   await expect(signature).toBeEnabled();

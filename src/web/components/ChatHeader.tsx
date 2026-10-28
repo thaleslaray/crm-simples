@@ -1,22 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowLeft, ArrowRightLeft, CircleCheck, EllipsisVertical, Hand, Search, UserPlus, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CircleCheck, EllipsisVertical, Hand, UserPlus, UserRound } from "lucide-react";
 import { ApiError, api, type Conversation, type Member } from "../api";
 import { authClient } from "../auth-client";
-import { contactLabel, initials } from "../format";
+import { contactLabel } from "../format";
+import { usePopover } from "../use-popover";
+import { ContactAvatar } from "./ContactAvatar";
 import { StatusPill } from "./StatusPill";
 
 interface Props {
   conversation: Conversation;
   fichaOpen: boolean;
   onToggleFicha: () => void;
-  onSearch: () => void;
   onChanged: (c: Conversation) => void;
   onReload: () => Promise<void>;
 }
 
-/** Cabeçalho do chat: foto, nome (abre a ficha), status, responsável, botão de ação, lupa e menu ⋮. */
-export function ChatHeader({ conversation, fichaOpen, onToggleFicha, onSearch, onChanged, onReload }: Props) {
+/** Cabeçalho do chat: foto, nome (abre a ficha), status, responsável, botão de ação e menu ⋮. */
+export function ChatHeader({ conversation, fichaOpen, onToggleFicha, onChanged, onReload }: Props) {
   const { data } = authClient.useSession();
   const me = data?.user as { id: string; role?: string } | undefined;
   const isAdmin = me?.role === "admin";
@@ -53,9 +54,7 @@ export function ChatHeader({ conversation, fichaOpen, onToggleFicha, onSearch, o
           <ArrowLeft size={22} aria-hidden="true" />
         </Link>
         <button type="button" className="conv-who" aria-label="Ficha do contato" aria-expanded={fichaOpen} onClick={onToggleFicha}>
-          <span className="avatar" aria-hidden="true">
-            {conversation.contact.name ? initials(label) : <UserRound size={22} />}
-          </span>
+          <ContactAvatar contact={conversation.contact} />
           <span className="conv-header-text">
             <h2>{label}</h2>
             <span className="conv-sub">
@@ -76,9 +75,6 @@ export function ChatHeader({ conversation, fichaOpen, onToggleFicha, onSearch, o
             <span>Resolver</span>
           </button>
         )}
-        <button type="button" className="icon-btn" aria-label="Buscar mensagens" onClick={onSearch}>
-          <Search size={20} aria-hidden="true" />
-        </button>
         <ChatMenu
           conversation={conversation}
           isAdmin={isAdmin}
@@ -113,43 +109,21 @@ function ChatMenu({
   onOpenFicha: () => void;
   onAssign: (memberId: string) => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState<null | "transfer" | "assign">(null);
   const [members, setMembers] = useState<Member[]>([]);
-  const root = useRef<HTMLDivElement>(null);
+  const { open, setOpen, close, ref } = usePopover(() => setPicking(null));
 
   useEffect(() => {
     if (open && canMove && members.length === 0) api.members().then((r) => setMembers(r.members)).catch(() => undefined);
   }, [open, canMove, members.length]);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: Event) => {
-      if (e.type === "keydown" ? (e as KeyboardEvent).key === "Escape" : !root.current?.contains(e.target as Node)) {
-        setOpen(false);
-        setPicking(null);
-      }
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
 
   const hasOwner = conversation.assigneeId !== null;
   const others = members.filter((m) => m.id !== conversation.assigneeId);
   const canTransfer = canMove && hasOwner;
   const canAssign = isAdmin && !hasOwner;
 
-  function close() {
-    setOpen(false);
-    setPicking(null);
-  }
-
   return (
-    <div className="menu-wrap" ref={root}>
+    <div className="menu-wrap" ref={ref}>
       <button type="button" className="icon-btn" aria-label="Mais opções" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <EllipsisVertical size={20} aria-hidden="true" />
       </button>

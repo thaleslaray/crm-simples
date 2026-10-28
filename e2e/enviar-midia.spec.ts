@@ -65,7 +65,8 @@ test("atendente anexa uma imagem com legenda e grava uma nota de voz: ouve, desc
   await receive(request, run, phone);
   await request.post(`${FAKE}/reset`);
 
-  await signInAsAdmin(page);// Assinatura ligada, para conferir o nome na legenda
+  await signInAsAdmin(page);
+  // Assinatura ligada, para conferir o nome na legenda
   await openSettingsItem(page, /Perfil/);
   const signature = page.getByLabel("Assinar minhas mensagens com meu nome");
   await expect(signature).toBeEnabled();

@@ -8,7 +8,7 @@ export interface InboxConversation {
   status: string;
   assigneeId: string | null;
   assigneeName: string | null;
-  contact: { id: string; name: string | null; phone: string | null };
+  contact: { id: string; name: string | null; phone: string | null; avatarUrl: string | null };
   lastMessage: {
     type: string;
     text: string | null;

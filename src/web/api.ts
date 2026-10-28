@@ -6,7 +6,7 @@ export interface Conversation {
   assigneeId: string | null;
   assigneeName: string | null;
   unreadCount: number;
-  contact: { id: string; name: string | null; phone: string | null; labels: Label[] };
+  contact: { id: string; name: string | null; phone: string | null; avatarUrl: string | null; labels: Label[] };
   lastMessage: {
     type: MessageType;
     text: string | null;

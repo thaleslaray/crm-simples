@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { signIn } from "./helpers/api";
-import { assume, assign, conversationOf, conversationWithClient, history, search } from "./helpers/conversations";
+import { assume, assign, conversationOf, conversationWithClient, history, inbox, search } from "./helpers/conversations";
 import { addNote, ageAvatar, editContact, ficha, listNotes, refreshAvatar } from "./helpers/ficha";
 import { fakeUazapi } from "./helpers/fake-uazapi";
 import { connectRealtime } from "./helpers/realtime";
@@ -168,6 +168,17 @@ describe("Ficha do contato", () => {
     expect(primeira.contact.avatarUrl).toBe("https://pps.whatsapp.net/foto-1.jpg");
     expect(segunda.contact.avatarUrl).toBe("https://pps.whatsapp.net/foto-1.jpg");
     expect(await uazapi.calls()).toMatchObject([{ method: "POST", path: "/chat/details", body: { number: "5511900000010" } }]);
+  });
+
+  it("a caixa de entrada traz a foto do contato depois que a ficha a buscou", async () => {
+    const ana = await login("ana@exemplo.com", "Ana");
+    const { contactId } = await contatoDe(ana.cookie);
+    await uazapi.program("POST", "/chat/details", [{ body: { image: "https://pps.whatsapp.net/foto-1.jpg" } }]);
+    await ficha(ana.cookie, contactId);
+
+    const [conversa] = await inbox(ana.cookie);
+
+    expect(conversa!.contact.avatarUrl).toBe("https://pps.whatsapp.net/foto-1.jpg");
   });
 
   it("renova a foto quando a URL temporaria expirou", async () => {

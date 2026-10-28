@@ -55,7 +55,8 @@ test("atendente responde citando uma mensagem e vê a citação do cliente", asy
   await receive(request, run, phone, 1, `Qual o prazo ${run}?`);
   await request.post(`${FAKE}/reset`);
 
-  await signInAsAdmin(page);await page.getByRole("link", { name: new RegExp(`Citacao ${run}`) }).click();
+  await signInAsAdmin(page);
+  await page.getByRole("link", { name: new RegExp(`Citacao ${run}`) }).click();
   const conversation = page.getByRole("article", {
     name: `Conversa com Citacao ${run}`,
   });

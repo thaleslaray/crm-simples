@@ -46,7 +46,8 @@ test("admin cadastra resposta rápida; atendente digita / e usa com {nome} edit�
   await receive(request, run, `55119${String(Date.now()).slice(-8)}`);
   await request.post(`${FAKE}/reset`);
 
-  await signInAsAdmin(page);// Cadastro (admin)
+  await signInAsAdmin(page);
+  // Cadastro (admin)
   await openSettingsItem(page, /Respostas rápidas/);
   await page.getByLabel("Atalho (sem espaços)").fill(shortcut);
   await page.getByLabel("Texto", { exact: true }).fill("Olá {nome}, tudo bem?");

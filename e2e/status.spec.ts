@@ -57,7 +57,8 @@ test("atendente assume, responde, o cliente volta, resolve e filtra a caixa", as
     },
   });
 
-  await signInAsAdmin(page);const item = page
+  await signInAsAdmin(page);
+  const item = page
     .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
     .first();
   await expect(item).toContainText("Aberta");

@@ -1,11 +1,4 @@
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import {
   Link,
   NavLink,
@@ -17,54 +10,36 @@ import {
 import {
   Check,
   CheckCheck,
-  ChevronDown,
   CircleAlert,
   Clock,
-  EllipsisVertical,
-  LogOut,
   MessagesSquare,
   Plus,
   Search,
-  UserRound,
 } from "lucide-react";
 import {
   api,
   type Conversation,
-  type InboxFilter,
-  type Label,
   type Member,
   type SearchResults,
 } from "../api";
 import { authClient } from "../auth-client";
 import { clearDrafts } from "../drafts";
-import {
-  contactLabel,
-  initials,
-  listTime,
-  messagePreview,
-  STATUS_LABEL,
-} from "../format";
+import { contactLabel, initials, listTime, messagePreview } from "../format";
 import { useLabels } from "../labels";
+import { ContactAvatar } from "../components/ContactAvatar";
+import {
+  FilterChips,
+  isUnowned,
+  NO_EXTRA,
+  type Chip,
+  type Extra,
+} from "../components/InboxFilters";
 import { LabelTag } from "../components/LabelTag";
 import { StatusPill } from "../components/StatusPill";
+import { UserMenu } from "../components/UserMenu";
 import { onRealtime } from "../realtime";
 import { useCompanyName } from "../workspace";
 import { NewConversationDialog } from "./NewConversation";
-
-type Chip = "tudo" | "minhas" | "semdono" | "naolidas";
-/** Filtros do menu ▾ (status, responsável e etiqueta; vão para a API). */
-type Extra = { status: InboxFilter["status"]; assignee: string; label: string };
-const NO_EXTRA: Extra = { status: "", assignee: "", label: "" };
-
-const MENU_STATUSES = [
-  ["em_andamento", "Em andamento"],
-  ["aguardando_cliente", "Aguardando cliente"],
-  ["resolvida", "Resolvidas"],
-] as const;
-
-/** Chip "Sem dono": sem responsável e ainda não resolvida. */
-const isUnowned = (c: Conversation) =>
-  c.assigneeId === null && c.status !== "resolvida";
 
 /** Conversas sem filtro nenhum: de onde saem as contagens dos chips. */
 function useAllConversations(): Conversation[] {
@@ -104,25 +79,6 @@ function useAllConversations(): Conversation[] {
     };
   }, [pathname]);
   return all;
-}
-
-/** Menu suspenso que fecha com clique fora ou Esc. */
-function usePopover() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) =>
-      !ref.current?.contains(e.target as Node) && setOpen(false);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-  return { open, setOpen, ref };
 }
 
 /** Caixa de entrada: lista à esquerda e conversa aberta à direita (no celular, uma tela de cada vez). */
@@ -176,7 +132,11 @@ export function InboxPage() {
           : c.assigneeId === (fAssignee === "me" ? me : fAssignee)));
     return onRealtime((event) => {
       // Pode ter perdido eventos (ou uma etiqueta mudou/foi apagada): busca a lista de novo.
-      if (event.type === "reconnected" || event.type === "labels.changed")
+      if (
+        event.type === "reconnected" ||
+        event.type === "labels.changed" ||
+        event.type === "message.status"
+      )
         return load();
       if (
         event.type !== "message.created" &&
@@ -229,8 +189,23 @@ export function InboxPage() {
   const pick = (next: Chip) => {
     setChip(next);
     // Minhas e Sem dono escolhem o responsável: soltam o responsável do ▾.
+    // Sem dono exclui as resolvidas: solta também o status Resolvidas.
     if (next === "minhas" || next === "semdono")
-      setExtra((e) => ({ ...e, assignee: "" }));
+      setExtra((e) => ({
+        ...e,
+        assignee: "",
+        status: next === "semdono" && e.status === "resolvida" ? "" : e.status,
+      }));
+  };
+
+  // Escolhas do ▾ que contradizem o chip (responsável diferente do chip, Resolvidas com Sem dono) devolvem o chip para Tudo.
+  const changeExtra = (fn: (e: Extra) => Extra) => {
+    const next = fn(extra);
+    setExtra(next);
+    const clashes =
+      (next.assignee !== "" && (chip === "minhas" || chip === "semdono")) ||
+      (next.status === "resolvida" && chip === "semdono");
+    if (clashes) setChip("tudo");
   };
 
   return (
@@ -259,34 +234,15 @@ export function InboxPage() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
-          <div className="filter-chips">
-            <ChipButton on={chip === "tudo"} onClick={() => pick("tudo")}>
-              Tudo
-            </ChipButton>
-            <ChipButton on={chip === "minhas"} onClick={() => pick("minhas")}>
-              Minhas
-            </ChipButton>
-            <ChipButton
-              on={chip === "semdono"}
-              onClick={() => pick("semdono")}
-              count={all.filter(isUnowned).length}
-            >
-              Sem dono
-            </ChipButton>
-            <ChipButton
-              on={chip === "naolidas"}
-              onClick={() => pick("naolidas")}
-              count={all.filter((c) => c.unreadCount > 0).length}
-            >
-              Não lidas
-            </ChipButton>
-            <MoreFilters
-              extra={extra}
-              setExtra={setExtra}
-              members={members}
-              labels={labels}
-            />
-          </div>
+          <FilterChips
+            chip={chip}
+            onChip={pick}
+            extra={extra}
+            onExtra={changeExtra}
+            all={all}
+            members={members}
+            labels={labels}
+          />
           <div className="conv-scroll">
             {query.trim() ? (
               <SearchPanel results={results} me={me} />
@@ -321,191 +277,6 @@ export function InboxPage() {
     </div>
   );
 }
-
-function ChipButton({
-  on,
-  onClick,
-  count,
-  children,
-}: {
-  on: boolean;
-  onClick: () => void;
-  count?: number;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      className={`chip${on ? " chip--on" : ""}`}
-      aria-pressed={on}
-      onClick={onClick}
-    >
-      {children}
-      {count !== undefined && count > 0 && (
-        <span className="chip-count" data-testid="chip-count">
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-/** ⋮ do cabeçalho: perfil, sair e (provisoriamente, até o ticket 07) os atalhos de admin. */
-function UserMenu({
-  name,
-  onSignOut,
-}: {
-  name: string;
-  onSignOut: () => void;
-}) {
-  const { open, setOpen, ref } = usePopover();
-  const close = () => setOpen(false);
-  return (
-    <div className="menu-wrap" ref={ref}>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label="Mais opções"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        <EllipsisVertical size={22} strokeWidth={1.75} aria-hidden="true" />
-      </button>
-      {open && (
-        <div className="menu">
-          <p className="menu-title" data-testid="user-name">
-            {name}
-          </p>
-          <Link to="/perfil" onClick={close}>
-            <UserRound size={18} aria-hidden="true" />
-            Perfil
-          </Link>
-          <hr />
-          <button type="button" className="menu-danger" onClick={onSignOut}>
-            <LogOut size={18} aria-hidden="true" />
-            Sair
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Chip ▾: status, responsável e etiqueta. Mostra o filtro ativo no próprio chip. */
-function MoreFilters({
-  extra,
-  setExtra,
-  members,
-  labels,
-}: {
-  extra: Extra;
-  setExtra: (fn: (e: Extra) => Extra) => void;
-  members: Member[];
-  labels: Label[];
-}) {
-  const { open, setOpen, ref } = usePopover();
-  const [pos, setPos] = useState({ top: 0, right: 0 });
-  const active: string[] = [
-    extra.status ? STATUS_LABEL[extra.status] : "",
-    extra.assignee
-      ? (members.find((m) => m.id === extra.assignee)?.name ?? "Responsável")
-      : "",
-    extra.label
-      ? (labels.find((l) => l.id === extra.label)?.name ?? "Etiqueta")
-      : "",
-  ].filter(Boolean);
-  // Escolher de novo o que já está ativo desliga o filtro.
-  const toggle = (key: keyof Extra, value: string) => {
-    setExtra((e) => ({ ...e, [key]: e[key] === value ? "" : value }));
-    setOpen(false);
-  };
-  const item = (key: keyof Extra, value: string, text: ReactNode) => (
-    <button
-      type="button"
-      aria-pressed={extra[key] === value}
-      className={extra[key] === value ? "is-on" : undefined}
-      onClick={() => toggle(key, value)}
-    >
-      {text}
-    </button>
-  );
-  return (
-    <div className="menu-wrap" ref={ref}>
-      <button
-        type="button"
-        className={`chip${active.length > 0 ? " chip--filter" : ""}`}
-        aria-label={
-          active.length > 0
-            ? `Mais filtros: ${active.join(", ")}`
-            : "Mais filtros"
-        }
-        aria-expanded={open}
-        onClick={(e) => {
-          // O menu é "fixed": a faixa de chips rola e cortaria um menu absoluto.
-          const r = e.currentTarget.getBoundingClientRect();
-          setPos({
-            top: r.bottom + 6,
-            right: Math.max(8, window.innerWidth - r.right),
-          });
-          setOpen(!open);
-        }}
-      >
-        {active.length > 0 && (
-          <span>
-            {active.length > 1
-              ? `${active[0]} +${active.length - 1}`
-              : active[0]}
-          </span>
-        )}
-        <ChevronDown size={16} strokeWidth={1.75} aria-hidden="true" />
-      </button>
-      {open && (
-        <div className="menu menu--filters" style={pos}>
-          <p className="menu-label">Status</p>
-          {MENU_STATUSES.map(([value, text]) => (
-            <Fragment key={value}>{item("status", value, text)}</Fragment>
-          ))}
-          {members.length > 0 && (
-            <>
-              <hr />
-              <p className="menu-label">Responsável</p>
-              {members.map((m) => (
-                <Fragment key={m.id}>{item("assignee", m.id, m.name)}</Fragment>
-              ))}
-            </>
-          )}
-          {labels.length > 0 && (
-            <>
-              <hr />
-              <p className="menu-label">Etiqueta</p>
-              {labels.map((l) => (
-                <Fragment key={l.id}>
-                  {item("label", l.id, <LabelTag label={l} />)}
-                </Fragment>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const AVATAR_COLORS = [
-  "#00a884",
-  "#ff7043",
-  "#5c6bc0",
-  "#26a69a",
-  "#ab47bc",
-  "#ef6c00",
-  "#8d6e63",
-  "#42a5f5",
-];
-const avatarColor = (id: string) =>
-  AVATAR_COLORS[
-    [...id].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) %
-      AVATAR_COLORS.length
-  ]!;
 
 /** Tique de entrega da última mensagem enviada (como no WhatsApp). */
 function DeliveryTick({
@@ -544,17 +315,7 @@ function ConversationItem({
       to={`/conversas/${c.id}`}
       className={`conv-item conv-item--row${c.unreadCount > 0 ? " is-unread" : ""}`}
     >
-      <span
-        className="avatar avatar--row"
-        style={{ background: avatarColor(c.contact.id) }}
-        aria-hidden="true"
-      >
-        {c.contact.name?.trim() ? (
-          initials(label)
-        ) : (
-          <UserRound size={24} strokeWidth={1.75} />
-        )}
-      </span>
+      <ContactAvatar contact={c.contact} className="avatar--row" />
       <span className="conv-main">
         <span className="conv-row">
           <span className="conv-name">{label}</span>

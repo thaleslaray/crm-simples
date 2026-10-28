@@ -66,7 +66,8 @@ for (const scheme of ["light", "dark"] as const) {
       `55116${String(Date.now() + 1).slice(-8)}`,
     );
 
-    await signInAsAdmin(page);await page.getByRole("navigation", { name: "Conversas" }).waitFor();
+    await signInAsAdmin(page);
+    await page.getByRole("navigation", { name: "Conversas" }).waitFor();
     await page.evaluate(() => localStorage.removeItem("crm.fichaAberta"));
 
     let conversation = await openConversation(page, first);

@@ -34,7 +34,8 @@ test("busca por texto leva à conversa posicionada na mensagem e por nome acha o
     expect(res.status()).toBe(200);
   }
 
-  await signInAsAdmin(page);const search = page.getByRole("searchbox", { name: "Buscar" });
+  await signInAsAdmin(page);
+  const search = page.getByRole("searchbox", { name: "Buscar" });
 
   // Por nome: o contato aparece
   await search.fill(`Busca ${run}`);

@@ -1,8 +1,9 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { ArrowLeft, SquareKanban, X } from "lucide-react";
 import { api, type Contact, type Ficha } from "../api";
-import { contactLabel, formatPhone, initials, messageTime, STATUS_LABEL } from "../format";
+import { contactLabel, formatPhone, initials, messageTime } from "../format";
 import { useFunnels } from "../funnels";
+import { StatusPill } from "../components/StatusPill";
 import { LabelChip, useLabels } from "../labels";
 import { onRealtime } from "../realtime";
 import { NewConversationDialog } from "./NewConversation";
@@ -346,7 +347,7 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
             <ul className="ficha-list">
               {ficha.conversations.map((c) => (
                 <li key={c.id}>
-                  <span className={`badge badge--${c.status}`}>{STATUS_LABEL[c.status]}</span>
+                  <StatusPill status={c.status} />
                   <span className="muted">
                     Desde {new Date(c.createdAt).toLocaleDateString("pt-BR")} ·{" "}
                     {c.assignees.length > 0 ? `Responsáveis: ${c.assignees.join(", ")}` : "Nunca teve responsável"}

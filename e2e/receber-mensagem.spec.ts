@@ -46,7 +46,8 @@ test("mensagem recebida aparece na caixa de entrada e o histórico carrega as an
   for (let n = 1; n <= 80; n++)
     await receive(request, webhookMessage(run, n, phone, base + n * 60_000));
 
-  await signInAsAdmin(page);// Na caixa: nome do WhatsApp e prévia da última mensagem, no topo da lista
+  await signInAsAdmin(page);
+  // Na caixa: nome do WhatsApp e prévia da última mensagem, no topo da lista
   const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}`) });
   await expect(item).toContainText("Mensagem 80");
   await expect(

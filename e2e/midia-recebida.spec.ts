@@ -61,7 +61,8 @@ test("mídia recebida: carregando, imagem, documento e localização, sem estour
     },
   });
 
-  await signInAsAdmin(page);await page.getByRole("link", { name: new RegExp(`Midia ${run}`) }).click();
+  await signInAsAdmin(page);
+  await page.getByRole("link", { name: new RegExp(`Midia ${run}`) }).click();
   const conversation = page.getByRole("article", {
     name: `Conversa com Midia ${run}`,
   });
