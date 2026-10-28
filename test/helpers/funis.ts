@@ -19,6 +19,9 @@ export interface CardView {
   conversationId: string | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  status: string | null;
+  avatarUrl: string | null;
+  lastMessage: { type: string; text: string | null; timestamp: number } | null;
   labels: { id: string; name: string; color: string }[];
 }
 export interface BoardView {

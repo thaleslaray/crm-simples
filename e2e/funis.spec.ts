@@ -123,7 +123,7 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await page.getByRole("link", { name: "Voltar" }).click();
 
   // Quadro: adiciona o contato escolhendo a etapa inicial
-  await page.getByLabel("Funil", { exact: true }).selectOption({ label: funnelName });
+  await page.getByRole("button", { name: funnelName, exact: true }).click();
   await page.getByText("Adicionar contato").click();
   await page.getByLabel("Etapa inicial").selectOption({ label: "Novo" });
   await page.getByLabel("Buscar contato para adicionar").fill(phone.slice(-6));
@@ -140,7 +140,7 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await trackSockets(colleague);
   await login(colleague);
   await colleague.goto("/funis");
-  await colleague.getByLabel("Funil", { exact: true }).selectOption({ label: funnelName });
+  await colleague.getByRole("button", { name: funnelName, exact: true }).click();
   await expect(colleague.getByRole("region", { name: "Etapa Novo" }).getByText(clientName)).toBeVisible();
   await realtimeOpen(colleague);
   await realtimeOpen(page);
@@ -156,10 +156,22 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await colleagueCtx.close();
   // E ela persiste
   await page.reload();
-  await page.getByLabel("Funil", { exact: true }).selectOption({ label: funnelName });
+  await page.getByRole("button", { name: funnelName, exact: true }).click();
   await expect(page.getByRole("region", { name: "Etapa Fechado" }).getByText(clientName)).toBeVisible();
 
-  // Ficha (aberta pelo card): mostra a etapa e a altera
+  // O chip do funil fica marcado e o card abre a conversa
+  await expect(page.getByRole("button", { name: funnelName, exact: true })).toHaveAttribute("aria-pressed", "true");
+  const fechadoCard = page.getByRole("region", { name: "Etapa Fechado" }).getByRole("link", { name: new RegExp(`Abrir conversa de ${clientName}`) });
+  await expect(fechadoCard).toContainText("Quero fechar negócio");
+  await expect(fechadoCard).toContainText("Aberta");
+  await snap(page, "card", project);
+  await fechadoCard.click();
+  await expect(page).toHaveURL(/\/conversas\/[^/?]+$/);
+  await page.goBack();
+  await page.getByRole("button", { name: funnelName, exact: true }).click();
+
+  // Ficha (aberta pelo menu do card): mostra a etapa e a altera
+  await page.getByRole("button", { name: `Ações de ${clientName}` }).click();
   await page.getByRole("link", { name: "Ficha" }).first().click();
   const ficha = page.getByRole("complementary", { name: "Ficha do contato" });
   const stageSelect = ficha.getByLabel(`Etapa em ${funnelName}`);
@@ -184,8 +196,9 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
 
   // O card foi para o destino; tirar o contato do funil o remove do quadro
   await page.goto("/funis");
-  await page.getByLabel("Funil", { exact: true }).selectOption({ label: funnelName });
+  await page.getByRole("button", { name: funnelName, exact: true }).click();
   await expect(page.getByRole("region", { name: "Etapa Novo" }).getByText(clientName)).toBeVisible();
+  await page.getByRole("button", { name: `Ações de ${clientName}` }).click();
   await page.getByRole("button", { name: `Tirar ${clientName} do funil` }).click();
   await expect(page.getByText(clientName)).toHaveCount(0);
 });

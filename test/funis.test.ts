@@ -111,6 +111,18 @@ describe("Funis: cards", () => {
     expect(body.stages[1]!.cards[0]!.conversationId).toBeTruthy();
   });
 
+  it("o card traz status da conversa, ultima mensagem e foto para o quadro", async () => {
+    const { atendente, vendas, novo, c1 } = await cenario();
+    await addCard(atendente, vendas.id, c1, novo);
+
+    const card = (await board(atendente, vendas.id)).body.stages[0]!.cards[0]!;
+
+    expect(card.status).toBe("aberta");
+    expect(card.lastMessage).toMatchObject({ type: "text" });
+    expect(card.lastMessage!.text).toBeTruthy();
+    expect(card).toHaveProperty("avatarUrl");
+  });
+
   it("no maximo um card por contato em cada funil, mas o contato pode estar em varios funis", async () => {
     const { admin, atendente, vendas, novo, proposta, c1 } = await cenario();
     const suporte = await newFunnel(admin, "Suporte", ["Aberto"]);
