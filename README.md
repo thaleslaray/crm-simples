@@ -26,12 +26,16 @@ leva você do clone ao CRM no ar, com o seu número conectado.
 
 - Uma conta na **Cloudflare** com o plano **Workers Paid** (US$ 5/mês), por causa das filas e dos Durable Objects.
 - Um servidor da **Uazapi** e o **Admin Token** dele (o `admintoken`, que lista e cria instâncias).
+- Uma conta no **GitHub**, onde fica o seu repositório do CRM.
 - **Node 22** ou mais novo e o **pnpm** (`corepack enable` instala a versão certa).
-- **Git**.
+- **Git** e o **GitHub CLI** (`gh`).
 
 ---
 
 ## Instalar na sua Cloudflare
+
+A instalação deixa você com um repositório **seu** no GitHub ligado à **sua** conta da Cloudflare: cada push no `main`
+publica o CRM sozinho.
 
 ### Jeito fácil: com o Claude Code
 
@@ -49,12 +53,12 @@ Dentro do Claude Code, digite:
 /instalar
 ```
 
-Ele confere o seu computador, entra na sua Cloudflare, publica o CRM, grava os segredos e te entrega o comando para
-criar o seu admin. No fim, mostra o endereço do seu CRM.
+Ele cria o seu repositório no GitHub, te guia no único passo que é no painel da Cloudflare, grava os segredos e te
+entrega o comando para criar o seu admin. No fim, mostra o endereço do seu CRM.
 
 ### Jeito manual
 
-Os comandos rodam na pasta do projeto, um bloco por vez.
+Precisa também do [GitHub CLI](https://cli.github.com) (`gh`). Os comandos rodam na pasta do projeto, um bloco por vez.
 
 **1. Baixar o projeto**
 
@@ -66,48 +70,48 @@ git clone https://github.com/thaleslaray/crm-simples.git
 cd crm-simples && pnpm install
 ```
 
-**2. Entrar na Cloudflare**
+**2. Criar o seu repositório no GitHub**
+
+O repositório original vira `upstream` (de onde você puxa atualizações) e o seu vira `origin`. Troque `meu-crm` pelo
+nome que quiser.
+
+```bash
+git remote rename origin upstream
+```
+
+```bash
+gh repo create meu-crm --private --source . --remote origin --push
+```
+
+**3. Ligar o repositório à Cloudflare**
+
+No painel da Cloudflare: Workers & Pages › **Create** › **Import a repository** › **Continue with GitHub**. Na primeira
+vez, o GitHub pede para instalar o app da Cloudflare: dê acesso ao repositório do passo 2. Escolha o repositório e
+preencha:
+
+- **Project name:** `crm-simples` (tem que ser igual ao `name` do `wrangler.jsonc`)
+- **Build command:** `pnpm run build`
+- **Deploy command:** `pnpm run deploy:cloudflare`
+
+Clique em **Deploy**. O primeiro build cria sozinho o banco (D1), o armazenamento de mídia (R2) e as filas, com os
+nomes do `wrangler.jsonc`, e mostra o endereço do seu CRM, algo como `https://crm-simples.SEU-SUBDOMINIO.workers.dev`.
+
+**4. Gravar os dois segredos**
+
+Entre na Cloudflare pelo terminal (abre o navegador para autorizar):
 
 ```bash
 pnpm exec wrangler login
 ```
 
-Abre o navegador para você autorizar. Se você tem mais de uma conta, o Wrangler pergunta qual usar.
-
-**3. Publicar**
+Os comandos abaixo geram valores aleatórios e gravam direto, sem mostrar na tela.
 
 ```bash
-pnpm build
+openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET --name crm-simples
 ```
 
 ```bash
-pnpm exec wrangler deploy
-```
-
-Na primeira vez, o deploy **cria sozinho** o banco (D1 `crm-simples`), o armazenamento de mídia (R2
-`crm-simples-media`) e as filas, com os nomes que estão no `wrangler.jsonc`. Nas próximas, reaproveita os mesmos. No
-fim, mostra o endereço do seu CRM, algo como `https://crm-simples.SEU-SUBDOMINIO.workers.dev`.
-
-```bash
-pnpm exec wrangler d1 migrations apply DB --remote
-```
-
-Opcional: apagar fotos, vídeos e áudios com mais de 1 ano (a conversa passa a mostrar "mídia expirada").
-
-```bash
-pnpm exec wrangler r2 bucket lifecycle add crm-simples-media expire-365d --expire-days 365
-```
-
-**4. Gravar os dois segredos**
-
-São valores aleatórios que só o seu CRM conhece. Os comandos geram e gravam direto, sem mostrar na tela.
-
-```bash
-openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET
-```
-
-```bash
-openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET
+openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET --name crm-simples
 ```
 
 - `BETTER_AUTH_SECRET` protege o login e cifra os tokens da Uazapi no banco. **Não troque depois:** trocar desloga
@@ -125,6 +129,12 @@ pnpm bootstrap:admin --remote --email voce@empresa.com --name "Seu Nome" --passw
 
 Pronto: abra o endereço do passo 3 e entre.
 
+Opcional: apagar fotos, vídeos e áudios com mais de 1 ano (a conversa passa a mostrar "mídia expirada").
+
+```bash
+pnpm exec wrangler r2 bucket lifecycle add crm-simples-media expire-365d --expire-days 365
+```
+
 ---
 
 ## Depois de instalar
@@ -141,21 +151,18 @@ Pronto: abra o endereço do passo 3 e entre.
 4. **Chame a equipe:** Configurações › Equipe › Gerar link de convite. Mande o link para a pessoa; ela cria a própria
    senha. Esqueceu a senha? Na mesma tela, "Link de nova senha". O CRM não manda e-mail.
 
-## Atualizar sozinho a cada push (opcional)
+## Atualizar
 
-Se o seu código está num repositório seu no GitHub, a Cloudflare pode publicar a cada push no `main`:
+Cada push no `main` do seu repositório publica sozinho e aplica as migrações novas do banco. Para trazer as novidades
+do projeto original:
 
-1. No painel: Workers & Pages › **crm-simples** › Settings › **Builds** › **Connect**, e escolha o repositório.
-2. Preencha:
-   - **Build command:** `pnpm run build`
-   - **Deploy command:** `pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy`
-3. Salve. Daí em diante, cada push no `main` publica sozinho e aplica as migrações novas do banco.
+```bash
+git pull upstream main
+```
 
-Os segredos do passo 4 continuam valendo; não precisa gravar de novo.
-
-## Atualizar à mão
-
-Puxou uma versão nova do código? Repita o passo 3 (build, deploy e migrações).
+```bash
+git push
+```
 
 ---
 

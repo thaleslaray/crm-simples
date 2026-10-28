@@ -1,92 +1,107 @@
 ---
 name: instalar
-description: Instala o CRM Simples na conta Cloudflare do usuário, do clone ao CRM no ar com o admin criado. Use quando pedirem para instalar, publicar, fazer deploy ou subir o CRM na Cloudflare pela primeira vez.
+description: Instala o CRM Simples na conta Cloudflare do usuário pelo GitHub, do clone ao CRM no ar com o admin criado e publicando a cada push. Use quando pedirem para instalar, publicar, fazer deploy ou subir o CRM na Cloudflare pela primeira vez.
 ---
 
-# Instalar o CRM Simples na Cloudflare
+# Instalar o CRM Simples na Cloudflare, pelo GitHub
 
-Leva o usuário do repositório clonado ao CRM no ar, na conta Cloudflare **dele**. Fale em português, explique cada
-passo em uma frase antes de rodar e mostre o resultado. Rode os comandos na raiz do projeto.
+O usuário termina com: um repositório **dele** no GitHub, ligado à **conta Cloudflare dele**, que publica o CRM a cada
+push no `main`. Fale em português, explique cada passo em uma frase antes de rodar e mostre o resultado. Rode os
+comandos na raiz do projeto.
 
-O `wrangler.jsonc` não tem IDs de propósito: o `wrangler deploy` cria o banco D1, o bucket R2 e as filas com os nomes
-do arquivo, ou reaproveita os que já existem com esses nomes na conta. Nada de criar recursos à mão nem de escrever IDs
-no arquivo.
+O `wrangler.jsonc` não tem IDs de propósito: o primeiro build na Cloudflare cria o banco D1, o bucket R2 e as filas
+com os nomes do arquivo. O comando de deploy é `pnpm run deploy:cloudflare` (`scripts/deploy-cloudflare.sh`), que
+acerta a ordem das migrações na primeira vez e nas seguintes.
 
 ## 1. Conferir o computador
 
 ```bash
-node --version && pnpm --version && git --version && openssl version
+node --version && pnpm --version && git --version && gh --version && openssl version
 ```
 
-Node 22 ou mais novo. Sem pnpm, rode `corepack enable` e confira de novo. Depois:
+Node 22 ou mais novo. Sem pnpm, `corepack enable`. Sem `gh`, oriente a instalar o GitHub CLI (https://cli.github.com).
+Depois:
 
 ```bash
 pnpm install
 ```
 
-**Pronto quando** os quatro comandos respondem e o `pnpm install` termina sem erro.
+**Pronto quando** os cinco comandos respondem e o `pnpm install` termina sem erro.
 
-## 2. Entrar na Cloudflare e escolher a conta
+## 2. Criar o repositório do usuário no GitHub
+
+```bash
+gh auth status
+```
+
+Sem login, peça ao usuário para rodar `! gh auth login`. Pergunte o nome do repositório (padrão: `crm-simples`) e se é
+privado (padrão: sim). Se o `origin` atual aponta para o repositório de onde ele clonou, guarde-o como `upstream`,
+para puxar atualizações depois:
+
+```bash
+git remote rename origin upstream
+```
+
+```bash
+gh repo create <nome> --private --source . --remote origin --push
+```
+
+**Pronto quando** `git remote -v` mostra o `origin` no GitHub do usuário e o `main` foi enviado.
+
+## 3. Ligar o repositório à Cloudflare
+
+Este passo é no painel da Cloudflare, no navegador do usuário: o Wrangler não liga repositório. Passe estes campos
+exatos e espere ele confirmar:
+
+1. https://dash.cloudflare.com › Workers & Pages › **Create** › **Import a repository** › **Continue with GitHub**.
+   Na primeira vez, o GitHub pede para instalar o app da Cloudflare: dê acesso ao repositório do passo 2.
+2. Escolha o repositório.
+3. Preencha:
+   - **Project name:** `crm-simples` (tem que ser igual ao `name` do `wrangler.jsonc`)
+   - **Build command:** `pnpm run build`
+   - **Deploy command:** `pnpm run deploy:cloudflare`
+4. **Deploy**.
+
+O primeiro build leva de 1 a 3 minutos e cria banco, mídia e filas. A conta precisa do plano **Workers Paid** (filas e
+Durable Objects); se o build falhar por plano, mande o usuário para Workers & Pages › Plans. Se falhar por outro
+motivo, peça o trecho do log do build e resolva antes de seguir.
+
+**Pronto quando** o build aparece como concluído e o usuário te passa o endereço do Worker
+(`https://crm-simples.<subdominio>.workers.dev`).
+
+## 4. Entrar na Cloudflare pelo terminal
+
+Os segredos e o admin são gravados pelo Wrangler.
 
 ```bash
 pnpm exec wrangler whoami
 ```
 
-Sem login, peça ao usuário para rodar `! pnpm exec wrangler login` (o `!` roda no terminal dele; abre o navegador para
-autorizar). Com mais de uma conta, mostre a lista e pergunte qual usar. Daí em diante, todo comando `wrangler` leva
-`CLOUDFLARE_ACCOUNT_ID=<id escolhido>` na frente.
+Sem login, peça `! pnpm exec wrangler login`. Com mais de uma conta, pergunte qual é a do passo 3 e use
+`CLOUDFLARE_ACCOUNT_ID=<id>` na frente dos comandos `wrangler` daqui em diante.
 
-A conta precisa do plano **Workers Paid** (filas e Durable Objects). Se um passo falhar por plano, diga isso e mande o
-usuário para Workers & Pages › Plans no painel.
+**Pronto quando** o `whoami` mostra a conta onde o build rodou.
 
-**Pronto quando** o `whoami` mostra o e-mail do usuário e a conta escolhida.
-
-## 3. Publicar
-
-```bash
-pnpm build
-```
-
-```bash
-pnpm exec wrangler deploy
-```
-
-A saída mostra o banco, o bucket e as filas sendo criados ("Provisioning") e, no fim, o endereço do CRM
-(`https://crm-simples.<subdominio>.workers.dev`). Guarde o endereço. Se já existir um Worker chamado `crm-simples` na
-conta que não seja este CRM, pare e pergunte que nome usar; o nome muda no campo `name` do `wrangler.jsonc`.
-
-```bash
-pnpm exec wrangler d1 migrations apply DB --remote
-```
-
-Opcional, pergunte antes: apagar mídia com mais de 1 ano.
-
-```bash
-pnpm exec wrangler r2 bucket lifecycle add crm-simples-media expire-365d --expire-days 365
-```
-
-**Pronto quando** o deploy mostra o endereço e as migrações terminam com tudo ✅ ou "No migrations to apply".
-
-## 4. Gravar os segredos
+## 5. Gravar os segredos
 
 Gere e grave direto, sem mostrar o valor:
 
 ```bash
-openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET
+openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET --name crm-simples
 ```
 
 ```bash
-openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET
+openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET --name crm-simples
 ```
 
 Avise: o `BETTER_AUTH_SECRET` protege o login e cifra os tokens da Uazapi; trocar depois desloga todo mundo e obriga a
 informar a Uazapi de novo.
 
-**Pronto quando** `pnpm exec wrangler secret list` mostra os dois nomes.
+**Pronto quando** `pnpm exec wrangler secret list --name crm-simples` mostra os dois nomes.
 
-## 5. Criar o admin
+## 6. Criar o admin
 
-A senha é do usuário: ele mesmo roda o comando, para a senha não passar pela conversa. Pergunte o e-mail e o nome, e
+A senha é do usuário: ele mesmo roda o comando, para a senha não passar pela conversa. Pergunte o e-mail e o nome e
 entregue o comando pronto para ele rodar com `!` (senha de 12 caracteres ou mais):
 
 ```bash
@@ -95,25 +110,17 @@ entregue o comando pronto para ele rodar com `!` (senha de 12 caracteres ou mais
 
 **Pronto quando** a saída termina com "Admin <email> criado (remoto)".
 
-## 6. Conferir no ar
+## 7. Conferir no ar e entregar
 
 ```bash
 curl -s <endereço>/api/health
 ```
 
-Deve responder `{"ok":true}`. Então mostre ao usuário o que fazer no site (está no README, seção "Depois de
-instalar"): entrar, conectar o WhatsApp em Configurações › Conexão do número com o endereço e o Admin Token da Uazapi,
-escolher a instância e ler o QR code.
+Deve responder `{"ok":true}`. Entregue ao usuário:
 
-## 7. Publicar a cada push (se o usuário quiser)
+- o endereço do CRM e o próximo passo no site (README, seção "Depois de instalar"): entrar, conectar o WhatsApp em
+  Configurações › Conexão do número com o endereço e o Admin Token da Uazapi, escolher a instância e ler o QR code;
+- como atualizar: cada push no `main` do repositório dele publica sozinho; para trazer novidades do projeto original,
+  `git pull upstream main` e `git push`.
 
-Pergunte se o código está num repositório dele no GitHub e se ele quer publicar a cada push. Se sim, é um passo no
-painel (o Wrangler não faz): Workers & Pages › crm-simples › Settings › Builds › Connect, escolher o repositório e
-preencher:
-
-- **Build command:** `pnpm run build`
-- **Deploy command:** `pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy`
-
-Os segredos do passo 4 continuam valendo.
-
-**Pronto quando** o usuário tem o endereço do CRM, entrou com o admin e sabe o próximo passo no site.
+**Pronto quando** o usuário tem o endereço, entrou com o admin e sabe como atualizar.
