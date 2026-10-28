@@ -20,3 +20,5 @@
 ## Comments
 
 2026-10-28: componentes em `src/web/components/` (`ChatHeader` com a ação e o menu ⋮, `MessageBubble`, `NoteBubble`, `EventPill`, `StatusPill`); `src/web/author-color.ts` dá a cor estável por `sentById` (a API de mensagens passou a devolver `sentById`, teste em `test/send.test.ts`). Fundo com SVG próprio via máscara (`.chat-surface::before`, token `--doodle-stroke`). A lupa leva o foco à busca da caixa (não há busca dentro da conversa). Foto do contato no cabeçalho ainda é iniciais (a API da conversa não traz `avatarUrl`). Nome do cabeçalho e "Ver ficha do contato" só alternam a ficha de hoje (botão `Ficha do contato`, `aria-expanded`); o ticket 06 refaz a ficha. Ticks agora são ícones com `role=img` e `aria-label` (Enviada/Entregue/Lida). E2E novo: `e2e/conversa.spec.ts`; specs antigos ajustados ao novo botão e aos ticks.
+
+- 2026-10-28 (revisão de código): a lupa do cabeçalho foi removida. A v1 não tem busca dentro da conversa e a lupa só levava à busca da caixa, fechando a conversa. Busca dentro da conversa, se desejada, vira ticket de comportamento à parte.
