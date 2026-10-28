@@ -7,6 +7,7 @@ O que testar está em `CODING_STANDARDS.md` (seção Testes). Este arquivo cobre
 - `pnpm check`: typecheck + lint de testes + testes de borda. Roda no pre-commit.
 - `pnpm test test/auth.test.ts`: um arquivo só, para o ciclo red → green.
 - `pnpm test:e2e`: Playwright (desktop e celular 375px). Fora do `check`; rode ao mexer em tela, login ou bootstrap.
+- `E2E_APP_PORT=5288 E2E_UAZAPI_PORT=4110 pnpm test:e2e`: portas próprias, para rodar o E2E em duas worktrees ao mesmo tempo.
 - `E2E_PRINTS=<pasta> pnpm test:e2e`: salva um print de cada teste ao terminar, por projeto. Use para revisar o visual de uma tela.
 
 ## Testes de borda (`test/`)
