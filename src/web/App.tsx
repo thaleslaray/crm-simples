@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from "react-router";
 import { authClient } from "./auth-client";
-import { ConnectionBanner, ConnectionProvider } from "./connection";
+import { ConnectionProvider } from "./connection";
+import { AppShell } from "./shell";
 import { ConnectionPage } from "./pages/ConnectionPage";
 import { ContactsPage } from "./pages/ContactsPage";
 import { ConversationPage } from "./pages/ConversationPage";
@@ -29,10 +30,7 @@ function SignedInLayout() {
   useAlerts();
   return (
     <ConnectionProvider>
-      <div className="app">
-        <ConnectionBanner />
-        <Outlet />
-      </div>
+      <AppShell />
     </ConnectionProvider>
   );
 }

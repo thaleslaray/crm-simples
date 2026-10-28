@@ -1,7 +1,9 @@
 // Estado da conexão do número, compartilhado por todas as telas: busca ao abrir, acompanha o tempo real
 // e se atualiza ao reconectar (pode ter perdido um evento). A faixa vermelha e a tela de conexão leem daqui.
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { Link } from "react-router";
 import { api, type ConnectionState } from "./api";
+import { authClient } from "./auth-client";
 import { onRealtime } from "./realtime";
 
 const ConnectionContext = createContext<{ state: ConnectionState | null; set: (s: ConnectionState) => void }>({
@@ -38,6 +40,8 @@ export const useConnection = () => useContext(ConnectionContext);
 /** Faixa vermelha no topo de todas as telas enquanto o número não estiver conectado. Some sozinha ao voltar. */
 export function ConnectionBanner() {
   const { state } = useConnection();
+  const { data } = authClient.useSession();
+  const isAdmin = (data?.user as { role?: string } | undefined)?.role === "admin";
   if (!state || state.status === "connected" || state.status === "unknown") return null;
   const text = state.temporaryBan
     ? "O WhatsApp baniu o número temporariamente. Mensagens não estão chegando nem saindo."
@@ -46,7 +50,12 @@ export function ConnectionBanner() {
       : "Número do WhatsApp desconectado. Mensagens não estão chegando nem saindo.";
   return (
     <div className="conn-banner" role="alert">
-      {text}
+      <span>{text}</span>
+      {isAdmin && (
+        <Link to="/conexao" className="conn-banner-action">
+          Reconectar
+        </Link>
+      )}
     </div>
   );
 }
