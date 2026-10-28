@@ -133,6 +133,8 @@ Partes 1 a 3 rodadas inteiras. A Parte 1 rodou no navegador do app; as Partes 2 
 - Seletores sem nome legível para leitor de tela: o botão "Assumir" do cabeçalho, o botão Sair da lista de Configurações e os rádios do tema, que se chamam `light`/`dark`/`auto`.
 - O título da aba pisca "Atendimento" a cada navegação antes de mostrar o nome da empresa.
 
+**Correções (3c5ba76):** conexão, chips, telefone e título corrigidos. O item dos nomes acessíveis era alarme falso da ferramenta de inspeção; os E2E acham os botões e rádios pelo nome.
+
 **Para decidir (comportamento da v1)**
 - Enter quebra a linha e Ctrl/Cmd+Enter envia. No WhatsApp Web é o contrário.
 - A ficha, aberta dentro de uma conversa em andamento, mostra o botão "Iniciar conversa".
