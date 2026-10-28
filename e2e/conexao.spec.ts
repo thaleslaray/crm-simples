@@ -1,5 +1,5 @@
 import type { APIRequestContext } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, openUserMenu, test } from "./fixtures";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const UAZAPI = `http://127.0.0.1:${E2E_UAZAPI_PORT}`;
@@ -27,6 +27,7 @@ test("admin vê a faixa vermelha quando o número cai, reconecta pelo QR code e 
   await expect(banner).toBeVisible();
 
   // Tela de conexão: faixa continua no topo e há o botão de conectar
+  await openUserMenu(page);
   await page.getByRole("link", { name: "Conexão" }).click();
   await expect(page.getByTestId("connection-status")).toHaveText("Desconectado");
   await expect(banner).toBeVisible();

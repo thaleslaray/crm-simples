@@ -72,7 +72,8 @@ test("admin cria etiqueta, aplica no contato, filtra a caixa e a lista de contat
   const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first();
   await expect(item.getByText(labelName)).toBeVisible();
   await noHorizontalOverflow(page);
-  await page.getByLabel("Filtrar por etiqueta").selectOption({ label: labelName });
+  await page.getByRole("button", { name: "Mais filtros" }).click();
+  await page.getByRole("button", { name: labelName }).click();
   await expect(page.getByRole("link", { name: new RegExp(`Cliente ${run}`) })).toHaveCount(1);
   await expect(page.locator(".conv-item")).toHaveCount(1);
   await snap(page, "caixa", info.project.name);

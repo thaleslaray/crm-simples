@@ -62,7 +62,10 @@ test("atendente anexa uma imagem com legenda e grava uma nota de voz: ouve, desc
   const conversation = page.getByRole("article", { name: `Conversa com Cliente ${run}` });
 
   // Imagem com legenda
-  await conversation.locator("input[type=file]:not([capture])").setInputFiles({ name: "foto.png", mimeType: "image/png", buffer: PNG });
+  await conversation.getByRole("button", { name: "Anexar" }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await conversation.getByRole("menuitem", { name: "Fotos e vídeos" }).click();
+  await (await chooser).setFiles({ name: "foto.png", mimeType: "image/png", buffer: PNG });
   await expect(conversation.getByLabel("Anexo")).toContainText("foto.png");
   await conversation.getByLabel("Mensagem").fill(`Legenda ${run}`);
   await conversation.getByRole("button", { name: "Enviar", exact: true }).click();

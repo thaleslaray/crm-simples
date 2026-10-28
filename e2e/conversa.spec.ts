@@ -92,7 +92,7 @@ test("conversa no estilo do WhatsApp: botão de ação por status, autor só no 
 
   // Nota interna: balão próprio, fora dos balões de mensagem
   await conversation.getByRole("button", { name: "Nota interna" }).click();
-  await conversation.getByLabel("Nota interna", { exact: true }).fill("Cliente costuma pedir desconto");
+  await conversation.locator("form.composer textarea").fill("Cliente costuma pedir desconto");
   await conversation.getByRole("button", { name: "Salvar nota" }).click();
   const note = conversation.getByTestId("internal-note");
   await expect(note).toContainText("Cliente costuma pedir desconto");
