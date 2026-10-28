@@ -99,3 +99,19 @@ button.link { background: transparent; color: var(--brand); padding: 0 4px; min-
 .media-doc-name { overflow-wrap: anywhere; font-weight: 600; }
 .card-inline { display: grid; gap: 2px; overflow-wrap: anywhere; }
 .card-inline a { color: var(--brand); min-height: 24px; }
+
+/* Anexo e nota de voz no composer */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.icon-button { display: grid; place-items: center; flex-shrink: 0; width: 44px; min-height: 44px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--fg); cursor: pointer; font-size: 1.2rem; }
+.icon-button--camera { display: none; }
+@media (pointer: coarse) { .icon-button--camera { display: grid; } }
+.attachment { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
+.attachment-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.attachment-thumb--file { display: grid; place-items: center; background: var(--border); }
+.voice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
+.voice-live { display: flex; align-items: center; gap: 8px; }
+.voice-dot { width: 12px; height: 12px; border-radius: 50%; background: #d33; animation: voice-pulse 1s infinite; }
+@keyframes voice-pulse { 50% { opacity: 0.3; } }
+.voice-preview { flex: 1 1 200px; min-width: 0; max-width: 100%; }
+.voice-actions { display: flex; gap: 8px; }

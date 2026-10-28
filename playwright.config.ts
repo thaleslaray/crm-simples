@@ -8,7 +8,13 @@ export default defineConfig({
   workers: 1, // um D1 local compartilhado entre os testes
   retries: 0,
   reporter: [["list"]],
-  use: { baseURL: `http://127.0.0.1:${E2E_APP_PORT}`, trace: "retain-on-failure" },
+  use: {
+    baseURL: `http://127.0.0.1:${E2E_APP_PORT}`,
+    trace: "retain-on-failure",
+    // Microfone falso do Chromium: a nota de voz grava sem pedir permissão nem precisar de hardware.
+    permissions: ["microphone"],
+    launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
+  },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     // Celular (375px de largura) — Chromium com viewport e toque de celular.

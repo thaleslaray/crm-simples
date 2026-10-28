@@ -29,6 +29,14 @@ export interface UazapiClient {
   openFile(url: string): Promise<Response>;
   /** Envia texto. Lanca UazapiHttpError (recusa) ou UazapiTimeoutError (resultado incerto). */
   sendText(input: { number: string; text: string }): Promise<SentText>;
+  /** Envia midia por link (`/send/media`). `ptt` e nota de voz; `text` e a legenda. Mesmos erros de `sendText`. */
+  sendMedia(input: {
+    number: string;
+    type: "image" | "video" | "document" | "ptt";
+    file: string;
+    text?: string;
+    docName?: string;
+  }): Promise<SentText>;
 }
 
 export class UazapiHttpError extends Error {
@@ -120,6 +128,20 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     }
   }
 
+  /** POST de envio (texto ou midia): a resposta traz o id da mensagem. */
+  async function postSend(path: string, payload: object): Promise<SentText> {
+    const res = await request(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = (await res.json().catch(() => ({}))) as { id?: unknown; messageid?: unknown };
+    return {
+      id: typeof body.id === "string" ? body.id : null,
+      messageId: typeof body.messageid === "string" ? body.messageid : null,
+    };
+  }
+
   return {
     async getInstanceStatus() {
       const res = await request("/instance/status");
@@ -138,17 +160,7 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     },
     // O timeout vale ate os headers chegarem; o corpo segue em stream sem limite de tempo proprio.
     openFile: (url) => request(url, {}, false),
-    async sendText({ number, text }) {
-      const res = await request("/send/text", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ number, text }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { id?: unknown; messageid?: unknown };
-      return {
-        id: typeof body.id === "string" ? body.id : null,
-        messageId: typeof body.messageid === "string" ? body.messageid : null,
-      };
-    },
+    sendText: ({ number, text }) => postSend("/send/text", { number, text }),
+    sendMedia: (input) => postSend("/send/media", input),
   };
 }

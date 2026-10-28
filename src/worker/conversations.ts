@@ -216,11 +216,30 @@ conversations.get("/:id/messages", async (c) => {
 
 const MAX_TEXT_LENGTH = 4096;
 
+/** Teto do anexo: o arquivo passa pela memoria do Worker antes de ir ao R2. */
+const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
+
 conversations.post("/:id/messages", async (c) => {
-  const body = await c.req.json<{ text?: unknown }>().catch(() => null);
-  const text = typeof body?.text === "string" ? body.text : "";
-  if (!text.trim() || text.length > MAX_TEXT_LENGTH) return c.json({ error: "texto_invalido" }, 400);
-  const result = await sendOutgoingText(c.env, { conversationId: c.req.param("id"), userId: c.get("user").id, text });
+  const base = { conversationId: c.req.param("id"), userId: c.get("user").id, origin: new URL(c.req.url).origin };
+  let input: Parameters<typeof sendOutgoingText>[1];
+  if (c.req.header("content-type")?.startsWith("multipart/form-data")) {
+    // Anexo: formulario com `file`, `text` (legenda) e `voice=1` (nota de voz gravada no navegador).
+    const form = await c.req.formData().catch(() => null);
+    const file = form?.get("file");
+    if (!(file instanceof File) || file.size === 0) return c.json({ error: "arquivo_invalido" }, 400);
+    if (file.size > MAX_MEDIA_BYTES) return c.json({ error: "arquivo_grande_demais" }, 413);
+    const voice = form?.get("voice") === "1";
+    if (voice && !file.type.startsWith("audio/")) return c.json({ error: "arquivo_invalido" }, 400);
+    const caption = form?.get("text");
+    if (typeof caption === "string" && caption.length > MAX_TEXT_LENGTH) return c.json({ error: "texto_invalido" }, 400);
+    input = { ...base, media: { file, caption: typeof caption === "string" ? caption.trim() : "", voice } };
+  } else {
+    const body = await c.req.json<{ text?: unknown }>().catch(() => null);
+    const text = typeof body?.text === "string" ? body.text : "";
+    if (!text.trim() || text.length > MAX_TEXT_LENGTH) return c.json({ error: "texto_invalido" }, 400);
+    input = { ...base, text };
+  }
+  const result = await sendOutgoingText(c.env, input);
   if (result === null || result === "not_failed") return c.json({ error: "nao_encontrado" }, 404);
   return c.json({ message: result }, 201);
 });
@@ -230,6 +249,7 @@ conversations.post("/:id/messages/:messageId/resend", async (c) => {
     conversationId: c.req.param("id"),
     messageId: c.req.param("messageId"),
     userId: c.get("user").id,
+    origin: new URL(c.req.url).origin,
   });
   if (result === null) return c.json({ error: "nao_encontrado" }, 404);
   if (result === "not_failed") return c.json({ error: "reenvio_indisponivel" }, 409);
