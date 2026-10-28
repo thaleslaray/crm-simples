@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createDb, schema } from "./db";
+import { getAuthSecret } from "./instance-secrets";
 
 /** Tamanho minimo da senha: vale no login do Better Auth e nos fluxos de convite e redefinicao. */
 export const MIN_PASSWORD = 12;
@@ -9,11 +10,11 @@ export const MIN_PASSWORD = 12;
  * Better Auth INSTANCIADO POR REQUISICAO: o binding D1 so existe dentro do handler,
  * entao nao ha singleton de modulo. A instancia e barata de criar.
  */
-export function createAuth(env: Cloudflare.Env, requestUrl: string) {
+export async function createAuth(env: Cloudflare.Env, requestUrl: string) {
   return betterAuth({
     // Mesma origem do Worker (API e front compartilham o dominio): derivada da requisicao, sem var extra.
     baseURL: new URL(requestUrl).origin,
-    secret: env.BETTER_AUTH_SECRET,
+    secret: await getAuthSecret(env),
     database: drizzleAdapter(createDb(env.DB), { provider: "sqlite", schema }),
     emailAndPassword: {
       enabled: true,
@@ -46,4 +47,4 @@ export function createAuth(env: Cloudflare.Env, requestUrl: string) {
   });
 }
 
-export type Auth = ReturnType<typeof createAuth>;
+export type Auth = Awaited<ReturnType<typeof createAuth>>;

@@ -82,17 +82,12 @@ Sem login, peça `! pnpm exec wrangler login`. Com mais de uma conta, pergunte q
 
 **Pronto quando** o `whoami` mostra a conta onde o build rodou.
 
-## 5. Gravar os segredos
+## 5. Gravar o código de instalação
 
-Gere e grave direto, sem mostrar o valor:
-
-```bash
-openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET --name crm-simples
-```
-
-```bash
-openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET --name crm-simples
-```
+Os segredos do login (`BETTER_AUTH_SECRET`) e do webhook (`WEBHOOK_URL_SECRET`) **não** se gravam: o próprio CRM gera
+e guarda no banco (tabela `instance_secret`). Se o usuário apagar essa tabela, as sessões caem e a Uazapi precisa ser
+informada de novo e o número reconectado (o endereço do webhook muda). Quem quiser separá-los do banco grava os dois
+como segredos da Cloudflare, que vencem o banco.
 
 Se o usuário vai criar o admin pela tela de primeiro acesso (passo 6), grave também o código de instalação. Ele mesmo
 digita o valor (uma frase só dele), então entregue o comando para rodar com `!`:
@@ -101,10 +96,8 @@ digita o valor (uma frase só dele), então entregue o comando para rodar com `!
 ! pnpm exec wrangler secret put SETUP_CODE --name crm-simples
 ```
 
-Avise: o `BETTER_AUTH_SECRET` protege o login e cifra os tokens da Uazapi; trocar depois desloga todo mundo e obriga a
-informar a Uazapi de novo.
-
-**Pronto quando** `pnpm exec wrangler secret list --name crm-simples` mostra os dois nomes.
+**Pronto quando** `pnpm exec wrangler secret list --name crm-simples` mostra `SETUP_CODE` (ou, se o usuário vai criar o
+admin pelo comando, quando você decidiu pular este passo).
 
 ## 6. Criar o admin
 

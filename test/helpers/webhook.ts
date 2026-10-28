@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
+import { getWebhookSecret } from "../../src/worker/instance-secrets";
 import worker from "../../src/worker/index";
 
 let seq = 0;
@@ -142,9 +143,9 @@ export function connectionEvent(input: { status: string; type?: string; lastDisc
  * (o processamento roda em `waitUntil`); aqui a resposta so volta depois de o processamento terminar, para o teste
  * conferir o efeito logo em seguida, sem espera cega.
  */
-export async function postWebhook(body: unknown, secret: string = env.WEBHOOK_URL_SECRET): Promise<Response> {
+export async function postWebhook(body: unknown, secret?: string): Promise<Response> {
   const ctx = createExecutionContext();
-  const request = new Request(`http://crm.test/api/webhook/${secret}`, {
+  const request = new Request(`http://crm.test/api/webhook/${secret ?? (await getWebhookSecret(env))}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),

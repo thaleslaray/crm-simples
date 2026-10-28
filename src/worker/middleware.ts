@@ -16,7 +16,7 @@ export type AppEnv = {
 };
 
 async function loadUser(env: Cloudflare.Env, req: Request, opts: { fresh: boolean }) {
-  const auth = createAuth(env, req.url);
+  const auth = await createAuth(env, req.url);
   const result = await auth.api.getSession({
     headers: req.headers,
     query: opts.fresh ? { disableCookieCache: true } : undefined,

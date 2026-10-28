@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
 import { type ConnectionStatus } from "./db/schema";
+import { getWebhookSecret } from "./instance-secrets";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
 import { publish } from "./realtime";
 import { getUazapiClient } from "./uazapi/config";
@@ -97,7 +98,7 @@ connection.post("/connect", requireRole("admin"), async (c) => {
   const db = createDb(c.env.DB);
   try {
     const uazapi = await getUazapiClient(c.env);
-    await uazapi.configureWebhook(`${new URL(c.req.url).origin}/api/webhook/${c.env.WEBHOOK_URL_SECRET}`);
+    await uazapi.configureWebhook(`${new URL(c.req.url).origin}/api/webhook/${await getWebhookSecret(c.env)}`);
     const remote = await uazapi.connect();
     const state = await recordConnection(c.env, db, { status: normalizeStatus(remote.status) });
     return c.json({ connection: state, qrcode: remote.qrcode });

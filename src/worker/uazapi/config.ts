@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { createDb, type Db, schema } from "../db";
+import { getAuthSecret } from "../instance-secrets";
 import { createUazapiClient, type UazapiClient, type UazapiClientOptions } from "./client";
 
 /**
@@ -72,9 +73,9 @@ export interface UazapiAdminAccess {
 export async function loadAdminAccess(env: Cloudflare.Env, db: Db = createDb(env.DB)): Promise<UazapiAdminAccess | null> {
   const row = await db.query.uazapiAdmin.findFirst({ where: eq(schema.uazapiAdmin.id, ADMIN_ROW_ID) });
   if (!row) return null;
-  const adminToken = await decryptToken(env.BETTER_AUTH_SECRET, row.adminTokenEnc);
+  const adminToken = await decryptToken(await getAuthSecret(env), row.adminTokenEnc);
   if (!adminToken) return null;
-  const token = row.instanceTokenEnc ? await decryptToken(env.BETTER_AUTH_SECRET, row.instanceTokenEnc) : null;
+  const token = row.instanceTokenEnc ? await decryptToken(await getAuthSecret(env), row.instanceTokenEnc) : null;
   const instance = token && row.instanceId ? { id: row.instanceId, name: row.instanceName ?? "", token } : null;
   return { baseUrl: row.baseUrl, adminToken, instance };
 }
@@ -85,7 +86,7 @@ export async function resolveUazapiConfig(env: Cloudflare.Env, db: Db = createDb
   if (admin?.instance) return { baseUrl: admin.baseUrl, token: admin.instance.token, source: "database" };
   const row = await db.query.uazapiSetting.findFirst({ where: eq(schema.uazapiSetting.id, ROW_ID) });
   if (row) {
-    const token = await decryptToken(env.BETTER_AUTH_SECRET, row.tokenEnc);
+    const token = await decryptToken(await getAuthSecret(env), row.tokenEnc);
     if (token) return { baseUrl: row.baseUrl, token, source: "database" };
   }
   if (env.UAZAPI_BASE_URL && env.UAZAPI_INSTANCE_TOKEN) {
@@ -143,11 +144,11 @@ export async function saveAdminAccess(env: Cloudflare.Env, db: Db, input: { base
   const row = {
     id: ADMIN_ROW_ID,
     baseUrl: input.baseUrl,
-    adminTokenEnc: await encryptToken(env.BETTER_AUTH_SECRET, input.adminToken),
+    adminTokenEnc: await encryptToken(await getAuthSecret(env), input.adminToken),
     adminTokenLast4: input.adminToken.slice(-4),
     instanceId: keep?.id ?? null,
     instanceName: keep?.name ?? null,
-    instanceTokenEnc: keep ? await encryptToken(env.BETTER_AUTH_SECRET, keep.token) : null,
+    instanceTokenEnc: keep ? await encryptToken(await getAuthSecret(env), keep.token) : null,
     updatedAt: Date.now(),
   };
   await db.insert(schema.uazapiAdmin).values(row).onConflictDoUpdate({ target: schema.uazapiAdmin.id, set: row });
@@ -160,7 +161,7 @@ export async function saveChosenInstance(env: Cloudflare.Env, db: Db, input: { i
     .set({
       instanceId: input.id,
       instanceName: input.name,
-      instanceTokenEnc: await encryptToken(env.BETTER_AUTH_SECRET, input.token),
+      instanceTokenEnc: await encryptToken(await getAuthSecret(env), input.token),
       updatedAt: Date.now(),
     })
     .where(eq(schema.uazapiAdmin.id, ADMIN_ROW_ID));
@@ -177,7 +178,7 @@ export async function saveLegacyInstanceToken(env: Cloudflare.Env, db: Db, input
   const row = {
     id: ROW_ID,
     baseUrl: input.baseUrl,
-    tokenEnc: await encryptToken(env.BETTER_AUTH_SECRET, input.token),
+    tokenEnc: await encryptToken(await getAuthSecret(env), input.token),
     tokenLast4: input.token.slice(-4),
     updatedAt: Date.now(),
   };

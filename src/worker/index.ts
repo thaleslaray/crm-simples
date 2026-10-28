@@ -37,7 +37,7 @@ app.use("*", async (c, next) => {
 });
 
 // Todas as rotas do Better Auth (login, logout, sessao...). Cadastro publico esta desligado na config.
-app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env, c.req.url).handler(c.req.raw));
+app.on(["GET", "POST"], "/api/auth/*", async (c) => (await createAuth(c.env, c.req.url)).handler(c.req.raw));
 
 app.route("/api/setup", setup);
 app.route("/api/webhook", webhook);

@@ -100,7 +100,7 @@ accessLinks.post("/invites/:token", async (c) => {
   await c.env.DB.batch(statements.map((s) => c.env.DB.prepare(s.sql).bind(...s.params)));
 
   // Entra na hora: reaproveita o login do Better Auth e repassa o cookie de sessao.
-  const signedIn = await createAuth(c.env, c.req.url).api.signInEmail({ body: { email, password }, asResponse: true });
+  const signedIn = await (await createAuth(c.env, c.req.url)).api.signInEmail({ body: { email, password }, asResponse: true });
   const res = c.json({ ok: true });
   for (const cookie of signedIn.headers.getSetCookie()) res.headers.append("set-cookie", cookie);
   return res;

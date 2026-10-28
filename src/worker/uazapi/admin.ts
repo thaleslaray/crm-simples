@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createDb, type Db } from "../db";
 import { errorName } from "../errors";
+import { getWebhookSecret } from "../instance-secrets";
 import { type AppEnv, requireAuth, requireRole } from "../middleware";
 import type { UazapiInstance } from "./client";
 import {
@@ -75,7 +76,7 @@ uazapiAdmin.get("/instances", async (c) => {
 /** Cadastra o webhook da instancia e so entao grava a escolha: instancia sem webhook nao recebe mensagem. */
 async function adopt(env: Cloudflare.Env, requestUrl: string, db: Db, baseUrl: string, instance: UazapiInstance) {
   await createInstanceClient(env, { baseUrl, token: instance.token }).configureWebhook(
-    `${new URL(requestUrl).origin}/api/webhook/${env.WEBHOOK_URL_SECRET}`,
+    `${new URL(requestUrl).origin}/api/webhook/${await getWebhookSecret(env)}`,
   );
   await saveChosenInstance(env, db, { id: instance.id, name: instance.name, token: instance.token });
 }

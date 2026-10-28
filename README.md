@@ -45,9 +45,8 @@ Sem terminal. Clique no botão, entre na Cloudflare e no GitHub se ele pedir, e 
 
 1. A Cloudflare cria **um repositório seu** no GitHub (dê o nome que quiser) e mostra os recursos que vai criar (banco,
    mídia, filas).
-2. Ela pede **três segredos**. Os dois primeiros são valores aleatórios (a tela explica como gerar com
-   `openssl rand -base64 32`; `BETTER_AUTH_SECRET` não pode ser trocado depois). O terceiro, `SETUP_CODE`, é uma frase
-   só sua: você vai usá-la para criar o administrador.
+2. Ela pede **um só valor**: o `SETUP_CODE`, uma frase só sua que você vai usar para criar o administrador. Os segredos
+   do login e do webhook o próprio CRM gera sozinho (veja "Segredos gerados pelo CRM", abaixo).
 3. Clique em **Deploy**. O primeiro build leva de 1 a 3 minutos.
 4. Abra o endereço que a Cloudflare mostra (`https://<nome>.<subdominio>.workers.dev`). O CRM abre na tela de
    **Primeiro acesso**: digite o código de instalação (`SETUP_CODE`), o seu nome, e-mail e uma senha de 12 caracteres ou
@@ -123,26 +122,14 @@ Entre na Cloudflare pelo terminal (abre o navegador para autorizar):
 pnpm exec wrangler login
 ```
 
-Os comandos abaixo geram valores aleatórios e gravam direto, sem mostrar na tela.
-
-```bash
-openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET --name crm-simples
-```
-
-```bash
-openssl rand -base64 32 | pnpm exec wrangler secret put WEBHOOK_URL_SECRET --name crm-simples
-```
-
-Se for criar o admin pela tela de primeiro acesso (passo 5), grave também o código de instalação (o comando pergunta o
-valor; escolha uma frase só sua):
+Se for criar o admin pela tela de primeiro acesso (passo 5), grave o código de instalação (o comando pergunta o valor;
+escolha uma frase só sua):
 
 ```bash
 pnpm exec wrangler secret put SETUP_CODE --name crm-simples
 ```
 
-- `BETTER_AUTH_SECRET` protege o login e cifra os tokens da Uazapi no banco. **Não troque depois:** trocar desloga
-  todo mundo e obriga a informar a Uazapi de novo.
-- `WEBHOOK_URL_SECRET` entra no endereço que o CRM cadastra na Uazapi para receber as mensagens.
+Os segredos do login e do webhook não precisam de comando: o CRM gera sozinho (veja "Segredos gerados pelo CRM").
 
 **5. Criar o seu usuário admin**
 
@@ -263,7 +250,22 @@ Navegador de verdade (Playwright), no computador e no celular, com uma Uazapi fa
 - O Admin Token e o token da instância da Uazapi ficam cifrados no banco (AES-GCM) e nunca voltam ao navegador; a
   tela mostra só os 4 últimos caracteres.
 - O webhook só aceita chamadas com o segredo no endereço e o token da instância em uso.
-- Os segredos ficam na Cloudflare, nunca no repositório.
+- Os segredos ficam na Cloudflare ou no banco do CRM, nunca no repositório.
+
+### Segredos gerados pelo CRM
+
+O CRM precisa de dois segredos: `BETTER_AUTH_SECRET` (protege o login e cifra os tokens da Uazapi) e
+`WEBHOOK_URL_SECRET` (entra no endereço do webhook cadastrado na Uazapi). Você não precisa criá-los: na primeira vez
+que precisa, o CRM gera os dois (32 bytes aleatórios cada) e guarda na tabela `instance_secret` do banco D1.
+
+- Se existir segredo da Cloudflare com o mesmo nome (`wrangler secret put BETTER_AUTH_SECRET` ou
+  `WEBHOOK_URL_SECRET`), ele vence e o banco nem é consultado para aquele valor. Quem já tinha os dois como segredos
+  não muda nada.
+- **Segurança:** quando gerados, os dois moram no mesmo banco dos dados. Quem quiser separá-los grava os dois como
+  segredos da Cloudflare, que vencem o banco.
+- **Se alguém apagar a tabela `instance_secret`**, o CRM gera valores novos: as sessões caem (todo mundo entra de
+  novo), os tokens da Uazapi guardados deixam de abrir e precisam ser informados outra vez na tela de Conexão, e o
+  endereço do webhook muda, então a Uazapi precisa ser informada de novo (Conectar) e o número reconectado.
 
 ### Uazapi: de onde vêm os dados
 

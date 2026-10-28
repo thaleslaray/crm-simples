@@ -124,6 +124,17 @@ export const workspaceSetting = sqliteTable("workspace_setting", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+/**
+ * Segredos gerados pelo proprio CRM (uma unica linha, id "instance"): o do login e o do endereco do webhook.
+ * So valem quando nao ha o segredo equivalente no ambiente da Cloudflare (ver instance-secrets.ts).
+ */
+export const instanceSecret = sqliteTable("instance_secret", {
+  id: text("id").primaryKey(),
+  authSecret: text("auth_secret").notNull(),
+  webhookSecret: text("webhook_secret").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
 /** Dados da Uazapi informados pela tela (uma unica linha, id "instance"). O token fica cifrado (AES-GCM, ver uazapi/config.ts). */
 export const uazapiSetting = sqliteTable("uazapi_setting", {
   id: text("id").primaryKey(),

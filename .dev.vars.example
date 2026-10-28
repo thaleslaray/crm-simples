@@ -1,6 +1,8 @@
-# Copie para .dev.vars (ignorado pelo git) e ajuste. Em producao, o botao "Deploy to Cloudflare" pede estes tres
-# segredos; na mao, use `wrangler secret put`. Os dados da Uazapi (endereco e token) entram pela tela de Conexao do CRM.
-BETTER_AUTH_SECRET=troque-por-uma-string-aleatoria-com-32-ou-mais-caracteres
-WEBHOOK_URL_SECRET=segredo-aleatorio-que-vai-na-url-do-webhook
+# Copie para .dev.vars (ignorado pelo git) e ajuste. Em producao, o botao "Deploy to Cloudflare" pede so o
+# SETUP_CODE; na mao, use `wrangler secret put`. Os dados da Uazapi (endereco e token) entram pela tela de Conexao do CRM.
+# BETTER_AUTH_SECRET (login) e WEBHOOK_URL_SECRET (endereco do webhook) o CRM gera sozinho e guarda no banco.
+# Se quiser definir os dois a mao, descomente (valor aleatorio; `openssl rand -base64 32`). Eles vencem o banco.
+# BETTER_AUTH_SECRET=
+# WEBHOOK_URL_SECRET=
 # Codigo que a tela de primeiro acesso pede para criar o admin. Sem ele, a tela nunca abre.
 SETUP_CODE=troque-por-uma-frase-so-sua

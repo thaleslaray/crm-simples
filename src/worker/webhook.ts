@@ -9,6 +9,7 @@ import { applyStatusUpdate } from "./delivery";
 import { publish } from "./realtime";
 import { publishUpdate } from "./status";
 import { errorName } from "./errors";
+import { getWebhookSecret } from "./instance-secrets";
 import { resolveUazapiConfig } from "./uazapi/config";
 
 /** Comparacao em tempo constante: hasheia os dois lados (tamanho fixo) e compara os digests. */
@@ -30,7 +31,7 @@ webhook.post("/:secret", async (c) => {
   // Avalia os dois para nao revelar qual falhou pelo tempo de resposta.
   const config = await resolveUazapiConfig(c.env);
   const [okSecret, okToken] = await Promise.all([
-    safeEqual(c.req.param("secret"), c.env.WEBHOOK_URL_SECRET),
+    safeEqual(c.req.param("secret"), await getWebhookSecret(c.env)),
     // Sem token configurado nada passa (nem token vazio).
     config ? safeEqual(token, config.token) : false,
   ]);

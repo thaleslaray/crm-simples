@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, schema } from "./db";
+import { getAuthSecret } from "./instance-secrets";
 import { serveMedia } from "./media";
 
 /** Validade do link entregue a Uazapi: ela busca o arquivo logo apos o envio; o reenvio gera outro link. */
@@ -9,7 +10,7 @@ const LINK_TTL_MS = 60 * 60 * 1000;
 const encoder = new TextEncoder();
 
 async function sign(env: Cloudflare.Env, messageId: string, exp: number): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", encoder.encode(env.BETTER_AUTH_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const key = await crypto.subtle.importKey("raw", encoder.encode(await getAuthSecret(env)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   // Prefixo de contexto: a mesma chave nao assina outra coisa por acaso.
   const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(`outgoing-file:${messageId}:${exp}`));
   return btoa(String.fromCharCode(...new Uint8Array(mac)))

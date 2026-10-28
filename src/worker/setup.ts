@@ -63,7 +63,7 @@ setup.post("/", async (c) => {
   if (results[0]?.meta.changes !== 1) return c.json({ error: "proibido" }, 403);
 
   // Entra na hora, como o convite: reaproveita o login do Better Auth e repassa o cookie de sessao.
-  const signedIn = await createAuth(c.env, c.req.url).api.signInEmail({ body: { email, password }, asResponse: true });
+  const signedIn = await (await createAuth(c.env, c.req.url)).api.signInEmail({ body: { email, password }, asResponse: true });
   const res = c.json({ ok: true });
   for (const cookie of signedIn.headers.getSetCookie()) res.headers.append("set-cookie", cookie);
   return res;

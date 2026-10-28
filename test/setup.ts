@@ -1,6 +1,7 @@
 import { applyD1Migrations } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { beforeEach } from "vitest";
+import { resetInstanceSecretsCache } from "../src/worker/instance-secrets";
 
 // Aplica as migracoes versionadas (migrations/) no D1 do Miniflare antes dos testes de cada arquivo.
 await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
@@ -12,6 +13,7 @@ await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
 // e apagar as sombras na mao o corromperia.
 // entao a ordem dos DELETE nao importa (PRAGMA foreign_keys = OFF nao e suportado no D1).
 beforeEach(async () => {
+  resetInstanceSecretsCache(); // o cache dos segredos gerados nao pode sobreviver ao banco esvaziado
   const { results } = await env.DB.prepare(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\' AND name != 'd1_migrations' AND sql NOT LIKE 'CREATE VIRTUAL%' AND name NOT LIKE '%\\_fts\\_%' ESCAPE '\\'",
   ).all<{ name: string }>();
