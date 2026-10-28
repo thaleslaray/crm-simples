@@ -1,0 +1,46 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "crm-whatsapp",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Front (React + Vite) servido como static assets na mesma origem da API.
+  // /api/* sempre passa pelo Worker; o resto cai no SPA (index.html).
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // IDs abaixo sao PLACEHOLDERS: crie os recursos e troque (veja README).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "crm-whatsapp",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "crm-whatsapp-media" }],
+
+  "queues": {
+    "producers": [{ "binding": "MEDIA_QUEUE", "queue": "crm-media" }],
+    "consumers": [
+      {
+        "queue": "crm-media",
+        "max_retries": 5,
+        "dead_letter_queue": "crm-media-dlq"
+      }
+    ]
+  },
+
+  "durable_objects": {
+    "bindings": [{ "name": "INBOX_HUB", "class_name": "InboxHub" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["InboxHub"] }],
+
+  "triggers": { "crons": ["*/5 * * * *"] },
+
+  "observability": { "enabled": true }
+}
