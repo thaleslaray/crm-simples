@@ -135,8 +135,8 @@ Partes 1 a 3 rodadas inteiras. A Parte 1 rodou no navegador do app; as Partes 2 
 
 **Correções (3c5ba76):** conexão, chips, telefone e título corrigidos. O item dos nomes acessíveis era alarme falso da ferramenta de inspeção; os E2E acham os botões e rádios pelo nome.
 
-**Para decidir (comportamento da v1)**
-- Enter quebra a linha e Ctrl/Cmd+Enter envia. No WhatsApp Web é o contrário.
-- A ficha, aberta dentro de uma conversa em andamento, mostra o botão "Iniciar conversa".
+**Decidido pelo Thales (3becc6c)**
+- Enter envia como no WhatsApp Web: no computador Enter envia e Shift+Enter quebra a linha; no celular Enter quebra a linha e o envio é pelo botão.
+- A ficha aberta dentro da conversa não mostra mais "Iniciar conversa" (em Contatos o botão continua).
 
 **Correção desta jornada:** ao reabrir, a conversa volta para "Em andamento" com o mesmo responsável (v1, história 70), não para "Aberta". O passo 9 foi corrigido.
