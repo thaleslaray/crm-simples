@@ -12,6 +12,7 @@ import { sendOutgoingText } from "./send";
 import { startConversation } from "./start-conversation";
 import { assignConversation, assumeConversation, type ChangeOutcome, listEvents, resolveConversation } from "./status";
 import { createUazapiClient } from "./uazapi/client";
+import { errorName } from "./errors";
 
 export const conversations = new Hono<AppEnv>();
 conversations.use("*", requireAuth);
@@ -236,8 +237,7 @@ const views = (bucket: R2Bucket, rows: MessageRow[]) => Promise.all(rows.map((m)
 conversations.get("/:id/messages", async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
-  const exists = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { id: true } });
-  if (!exists) return c.json({ error: "nao_encontrado" }, 404);
+  if (!(await conversationExists(db, id))) return c.json({ error: "nao_encontrado" }, 404);
 
   const requested = Number.parseInt(c.req.query("limit") ?? "", 10);
   const limit = Number.isFinite(requested) && requested > 0 ? Math.min(requested, MAX_LIMIT) : DEFAULT_LIMIT;
@@ -300,7 +300,7 @@ conversations.post("/:id/read", async (c) => {
       try {
         await createUazapiClient(c.env).markRead(ids);
       } catch (err) {
-        console.error("conversa: falha ao marcar como lida na Uazapi", { erro: err instanceof Error ? err.name : "desconhecido" });
+        console.error("conversa: falha ao marcar como lida na Uazapi", { erro: errorName(err) });
       }
     }
     const conversation = await loadConversation(db, id);
@@ -308,6 +308,10 @@ conversations.post("/:id/read", async (c) => {
   }
   return c.json({ ok: true });
 });
+
+async function conversationExists(db: Db, id: string): Promise<boolean> {
+  return !!(await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { id: true } }));
+}
 
 const MAX_TEXT_LENGTH = 4096;
 
@@ -375,8 +379,7 @@ conversations.post("/:id/messages/:messageId/resend", async (c) => {
 conversations.get("/:id/events", async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
-  const exists = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { id: true } });
-  if (!exists) return c.json({ error: "nao_encontrado" }, 404);
+  if (!(await conversationExists(db, id))) return c.json({ error: "nao_encontrado" }, 404);
   return c.json({ events: await listEvents(db, id) });
 });
 
@@ -387,6 +390,8 @@ const CHANGE_ERRORS = {
   same: [409, "mesmo_responsavel"],
   invalid_state: [409, "transicao_invalida"],
   conflict: [409, "conversa_alterada"],
+  taken: [409, "ja_assumida"],
+  not_open: [409, "conversa_nao_aberta"],
 } as const;
 
 async function changeResponse(c: Context<AppEnv>, outcome: ChangeOutcome) {
@@ -410,18 +415,13 @@ conversations.post("/:id/resolve", async (c) => {
 });
 
 conversations.post("/:id/assume", async (c) => {
-  const outcome = await assumeConversation(c.env, c.req.param("id"), c.get("user").id);
-  if (outcome === "not_found") return c.json({ error: "nao_encontrado" }, 404);
-  if (outcome === "taken") return c.json({ error: "ja_assumida" }, 409);
-  if (outcome === "not_open") return c.json({ error: "conversa_nao_aberta" }, 409);
-  return c.json({ conversation: await loadConversation(createDb(c.env.DB), c.req.param("id")) });
+  return changeResponse(c, await assumeConversation(c.env, c.req.param("id"), c.get("user").id));
 });
 
 conversations.get("/:id/notes", async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
-  const exists = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { id: true } });
-  if (!exists) return c.json({ error: "nao_encontrado" }, 404);
+  if (!(await conversationExists(db, id))) return c.json({ error: "nao_encontrado" }, 404);
   return c.json({ notes: await listNotes(db, [id]) });
 });
 
@@ -429,8 +429,7 @@ conversations.get("/:id/notes", async (c) => {
 conversations.post("/:id/notes", async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
-  const exists = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, id), columns: { id: true } });
-  if (!exists) return c.json({ error: "nao_encontrado" }, 404);
+  if (!(await conversationExists(db, id))) return c.json({ error: "nao_encontrado" }, 404);
   const body = await c.req.json<{ text?: unknown }>().catch(() => null);
   const note = await createNote(db, id, c.get("user").id, body?.text);
   if (note === "invalid") return c.json({ error: "texto_invalido" }, 400);

@@ -4,6 +4,7 @@ import { issueLink } from "./access-links";
 import { createDb, schema } from "./db";
 import { ROLES } from "./db/schema";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
+import { closeSocketsOf } from "./realtime";
 import { releaseConversationsOf } from "./status";
 
 export const members = new Hono<AppEnv>();
@@ -72,7 +73,8 @@ teamAdmin.delete("/members/:id", async (c) => {
   }
   // Sessoes primeiro: o acesso some mesmo se a devolucao das conversas falhar no meio.
   await db.delete(schema.session).where(eq(schema.session.userId, id));
-  await releaseConversationsOf(c.env, id);
+  await closeSocketsOf(c.env, id);
+  await releaseConversationsOf(c.env, id, c.get("user").id);
   // As FKs soltam o resto: conta e links somem, conversas/mensagens/eventos ficam sem autor.
   await db.delete(schema.user).where(eq(schema.user.id, id));
   return c.json({ ok: true });

@@ -20,7 +20,11 @@ export function eventText(e: TimelineEvent): string {
       return `${who} transferiu a conversa de ${e.fromName ?? "um membro removido"} para ${e.toName ?? "um membro removido"}`;
     case "resolvida":
       return `${who} resolveu a conversa`;
+    case "devolvida":
+      return `${who} removeu ${e.fromName ?? "o responsável"} da equipe: conversa devolvida, sem responsável`;
     case "reaberta":
+      // Reaberta por um atendente (nova conversa) tem autor; pelo cliente, não.
+      if (e.actorName) return `${e.actorName} reabriu a conversa${e.toName ? ` com ${e.toName}` : ""}`;
       return e.toName ? `O cliente escreveu de novo: conversa reaberta com ${e.toName}` : "O cliente escreveu de novo: conversa reaberta sem responsável";
   }
 }

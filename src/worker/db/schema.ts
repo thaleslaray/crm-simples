@@ -231,7 +231,7 @@ export const message = sqliteTable(
 );
 
 /** Eventos de sistema da linha do tempo: quem mudou o status/responsavel e quando (o vaivem automatico nao entra). */
-export const EVENT_TYPES = ["assumida", "atribuida", "transferida", "resolvida", "reaberta"] as const;
+export const EVENT_TYPES = ["assumida", "atribuida", "transferida", "resolvida", "reaberta", "devolvida"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 export const conversationEvent = sqliteTable(

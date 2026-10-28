@@ -35,9 +35,22 @@ async function loadUser(env: Cloudflare.Env, req: Request, opts: { fresh: boolea
   } satisfies SessionUser;
 }
 
-/** Exige sessao valida (usa o cache de sessao em cookie). Coloca o usuario em `c.get("user")`. */
+const READ_ONLY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Exige sessao valida. Leituras usam o cache de sessao em cookie (60 s); rotas que mudam estado releem a sessao do D1,
+ * para que membro removido ou rebaixado perca o acesso e o poder na hora. Coloca o usuario em `c.get("user")`.
+ */
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
-  const user = await loadUser(c.env, c.req.raw, { fresh: false });
+  const user = await loadUser(c.env, c.req.raw, { fresh: !READ_ONLY_METHODS.has(c.req.method) });
+  if (!user) return c.json({ error: "nao_autenticado" }, 401);
+  c.set("user", user);
+  await next();
+});
+
+/** Como `requireAuth`, mas sempre relendo a sessao do D1 (ex.: abrir o WebSocket, que dura horas). */
+export const requireFreshAuth = createMiddleware<AppEnv>(async (c, next) => {
+  const user = await loadUser(c.env, c.req.raw, { fresh: true });
   if (!user) return c.json({ error: "nao_autenticado" }, 401);
   c.set("user", user);
   await next();

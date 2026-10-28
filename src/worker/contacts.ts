@@ -9,6 +9,7 @@ import { type AppEnv, requireAuth } from "./middleware";
 import { listNotes } from "./notes";
 import { publish } from "./realtime";
 import { createUazapiClient } from "./uazapi/client";
+import { errorName } from "./errors";
 
 export const contacts = new Hono<AppEnv>();
 contacts.use("*", requireAuth);
@@ -116,7 +117,7 @@ async function refreshAvatar(env: Cloudflare.Env, db: Db, contactId: string): Pr
       .set({ ...(url ? { avatarUrl: url } : {}), avatarFetchedAt: Date.now() })
       .where(eq(schema.contact.id, contactId));
   } catch (err) {
-    console.error("ficha: falha ao buscar avatar na Uazapi", { erro: err instanceof Error ? err.name : "desconhecido" });
+    console.error("ficha: falha ao buscar avatar na Uazapi", { erro: errorName(err) });
   }
 }
 

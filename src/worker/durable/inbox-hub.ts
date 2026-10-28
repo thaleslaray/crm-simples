@@ -18,6 +18,8 @@ export class InboxHub extends DurableObject<Cloudflare.Env> {
     }
     const pair = new WebSocketPair();
     this.ctx.acceptWebSocket(pair[1]); // Hibernation API
+    // Dono do socket (o Worker poe o header depois de validar a sessao), para fecha-lo se o membro for removido.
+    pair[1].serializeAttachment({ userId: request.headers.get("x-user-id") });
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
@@ -29,6 +31,18 @@ export class InboxHub extends DurableObject<Cloudflare.Env> {
         ws.send(data);
       } catch {
         // Socket meio fechado: o cliente reconecta e se ressincroniza.
+      }
+    }
+  }
+
+  /** Chamado pelo Worker (RPC) quando um membro e removido: fecha os sockets dele. */
+  closeUser(userId: string): void {
+    for (const ws of this.ctx.getWebSockets()) {
+      if ((ws.deserializeAttachment() as { userId: string | null } | null)?.userId !== userId) continue;
+      try {
+        ws.close(1008, "membro removido");
+      } catch {
+        // Ja fechado.
       }
     }
   }

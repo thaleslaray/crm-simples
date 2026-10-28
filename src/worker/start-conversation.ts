@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { normalizePhone } from "../shared/phone";
 import { type Conversation, loadConversation, type Message } from "./conversations";
 import { createDb, schema } from "./db";
@@ -44,14 +44,33 @@ export async function startConversation(env: Cloudflare.Env, input: Input): Prom
       .returning({ id: schema.conversation.id });
     created = inserted.length > 0;
     conv = (await db.query.conversation.findFirst({ where: eq(schema.conversation.contactId, contactId) }))!;
-    if (created) await recordEvent(db, { conversationId: id, type: "assumida", actorId: input.userId, toUserId: input.userId });
+    if (created) {
+      const eventId = await recordEvent(db, { conversationId: id, type: "assumida", actorId: input.userId, toUserId: input.userId });
+      await publishUpdate(env, db, id, eventId);
+    }
   } else if (conv.status === "resolvida") {
-    await db
+    // Condicional ao status lido: se o cliente escreveu (e reabriu) no meio, este UPDATE nao atropela.
+    const reopened = await db
       .update(schema.conversation)
       .set({ status: "em_andamento", assigneeId: input.userId })
-      .where(eq(schema.conversation.id, conv.id));
-    const eventId = await recordEvent(db, { conversationId: conv.id, type: "reaberta", actorId: input.userId, toUserId: input.userId });
-    await publishUpdate(env, db, conv.id, eventId);
+      .where(and(eq(schema.conversation.id, conv.id), eq(schema.conversation.status, "resolvida")))
+      .returning({ id: schema.conversation.id });
+    if (reopened.length > 0) {
+      const reopenedId = await recordEvent(db, { conversationId: conv.id, type: "reaberta", actorId: input.userId, toUserId: input.userId });
+      await publishUpdate(env, db, conv.id, reopenedId);
+      if (conv.assigneeId && conv.assigneeId !== input.userId) {
+        // +1 ms: a linha do tempo ordena por horario, e a troca vem depois da reabertura.
+        const transferredId = await recordEvent(db, {
+          conversationId: conv.id,
+          type: "transferida",
+          actorId: input.userId,
+          toUserId: input.userId,
+          fromUserId: conv.assigneeId,
+          timestamp: Date.now() + 1,
+        });
+        await publishUpdate(env, db, conv.id, transferredId);
+      }
+    }
   }
 
   const message = await sendOutgoingText(env, { conversationId: conv.id, userId: input.userId, origin: input.origin, text: input.text });

@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { postJson } from "./api";
+import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
+import worker from "../../src/worker/index";
 
 let seq = 0;
 
@@ -136,7 +137,19 @@ export function connectionEvent(input: { status: string; type?: string; lastDisc
   };
 }
 
-/** Chama o webhook como a Uazapi chamaria (segredo da URL + token no corpo). */
-export function postWebhook(body: unknown, secret: string = env.WEBHOOK_URL_SECRET) {
-  return postJson(`/api/webhook/${secret}`, body);
+/**
+ * Chama o webhook como a Uazapi chamaria (segredo da URL + token no corpo). O Worker responde 200 antes de processar
+ * (o processamento roda em `waitUntil`); aqui a resposta so volta depois de o processamento terminar, para o teste
+ * conferir o efeito logo em seguida, sem espera cega.
+ */
+export async function postWebhook(body: unknown, secret: string = env.WEBHOOK_URL_SECRET): Promise<Response> {
+  const ctx = createExecutionContext();
+  const request = new Request(`http://crm.test/api/webhook/${secret}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const res = await worker.fetch!(request, env, ctx);
+  await waitOnExecutionContext(ctx);
+  return res;
 }

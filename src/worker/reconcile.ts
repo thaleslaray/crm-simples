@@ -4,6 +4,7 @@ import { createDb, type Db, schema } from "./db";
 import { ingestMessage } from "./ingest";
 import { publish } from "./realtime";
 import { createUazapiClient } from "./uazapi/client";
+import { errorName } from "./errors";
 
 const PAGE_SIZE = 100;
 const MAX_PAGES = 5;
@@ -38,7 +39,7 @@ async function recoverMessages(env: Cloudflare.Env, db: Db, now: number): Promis
         if (conversation && message) await publish(env, { type: "message.created", conversation, message });
       } catch (err) {
         failed = true;
-        console.error("reconciliacao: falha ao ingerir mensagem", { erro: err instanceof Error ? err.name : "desconhecido" });
+        console.error("reconciliacao: falha ao ingerir mensagem", { erro: errorName(err) });
       }
     }
     // Mais recentes primeiro: pagina inteira fora da janela significa que o resto tambem esta.
@@ -72,11 +73,11 @@ export async function reconcile(env: Cloudflare.Env): Promise<void> {
   try {
     await recoverMessages(env, db, now);
   } catch (err) {
-    console.error("reconciliacao: falha ao buscar mensagens", { erro: err instanceof Error ? err.name : "desconhecido" });
+    console.error("reconciliacao: falha ao buscar mensagens", { erro: errorName(err) });
   }
   try {
     await requeuePendingMedia(env, db, now);
   } catch (err) {
-    console.error("reconciliacao: falha ao reenfileirar midias", { erro: err instanceof Error ? err.name : "desconhecido" });
+    console.error("reconciliacao: falha ao reenfileirar midias", { erro: errorName(err) });
   }
 }

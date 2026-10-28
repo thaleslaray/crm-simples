@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { api, cookieFrom, postJson, signIn } from "./helpers/api";
-import { clientWritesAgain, assume, conversationOf, conversationWithClient, resolve, sendText } from "./helpers/conversations";
+import { clientWritesAgain, assume, conversationOf, conversationWithClient, events, resolve, sendText } from "./helpers/conversations";
 import { fakeUazapi } from "./helpers/fake-uazapi";
 import { connectRealtime } from "./helpers/realtime";
 import { loginAsAdmin } from "./helpers/session";
@@ -119,6 +119,49 @@ describe("Remover membro", () => {
     expect(await velha.json()).toBeNull();
     expect((await signIn("ana@exemplo.com", SENHA)).res.status).toBe(401);
     expect((await teamList(admin)).members.map((m) => m.email)).toEqual(["admin@exemplo.com"]);
+  });
+
+  it("o removido nao envia mais mensagem nem age em conversa, mesmo com o cookie de sessao ainda no cache", async () => {
+    const admin = await loginAsAdmin();
+    const ana = await atendente("ana@exemplo.com", "Ana");
+    const conversa = await conversationWithClient(admin, "5511900000016");
+    await assume(ana.cookie, conversa);
+    expect((await removeMember(admin, ana.id)).status).toBe(200);
+
+    expect((await sendText(ana.cookie, conversa, "ainda aqui?")).status).toBe(401);
+    expect((await assume(ana.cookie, conversa)).status).toBe(401);
+    expect((await resolve(ana.cookie, conversa)).status).toBe(401);
+  });
+
+  it("o socket aberto do removido para de receber o que acontece na caixa de entrada", async () => {
+    const admin = await loginAsAdmin();
+    const ana = await atendente("ana@exemplo.com", "Ana");
+    const doRemovido = await connectRealtime(ana.cookie);
+    const doAdmin = await connectRealtime(admin);
+    await removeMember(admin, ana.id);
+
+    await clientWritesAgain("5511900000017");
+
+    expect(await doAdmin.next()).toMatchObject({ type: "message.created" });
+    await expect(doRemovido.next(300)).rejects.toThrow();
+  });
+
+  it("devolver pela remocao grava na linha do tempo quem removeu e avisa o tempo real com o evento", async () => {
+    const admin = await loginAsAdmin();
+    const ana = await atendente("ana@exemplo.com", "Ana");
+    const conversa = await conversationWithClient(admin, "5511900000018");
+    await assume(ana.cookie, conversa);
+    const conn = await connectRealtime(admin);
+
+    await removeMember(admin, ana.id);
+
+    expect(await conn.next()).toMatchObject({
+      type: "conversation.updated",
+      conversation: { id: conversa, status: "aberta", assigneeId: null },
+      event: { type: "devolvida", actorName: "Pessoa de Teste" },
+    });
+    expect((await events(admin, conversa)).at(-1)).toMatchObject({ type: "devolvida", actorName: "Pessoa de Teste" });
+    conn.close();
   });
 
   it("conversas em andamento e aguardando cliente voltam para aberta sem dono; as dos outros ficam", async () => {

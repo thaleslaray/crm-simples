@@ -28,6 +28,10 @@ const LOAD_OLDER_THRESHOLD = 120;
 // Prefixo do id da bolha "enviando" que só existe no navegador até a API responder.
 const TEMP = "tmp-";
 
+/** A citação como a bolha mostra, a partir da mensagem citada. */
+const quoteOf = (m: Message | null): Message["quote"] =>
+  m ? { id: m.id, type: m.type, text: m.text, direction: m.direction, authorName: m.authorName ?? null } : null;
+
 /** Entrega das mensagens enviadas: ✓ enviada, ✓✓ entregue, ✓✓ lida. */
 const DELIVERY_LABEL: Partial<Record<SendStatus, string>> = {
   sent: "✓ Enviada",
@@ -318,33 +322,42 @@ export function ConversationPage() {
     }
   }, [id]);
 
+  // Bolha "enviando" otimista: entra na hora e troca pela mensagem do servidor; se nem chegou ao servidor, sai de novo.
+  // Devolve se chegou (quem chamou desfaz o resto: texto no campo, citação, aviso de erro).
+  const sendOptimistic = useCallback(
+    async (temp: Message, send: () => Promise<Message>): Promise<boolean> => {
+      stickToBottom.current = true;
+      setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, messages: [...s.messages, temp] } : s));
+      try {
+        replaceMessage(temp.id, await send());
+        return true;
+      } catch {
+        replaceMessage(temp.id, null);
+        return false;
+      }
+    },
+    [id, replaceMessage],
+  );
+
   const sendDraft = useCallback(async () => {
     const text = draft.trim();
     if (!id || !text) return;
-    const tempId = `${TEMP}${crypto.randomUUID()}`;
     const quoting = replyingTo;
-    const quote = quoting
-      ? { id: quoting.id, type: quoting.type, text: quoting.text, direction: quoting.direction, authorName: quoting.authorName ?? null }
-      : null;
-    const temp: Message = { id: tempId, direction: "out", type: "text", text, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote };
-    stickToBottom.current = true;
-    setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, messages: [...s.messages, temp] } : s));
+    const temp: Message = { id: `${TEMP}${crypto.randomUUID()}`, direction: "out", type: "text", text, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote: quoteOf(quoting) };
     setDraftState("");
     setDraft(id, "");
     setSendError(false);
     setReplyingTo(null);
-    try {
-      replaceMessage(tempId, (await api.sendText(id, text, quoting?.id)).message);
+    if (await sendOptimistic(temp, async () => (await api.sendText(id, text, quoting?.id)).message)) {
       void refreshConversation();
-    } catch {
-      // Nem chegou ao servidor: tira a bolha e devolve o texto ao campo.
-      replaceMessage(tempId, null);
+    } else {
+      // Nem chegou ao servidor: devolve o texto ao campo.
       setDraftState(text);
       setDraft(id, text);
       setReplyingTo(quoting);
       setSendError(true);
     }
-  }, [draft, id, replaceMessage, replyingTo, refreshConversation]);
+  }, [draft, id, sendOptimistic, replyingTo, refreshConversation]);
 
   // Vai até a mensagem original: se já está na tela, rola até ela; senão reabre a conversa posicionada nela (como a busca).
   const goToQuoted = useCallback(
@@ -387,30 +400,20 @@ export function ConversationPage() {
     async (file: File, opts: { caption: string; voice: boolean; quoting?: Message | null }) => {
       if (!id) return false;
       const quoting = opts.quoting ?? null;
-      const quote = quoting
-        ? { id: quoting.id, type: quoting.type, text: quoting.text, direction: quoting.direction, authorName: quoting.authorName ?? null }
-        : null;
-      const tempId = `${TEMP}${crypto.randomUUID()}`;
       const type: Message["type"] = opts.voice ? "voice" : file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "document";
-      const temp: Message = { id: tempId, direction: "out", type, text: opts.caption || null, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote };
-      stickToBottom.current = true;
-      setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, messages: [...s.messages, temp] } : s));
+      const temp: Message = { id: `${TEMP}${crypto.randomUUID()}`, direction: "out", type, text: opts.caption || null, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote: quoteOf(quoting) };
       setSendError(false);
       setSendingFile(true);
       setReplyingTo(null);
-      try {
-        replaceMessage(tempId, (await api.sendMedia(id, file, { text: opts.caption, voice: opts.voice, replyTo: quoting?.id })).message);
-        return true;
-      } catch {
-        replaceMessage(tempId, null);
+      const sent = await sendOptimistic(temp, async () => (await api.sendMedia(id, file, { text: opts.caption, voice: opts.voice, replyTo: quoting?.id })).message);
+      if (!sent) {
         setReplyingTo(quoting);
         setSendError(true);
-        return false;
-      } finally {
-        setSendingFile(false);
       }
+      setSendingFile(false);
+      return sent;
     },
-    [id, replaceMessage],
+    [id, sendOptimistic],
   );
 
   const sendAttachment = useCallback(async () => {
@@ -783,7 +786,8 @@ function ConversationActions({
   }
 
   const open = conversation.status === "aberta" && conversation.assigneeId === null;
-  const resolvable = (conversation.status === "em_andamento" || conversation.status === "aguardando_cliente") && (isAdmin || isOwner);
+  // Qualquer membro resolve (não só o responsável); transferir continua com o responsável ou o admin.
+  const resolvable = conversation.status === "em_andamento" || conversation.status === "aguardando_cliente";
   const others = members.filter((m) => m.id !== conversation.assigneeId);
 
   return (

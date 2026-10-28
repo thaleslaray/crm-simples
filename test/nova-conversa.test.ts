@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { signIn } from "./helpers/api";
 import {
+  assume,
   conversationWithClient,
+  events,
   history,
   inbox,
   resolve,
@@ -10,6 +12,7 @@ import {
   type HistoryMessage,
   type InboxConversation,
 } from "./helpers/conversations";
+import { connectRealtime } from "./helpers/realtime";
 import { fakeUazapi } from "./helpers/fake-uazapi";
 import { ficha } from "./helpers/ficha";
 import { loginAsAtendente } from "./helpers/session";
@@ -20,9 +23,9 @@ const SEND = "/send/text";
 type Started = { conversation: InboxConversation; message: HistoryMessage; created: boolean };
 const started = async (res: Response) => (await res.json()) as Started;
 
-async function loginAsAna() {
-  await createUser({ email: "ana@exemplo.com", password: "senha-segura-123", name: "Ana", role: "atendente" });
-  return (await signIn("ana@exemplo.com", "senha-segura-123")).cookie;
+async function loginAsAna(email = "ana@exemplo.com", name = "Ana") {
+  await createUser({ email, password: "senha-segura-123", name, role: "atendente" });
+  return (await signIn(email, "senha-segura-123")).cookie;
 }
 
 describe("Nova conversa", () => {
@@ -118,6 +121,44 @@ describe("Nova conversa", () => {
     const body = await started(res);
     expect(body.conversation).toMatchObject({ id: conversa, assigneeName: "Ana", status: "aguardando_cliente" });
     expect((await ficha(cookie, contactId)).conversations).toHaveLength(1);
+  });
+
+  it("a conversa nova avisa o tempo real com o evento de quem assumiu", async () => {
+    const ana = await loginAsAna();
+    const bia = await loginAsAna("bia@exemplo.com", "Bia");
+    const conn = await connectRealtime(bia);
+    await uazapi.program("POST", SEND, [{ body: { id: "owner:N8" } }]);
+
+    await startConversation(ana, { phone: "5511988880001", text: "Olá" });
+
+    expect(await conn.next()).toMatchObject({
+      type: "conversation.updated",
+      conversation: { status: "em_andamento", assigneeName: "Ana" },
+      event: { type: "assumida", actorName: "Ana" },
+    });
+    conn.close();
+  });
+
+  it("reabrir uma resolvida de outro atendente avisa o tempo real e registra reabertura e troca de responsavel", async () => {
+    const ana = await loginAsAna();
+    const bia = await loginAsAna("bia@exemplo.com", "Bia");
+    const conversa = await conversationWithClient(ana, "5511900000013");
+    await assume(ana, conversa);
+    await resolve(ana, conversa);
+    const conn = await connectRealtime(ana);
+    await uazapi.program("POST", SEND, [{ body: { id: "owner:N9" } }]);
+
+    await startConversation(bia, { phone: "5511900000013", text: "Oi, é a Bia" });
+
+    expect(await conn.next()).toMatchObject({ type: "conversation.updated", event: { type: "reaberta", actorName: "Bia" } });
+    expect(await events(ana, conversa)).toMatchObject([
+      { type: "assumida" },
+      { type: "resolvida" },
+      { type: "reaberta", actorName: "Bia" },
+      { type: "transferida", actorName: "Bia", fromName: "Ana", toName: "Bia" },
+    ]);
+    expect((await inbox(ana)).find((c) => c.id === conversa)).toMatchObject({ assigneeName: "Bia", status: "aguardando_cliente" });
+    conn.close();
   });
 
   it("contato inexistente devolve 404", async () => {
