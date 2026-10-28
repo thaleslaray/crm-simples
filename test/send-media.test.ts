@@ -144,6 +144,38 @@ describe("Enviar mídia e nota de voz", () => {
     expect((await resend(cookie, conversa, msg.id)).status).toBe(409);
   });
 
+  it("mídia com legenda cita a mensagem do cliente (replyid) e devolve a citação; o reenvio mantém a citação", async () => {
+    const cookie = await loginAsAna();
+    const conversa = await conversationWithClient(cookie);
+    const original = (await history(cookie, conversa)).messages[0]!;
+    await uazapi.program("POST", SEND, [{ status: 400, body: { error: "x" } }]);
+
+    const failed = await messageOf(
+      await sendMedia(cookie, conversa, { name: "a.png", mime: "image/png", content: "abc", caption: "Veja", replyTo: original.id }),
+    );
+
+    expect(failed).toMatchObject({ status: "failed", quote: { id: original.id, text: "oi", direction: "in" } });
+    const first = (await uazapi.calls())[0]!.body as { replyid: string };
+    expect(first.replyid).toEqual(expect.any(String));
+
+    await uazapi.program("POST", SEND, [{ body: { id: "owner:M6" } }]);
+    expect((await resend(cookie, conversa, failed.id)).status).toBe(200);
+    expect(((await uazapi.calls()).at(-1)!.body as { replyid: string }).replyid).toBe(first.replyid);
+  });
+
+  it("recusa citar mensagem de outra conversa ao enviar mídia, sem chamar a Uazapi nem gravar o arquivo", async () => {
+    const cookie = await loginAsAna();
+    const conversa = await conversationWithClient(cookie);
+    const outra = await conversationWithClient(cookie, "5511900000011");
+    const deOutra = (await history(cookie, outra)).messages[0]!;
+
+    const res = await sendMedia(cookie, conversa, { name: "a.png", mime: "image/png", content: "x", replyTo: deOutra.id });
+
+    expect(res.status).toBe(400);
+    expect(await uazapi.calls()).toHaveLength(0);
+    expect((await history(cookie, conversa)).messages.filter((m) => m.direction === "out")).toHaveLength(0);
+  });
+
   it("recusa arquivo vazio, nota de voz que não é áudio, conversa inexistente e quem não tem sessão", async () => {
     const cookie = await loginAsAtendente();
     const conversa = await conversationWithClient(cookie);

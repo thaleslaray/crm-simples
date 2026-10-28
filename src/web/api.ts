@@ -30,6 +30,16 @@ export interface Message {
   media: MessageMedia | null;
   location: { lat: number; lng: number; name: string | null; address: string | null } | null;
   contact: { name: string | null; phone: string | null } | null;
+  /** Mensagem citada (some se a original é anterior à conexão do número). */
+  quote?: MessageQuote | null;
+}
+
+export interface MessageQuote {
+  id: string;
+  type: MessageType;
+  text: string | null;
+  direction: "in" | "out";
+  authorName: string | null;
 }
 
 export type SendStatus = "sending" | "sent" | "failed" | "uncertain";
@@ -71,14 +81,15 @@ async function sendJson<T>(method: string, path: string, body: unknown): Promise
 }
 
 export const api = {
-  sendText: (id: string, text: string) =>
-    sendJson<{ message: Message }>("POST", `/api/conversations/${encodeURIComponent(id)}/messages`, { text }),
+  sendText: (id: string, text: string, replyTo?: string) =>
+    sendJson<{ message: Message }>("POST", `/api/conversations/${encodeURIComponent(id)}/messages`, { text, replyTo }),
   /** Anexo (legenda opcional) ou nota de voz (`voice`, sem legenda). */
-  sendMedia: async (id: string, file: File, opts: { text?: string; voice?: boolean } = {}) => {
+  sendMedia: async (id: string, file: File, opts: { text?: string; voice?: boolean; replyTo?: string } = {}) => {
     const form = new FormData();
     form.set("file", file);
     if (opts.text) form.set("text", opts.text);
     if (opts.voice) form.set("voice", "1");
+    if (opts.replyTo) form.set("replyTo", opts.replyTo);
     const res = await fetch(`/api/conversations/${encodeURIComponent(id)}/messages`, {
       method: "POST",
       credentials: "same-origin",

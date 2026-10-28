@@ -45,14 +45,15 @@ export interface UazapiClient {
   /** Abre o link do arquivo para leitura em stream. Nao envia o token da instancia: o host vem do corpo da resposta. */
   openFile(url: string): Promise<Response>;
   /** Envia texto. Lanca UazapiHttpError (recusa) ou UazapiTimeoutError (resultado incerto). */
-  sendText(input: { number: string; text: string }): Promise<SentText>;
-  /** Envia midia por link (`/send/media`). `ptt` e nota de voz; `text` e a legenda. Mesmos erros de `sendText`. */
+  sendText(input: { number: string; text: string; replyId?: string }): Promise<SentText>;
+  /** Envia midia por link (`/send/media`). `ptt` e nota de voz; `text` e a legenda; `replyId` cita uma mensagem. Mesmos erros de `sendText`. */
   sendMedia(input: {
     number: string;
     type: "image" | "video" | "document" | "ptt";
     file: string;
     text?: string;
     docName?: string;
+    replyId?: string;
   }): Promise<SentText>;
 }
 
@@ -198,7 +199,7 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     },
     // O timeout vale ate os headers chegarem; o corpo segue em stream sem limite de tempo proprio.
     openFile: (url) => request(url, {}, false),
-    sendText: ({ number, text }) => postSend("/send/text", { number, text }),
-    sendMedia: (input) => postSend("/send/media", input),
+    sendText: ({ number, text, replyId }) => postSend("/send/text", { number, text, ...(replyId ? { replyid: replyId } : {}) }),
+    sendMedia: ({ replyId, ...input }) => postSend("/send/media", { ...input, ...(replyId ? { replyid: replyId } : {}) }),
   };
 }

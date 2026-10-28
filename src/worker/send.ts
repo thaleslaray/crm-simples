@@ -11,9 +11,9 @@ export type OutgoingMedia = { file: File; caption: string; voice: boolean };
 
 /** `origin`: endereco publico deste Worker, base do link assinado que a Uazapi usa para buscar a midia. */
 type Input = { conversationId: string; userId: string; origin: string } & (
-  | { text: string }
+  | { text: string; replyTo?: string }
   | { messageId: string }
-  | { media: OutgoingMedia }
+  | { media: OutgoingMedia; replyTo?: string }
 );
 
 /** Voz vira `voice`; o resto pelo mime. */
@@ -29,9 +29,10 @@ function mediaType(file: File, voice: boolean): MessageType {
  * sucesso -> sent (com o id da Uazapi); recusa HTTP -> failed (reenvio manual); timeout ou erro de rede -> uncertain
  * (a Uazapi pode ter entregue: nunca reenviado automaticamente, e o reenvio manual só vale para "failed").
  * Com `messageId` reenvia uma mensagem "failed". Devolve null se conversa/mensagem não existe e "not_failed"
- * se a mensagem não está em "failed".
+ * se a mensagem não está em "failed". Com `replyTo` (id de uma mensagem da mesma conversa) responde citando; devolve
+ * "invalid_reply" se ela não existe ou ainda não tem id no WhatsApp.
  */
-export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promise<Message | "not_failed" | null> {
+export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promise<Message | "not_failed" | "invalid_reply" | null> {
   const db = createDb(env.DB);
   const conv = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, input.conversationId) });
   if (!conv) return null;
@@ -45,6 +46,7 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
   let type: MessageType = "text";
   let mediaName: string | null = null;
   let hasMedia = false;
+  let quotedId: string | null = null;
   if ("messageId" in input) {
     const msg = await db.query.message.findFirst({
       where: and(
@@ -68,7 +70,16 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
     type = msg.type;
     mediaName = msg.mediaName;
     hasMedia = msg.mediaStatus === "available" && !!msg.mediaKey;
+    quotedId = msg.quotedId;
   } else {
+    if (input.replyTo) {
+      const target = await db.query.message.findFirst({
+        where: and(eq(schema.message.id, input.replyTo), eq(schema.message.conversationId, conv.id)),
+        columns: { whatsappMessageId: true },
+      });
+      if (!target?.whatsappMessageId) return "invalid_reply";
+      quotedId = target.whatsappMessageId;
+    }
     messageId = crypto.randomUUID();
     timestamp = Date.now();
     const media = "media" in input ? input.media : null;
@@ -96,6 +107,7 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
         mediaSize: media.file.size,
         mediaName,
       }),
+      quotedId,
     });
     await db
       .update(schema.conversation)
@@ -120,8 +132,9 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
             // Nota de voz nao tem legenda; legenda vazia tambem nao leva a assinatura.
             ...(type !== "voice" && text ? { text: signed } : {}),
             ...(type === "document" && mediaName ? { docName: mediaName } : {}),
+            replyId: quotedId ?? undefined,
           })
-        : await uazapi.sendText({ number, text: signed });
+        : await uazapi.sendText({ number, text: signed, replyId: quotedId ?? undefined });
       status = "sent";
       patch = { externalId: sent.id, whatsappMessageId: sent.messageId };
     } catch (err) {
