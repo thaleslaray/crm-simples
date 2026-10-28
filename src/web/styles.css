@@ -11,6 +11,7 @@
   --bubble-out: #d9fdd3;
   --bubble-note: #fff6c2;
   --bubble-note-border: #f0dc7a;
+  --composer-note: #fff9d9;
   --text: #111b21;
   --text-2: #667781;
   --divider: #e9edef;
@@ -52,6 +53,7 @@
   --bubble-out: #005c4b;
   --bubble-note: #3d3514;
   --bubble-note-border: #6b5c1f;
+  --composer-note: #2f2a12;
   --text: #e9edef;
   --text-2: #8696a0;
   --divider: #222d34;
@@ -196,14 +198,36 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .bubble.is-failed .bubble-status, .bubble.is-uncertain .bubble-status { color: var(--danger); font-weight: 600; }
 .bubble.is-sending { opacity: 0.7; }
 button.link { background: transparent; color: var(--brand); padding: 0 4px; min-height: 32px; text-decoration: underline; }
-.composer { background: var(--card); border-top: 1px solid var(--border); padding: 8px 12px; display: grid; gap: 6px; }
-.composer-row { display: flex; gap: 8px; align-items: flex-end; }
-.composer textarea { flex: 1 1 0; width: 0; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; resize: none; field-sizing: content; min-height: 44px; max-height: 40dvh; }
+/* Campo de mensagem: pílula arredondada sobre o fundo do chat (a nota deixa a pílula amarela). */
+.composer { position: relative; padding: 8px 16px 14px; display: grid; gap: 6px; }
+.composer-pill { display: flex; align-items: flex-end; gap: 4px; background: var(--bg-panel); border-radius: 26px; padding: 6px 8px; box-shadow: var(--shadow); transition: background 0.15s; }
+.composer.note-mode .composer-pill { background: var(--composer-note); outline: 1px solid var(--bubble-note-border); }
+.composer textarea { flex: 1 1 0; width: 0; min-width: 0; font: inherit; font-size: 16px; line-height: 22px; padding: 9px 6px; border: 0; outline: 0; background: transparent; color: var(--text); border-radius: 0; resize: none; field-sizing: content; min-height: 40px; max-height: 120px; }
+.composer-btn { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; min-height: 40px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; }
+.composer-btn svg { width: 22px; height: 22px; }
+.composer-btn:hover { background: var(--bg-hover); }
+.composer-btn.on { color: #b08800; background: rgba(240, 220, 122, 0.35); }
+:root[data-theme="dark"] .composer-btn.on { color: #e0c255; }
+.composer-send { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; min-height: 40px; padding: 0; border: 0; border-radius: 50%; background: var(--green-strong); color: #fff; cursor: pointer; }
+.composer-send svg { width: 20px; height: 20px; }
+.composer-send:disabled { opacity: 0.5; cursor: default; }
+.note-hint { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0 12px; font-size: 0.78rem; color: #8a6d00; }
+:root[data-theme="dark"] .note-hint { color: #e0c255; }
+.note-hint svg { width: 14px; height: 14px; }
+.attach-wrap { position: relative; display: flex; }
+.attach-menu { position: absolute; left: 0; bottom: calc(100% + 10px); z-index: 30; min-width: 200px; padding: 6px; display: grid; background: var(--bg-panel); border-radius: 12px; box-shadow: var(--menu-shadow); }
+.attach-menu button { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.attach-menu button:hover { background: var(--bg-hover); }
+.attach-menu svg { width: 20px; height: 20px; color: var(--text-2); }
+@media (max-width: 767px) { .composer { padding: 6px 8px 8px; } }
 .user { flex-wrap: wrap; justify-content: flex-end; }
-.qr-menu { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); max-height: 40dvh; overflow-y: auto; display: grid; gap: 2px; }
-.qr-menu li { display: grid; gap: 2px; padding: 8px 10px; border-radius: 6px; cursor: pointer; min-height: 44px; align-content: center; }
-.qr-menu li[aria-selected="true"] { background: var(--bg-active); }
-.qr-menu li span { color: var(--muted); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qr-menu { list-style: none; margin: 0; padding: 6px; position: absolute; left: 16px; right: 16px; bottom: calc(100% - 4px); z-index: 20; border-radius: 12px; background: var(--bg-panel); box-shadow: var(--menu-shadow); max-height: 260px; overflow-y: auto; display: grid; gap: 2px; }
+.qr-menu li { display: flex; gap: 8px; align-items: baseline; padding: 8px 10px; border-radius: 8px; cursor: pointer; min-height: 44px; align-items: center; }
+.qr-menu li strong { color: var(--green-text); flex-shrink: 0; }
+.qr-menu li.qr-label { cursor: default; min-height: 0; font-size: 0.75rem; color: var(--text-2); }
+.qr-menu li[aria-selected="true"] { background: var(--bg-hover); }
+.qr-menu li span { color: var(--text-2); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+@media (max-width: 767px) { .qr-menu { left: 8px; right: 8px; } }
 .qr-menu .qr-empty { cursor: default; }
 .qr-admin { width: 100%; }
 .qr-form { display: grid; gap: 12px; }
@@ -419,11 +443,6 @@ button.danger { color: var(--danger); }
 .note-head strong { color: var(--text); font-weight: 600; }
 .note-head time { margin-left: auto; }
 
-.composer-mode { display: flex; gap: 6px; }
-.composer-mode button { min-height: 36px; padding: 6px 12px; font-size: 0.85rem; }
-.composer-mode .mode-on { background: var(--brand); }
-.composer-mode .mode-note-on { background: #a16207; }
-.composer textarea.is-note { background: var(--bubble-note); border-color: var(--bubble-note-border); }
 @media (max-width: 767px) {
   /* Celular: a ficha vira uma aba que ocupa o lugar da conversa. */
   .conv-body--ficha .conv-col { display: none; }

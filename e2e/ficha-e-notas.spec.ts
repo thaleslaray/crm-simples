@@ -44,7 +44,7 @@ test("atendente escreve nota interna, ve a ficha, edita o contato e nada disso v
 
   // Nota interna: aparece com visual proprio, autor e horario
   await conversation.getByRole("button", { name: "Nota interna" }).click();
-  await conversation.getByLabel("Nota interna", { exact: true }).fill("Cliente pediu desconto de 10%");
+  await conversation.locator("form.composer textarea").fill("Cliente pediu desconto de 10%");
   await conversation.getByRole("button", { name: "Salvar nota" }).click();
   const note = conversation.getByTestId("internal-note");
   await expect(note).toContainText("Cliente pediu desconto de 10%");
