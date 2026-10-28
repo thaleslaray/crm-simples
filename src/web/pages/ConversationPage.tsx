@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { ApiError, api, type Conversation, type Message } from "../api";
+import { ApiError, api, type Conversation, type Message, type QuickReply } from "../api";
+import { fillName, filterQuickReplies, slashQuery } from "../quick-replies";
 import { getDraft, setDraft } from "../drafts";
 import { contactLabel, dayLabel, formatPhone, initials, messageTime, sameDay } from "../format";
 import { onRealtime } from "../realtime";
@@ -192,7 +193,27 @@ export function ConversationPage() {
     setSendError(false);
   }, [id]);
 
-  const replaceMessage = useCallback((from: string, to: Message | null) => {
+  // Respostas rápidas: `/` no começo do campo abre a lista; escolher uma troca o campo pelo texto (com {nome}).
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [slashDismissed, setSlashDismissed] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
+  useEffect(() => {
+    api.quickReplies().then((r) => setQuickReplies(r.quickReplies)).catch(() => undefined);
+  }, [id]);
+  const query = slashDismissed ? null : slashQuery(draft);
+  const matches = query === null ? [] : filterQuickReplies(quickReplies, query);
+  const slashOpen = query !== null && quickReplies.length > 0;
+  const pickQuickReply = (r: QuickReply) => {
+    if (state.kind !== "ready" || !id) return;
+    const filled = fillName(r.text, state.conversation.contact.name);
+    setDraftState(filled);
+    setDraft(id, filled);
+    setSlashDismissed(true);
+    inputRef.current?.focus();
+  };
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const replaceMessage =useCallback((from: string, to: Message | null) => {
     setState((s) => {
       if (s.kind !== "ready") return s;
       const known = to ? s.messages.some((m) => m.id === to.id) : false;
@@ -331,17 +352,56 @@ export function ConversationPage() {
             Não foi possível enviar. Tente de novo.
           </p>
         )}
+        {slashOpen && (
+          <ul className="qr-menu" role="listbox" aria-label="Respostas rápidas">
+            {matches.length === 0 ? (
+              <li className="muted qr-empty">Nenhuma resposta encontrada</li>
+            ) : (
+              matches.map((r, i) => (
+                <li
+                  key={r.id}
+                  role="option"
+                  aria-selected={i === Math.min(slashIndex, matches.length - 1)}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // mantém o foco no campo
+                    pickQuickReply(r);
+                  }}
+                >
+                  <strong>/{r.shortcut}</strong>
+                  <span>{r.text}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
         <div className="composer-row">
           <textarea
+            ref={inputRef}
             aria-label="Mensagem"
             placeholder="Escreva uma mensagem"
             rows={1}
             value={draft}
             onChange={(e) => {
               setDraftState(e.target.value);
+              setSlashDismissed(false);
+              setSlashIndex(0);
               if (id) setDraft(id, e.target.value);
             }}
             onKeyDown={(e) => {
+              if (slashOpen && matches.length > 0) {
+                const cur = Math.min(slashIndex, matches.length - 1);
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setSlashIndex((cur + (e.key === "ArrowDown" ? 1 : matches.length - 1)) % matches.length);
+                  return;
+                }
+                if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+                  e.preventDefault();
+                  pickQuickReply(matches[cur]!);
+                  return;
+                }
+              }
+              if (slashOpen && e.key === "Escape") setSlashDismissed(true);
               // Ctrl/Cmd+Enter envia; Enter sozinho quebra a linha (no celular não há outra forma de quebrar).
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();

@@ -127,6 +127,14 @@ export const conversation = sqliteTable(
   (t) => [index("conversation_last_message_at_idx").on(t.lastMessageAt)],
 );
 
+/** Resposta rapida compartilhada pela equipe: atalho (gravado em minusculas, unico) e texto com `{nome}`. */
+export const quickReply = sqliteTable("quick_reply", {
+  id: text("id").primaryKey(),
+  shortcut: text("shortcut").notNull().unique(),
+  text: text("text").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
 export const message = sqliteTable(
   "message",
   {

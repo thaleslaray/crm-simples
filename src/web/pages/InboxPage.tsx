@@ -18,6 +18,11 @@ export function InboxPage() {
 
   useRealtimeConnection();
 
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    api.me().then((m) => setIsAdmin(m.user.role === "admin")).catch(() => undefined);
+  }, []);
+
   const load = useCallback(() => {
     api
       .conversations()
@@ -45,6 +50,7 @@ export function InboxPage() {
       <header className="topbar">
         <h1>Caixa de entrada</h1>
         <div className="user">
+          {isAdmin && <Link to="/respostas-rapidas">Respostas rápidas</Link>}
           <Link to="/perfil" data-testid="user-name">
             {data?.user.name}
           </Link>
