@@ -45,7 +45,7 @@ test("atendente assume, responde, o cliente volta, resolve e filtra a caixa", as
 
   const item = page.getByRole("link", { name: new RegExp(`Cliente ${run}`) }).first();
   await expect(item).toContainText("Aberta");
-  await expect(item).toContainText("Sem responsável");
+  await expect(item).toContainText("sem dono");
   await item.click();
   const conversation = page.getByRole("article", { name: `Conversa com Cliente ${run}` });
   const status = conversation.getByTestId("conversation-status");
@@ -76,14 +76,18 @@ test("atendente assume, responde, o cliente volta, resolve e filtra a caixa", as
 
   // Filtros da caixa (no celular a lista fica atrás da conversa)
   if (info.project.name === "mobile") await page.getByRole("link", { name: "Voltar à caixa de entrada" }).click();
-  await page.getByLabel("Filtrar por status").selectOption("resolvida");
+  const more = page.getByRole("button", { name: /^Mais filtros/ });
+  await more.click();
+  await page.getByRole("button", { name: "Resolvidas", exact: true }).click();
   await expect(item).toBeVisible();
-  await page.getByLabel("Filtrar por status").selectOption("aguardando_cliente");
+  await more.click();
+  await page.getByRole("button", { name: "Aguardando cliente", exact: true }).click();
   await expect(item).toHaveCount(0);
-  await page.getByLabel("Filtrar por status").selectOption("");
-  await page.getByLabel("Filtrar por responsável").selectOption("me");
+  await more.click();
+  await page.getByRole("button", { name: "Aguardando cliente", exact: true }).click(); // de novo: desliga
+  await page.getByRole("button", { name: "Minhas" }).click();
   await expect(item).toBeVisible();
-  await page.getByLabel("Filtrar por responsável").selectOption("none");
+  await page.getByRole("button", { name: /^Sem dono/ }).click();
   await expect(item).toHaveCount(0);
   await noHorizontalOverflow(page);
 });

@@ -27,6 +27,7 @@ export type Conversation = Awaited<ReturnType<typeof selectConversations>>[numbe
 
 /** Conversa com contato e ultima mensagem, no formato da API. */
 export async function selectConversations(db: Db, where?: SQL) {
+  const lastAuthor = alias(schema.user, "last_author");
   const rows = await db
     .select({
       id: schema.conversation.id,
@@ -40,11 +41,16 @@ export async function selectConversations(db: Db, where?: SQL) {
       msgType: schema.message.type,
       msgText: schema.message.text,
       msgTimestamp: schema.message.timestamp,
+      msgDirection: schema.message.direction,
+      msgStatus: schema.message.status,
+      msgAuthorId: schema.message.sentById,
+      msgAuthorName: lastAuthor.name,
     })
     .from(schema.conversation)
     .innerJoin(schema.contact, eq(schema.contact.id, schema.conversation.contactId))
     .leftJoin(schema.message, eq(schema.message.id, schema.conversation.lastMessageId))
     .leftJoin(schema.user, eq(schema.user.id, schema.conversation.assigneeId))
+    .leftJoin(lastAuthor, eq(lastAuthor.id, schema.message.sentById))
     .where(where)
     .orderBy(desc(schema.conversation.lastMessageAt), desc(schema.conversation.id))
     .limit(INBOX_LIMIT);
@@ -57,7 +63,17 @@ export async function selectConversations(db: Db, where?: SQL) {
     unreadCount: r.unreadCount,
     contact: { id: r.contactId, name: r.contactName, phone: r.contactPhone, labels: labels.get(r.contactId) ?? [] },
     lastMessage:
-      r.msgType && r.msgTimestamp != null ? { type: r.msgType, text: r.msgText, timestamp: r.msgTimestamp } : null,
+      r.msgType && r.msgTimestamp != null && r.msgDirection
+        ? {
+            type: r.msgType,
+            text: r.msgText,
+            timestamp: r.msgTimestamp,
+            direction: r.msgDirection,
+            status: r.msgStatus,
+            authorId: r.msgAuthorId,
+            authorName: r.msgAuthorName,
+          }
+        : null,
   }));
 }
 
@@ -127,6 +143,7 @@ export type MessageRow = {
   text: string | null;
   status: SendStatus | null;
   authorName: string | null;
+  sentById: string | null;
   timestamp: number;
   mediaStatus: "pending" | "available" | "failed" | null;
   mediaKey: string | null;
@@ -180,6 +197,7 @@ const messageColumns = {
   text: schema.message.text,
   status: schema.message.status,
   authorName: schema.user.name,
+  sentById: schema.message.sentById,
   timestamp: schema.message.timestamp,
   mediaStatus: schema.message.mediaStatus,
   mediaKey: schema.message.mediaKey,

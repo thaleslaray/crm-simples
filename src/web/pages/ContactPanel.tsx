@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { ArrowLeft, SquareKanban, X } from "lucide-react";
 import { api, type Contact, type Ficha } from "../api";
 import { contactLabel, formatPhone, initials, messageTime, STATUS_LABEL } from "../format";
 import { useFunnels } from "../funnels";
@@ -33,8 +34,33 @@ function Photo({ contact, onRenewed }: { contact: Contact; onRenewed: (c: Contac
   );
 }
 
-/** Ficha do contato: dados editáveis, histórico de conversas e as notas internas de todas as conversas dele. */
-export function ContactPanel({ contactId, onClose }: { contactId: string; onClose: () => void }) {
+/** Botão "Iniciar conversa" da ficha: abre o diálogo de nova conversa já com este contato. */
+export function StartConversationButton({ contact }: { contact: Contact }) {
+  const [starting, setStarting] = useState(false);
+  return (
+    <>
+      <button type="button" className="ficha-start" onClick={() => setStarting(true)}>
+        Iniciar conversa
+      </button>
+      {starting && <NewConversationDialog contact={{ id: contact.id, label: contactLabel(contact) }} onClose={() => setStarting(false)} />}
+    </>
+  );
+}
+
+interface ContactPanelProps {
+  contactId: string;
+  /** Mostra o botão de fechar (X no computador, seta de voltar no celular). Sem ele, a ficha é fixa na tela. */
+  onClose?: () => void;
+  /** Ação própria do lugar onde a ficha aparece (ex.: "Iniciar conversa", "Abrir conversa"), logo abaixo do telefone. */
+  heroAction?: (contact: Contact) => ReactNode;
+  className?: string;
+}
+
+/**
+ * Ficha do contato ("Dados do contato"): foto, nome e telefone; Etiquetas; Funis; Dados editáveis; Notas do contato.
+ * Só depende do contato; o que é da conversa entra por props.
+ */
+export function ContactPanel({ contactId, onClose, heroAction, className }: ContactPanelProps) {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [failed, setFailed] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", company: "", notes: "" });
@@ -42,7 +68,7 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [starting, setStarting] = useState(false);
+  const [editingLabels, setEditingLabels] = useState(false);
   const allLabels = useLabels();
   const [labelError, setLabelError] = useState(false);
   const allFunnels = useFunnels();
@@ -127,53 +153,53 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
   };
 
   return (
-    <aside className="ficha" aria-label="Ficha do contato">
-      <div className="ficha-head">
-        <h2>Ficha do contato</h2>
-        <button type="button" className="secondary ficha-close" onClick={onClose}>
-          Voltar à conversa
-        </button>
-      </div>
+    <aside className={`ficha${className ? ` ${className}` : ""}`} aria-label="Ficha do contato">
+      <header className="ficha-head">
+        {onClose && (
+          <button type="button" className="icon-btn ficha-close" aria-label="Fechar ficha" onClick={onClose}>
+            <X size={22} aria-hidden="true" className="ficha-close-x" />
+            <ArrowLeft size={22} aria-hidden="true" className="ficha-close-back" />
+          </button>
+        )}
+        <h2>Dados do contato</h2>
+      </header>
       {failed && !ficha && (
-        <p className="error" role="alert">
+        <p className="error ficha-pad" role="alert">
           Não foi possível carregar a ficha.
         </p>
       )}
-      {!ficha && !failed && <p className="muted">Carregando…</p>}
+      {!ficha && !failed && <p className="muted ficha-pad">Carregando…</p>}
       {ficha && (
         <div className="ficha-body">
-          <div className="ficha-id">
+          <div className="ficha-hero">
             <Photo contact={ficha.contact} onRenewed={(c) => setFicha((f) => (f ? { ...f, contact: c } : f))} />
-            <div>
-              <strong>{contactLabel(ficha.contact)}</strong>
-              <p className="muted" data-testid="ficha-phone">
-                {ficha.contact.phone ? formatPhone(ficha.contact.phone) : "Sem telefone"}
-              </p>
-            </div>
+            <h3 className="ficha-name">{contactLabel(ficha.contact)}</h3>
+            <p data-testid="ficha-phone">{ficha.contact.phone ? formatPhone(ficha.contact.phone) : "Sem telefone"}</p>
+            {heroAction?.(ficha.contact)}
           </div>
-          <button type="button" className="ficha-start" onClick={() => setStarting(true)}>
-            Iniciar conversa
-          </button>
-          {starting && (
-            <NewConversationDialog
-              contact={{ id: ficha.contact.id, label: contactLabel(ficha.contact) }}
-              onClose={() => setStarting(false)}
-            />
-          )}
-          <section aria-label="Etiquetas do contato">
-            <h3>Etiquetas</h3>
+          <section className="ficha-sec" aria-label="Etiquetas do contato">
+            <h4>
+              Etiquetas
+              {ficha.contact.labels.length > 0 && (
+                <button type="button" className="link-btn" aria-pressed={editingLabels} onClick={() => setEditingLabels((e) => !e)}>
+                  {editingLabels ? "Pronto" : "Editar"}
+                </button>
+              )}
+            </h4>
             <ul className="chips chips--edit">
               {ficha.contact.labels.map((l) => (
                 <li key={l.id}>
                   <LabelChip label={l} />
-                  <button
-                    type="button"
-                    className="chip-remove"
-                    aria-label={`Remover etiqueta ${l.name}`}
-                    onClick={() => void changeLabel(() => api.removeLabel(contactId, l.id))}
-                  >
-                    ×
-                  </button>
+                  {editingLabels && (
+                    <button
+                      type="button"
+                      className="chip-remove"
+                      aria-label={`Remover etiqueta ${l.name}`}
+                      onClick={() => void changeLabel(() => api.removeLabel(contactId, l.id))}
+                    >
+                      ×
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -186,7 +212,7 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
                   value=""
                   onChange={(e) => e.target.value && void changeLabel(() => api.applyLabel(contactId, e.target.value))}
                 >
-                  <option value="">Adicionar etiqueta…</option>
+                  <option value="">+ Adicionar etiqueta…</option>
                   {free.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
@@ -203,12 +229,17 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
               </p>
             )}
           </section>
-          <section aria-label="Funis do contato">
-            <h3>Funis</h3>
+          <section className="ficha-sec" aria-label="Funis do contato">
+            <h4>Funis</h4>
             <ul className="ficha-list">
               {ficha.funnels.map((f) => (
                 <li key={f.funnelId} className="ficha-funnel">
-                  <strong>{f.funnelName}</strong>
+                  <span className="ficha-funnel-name">
+                    <span className="ficha-funnel-ic" aria-hidden="true">
+                      <SquareKanban size={18} />
+                    </span>
+                    <strong>{f.funnelName}</strong>
+                  </span>
                   <div className="ficha-funnel-row">
                     <select
                       aria-label={`Etapa em ${f.funnelName}`}
@@ -271,6 +302,8 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
               </p>
             )}
           </section>
+          <section className="ficha-sec" aria-label="Dados">
+          <h4>Dados</h4>
           <form className="ficha-form" onSubmit={(e) => void save(e)}>
             <label>
               Telefone
@@ -306,9 +339,10 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
               Salvar
             </button>
           </form>
+          </section>
 
-          <section aria-label="Histórico de conversas">
-            <h3>Conversas</h3>
+          <section className="ficha-sec" aria-label="Histórico de conversas">
+            <h4>Conversas</h4>
             <ul className="ficha-list">
               {ficha.conversations.map((c) => (
                 <li key={c.id}>
@@ -322,8 +356,8 @@ export function ContactPanel({ contactId, onClose }: { contactId: string; onClos
             </ul>
           </section>
 
-          <section aria-label="Notas internas do contato">
-            <h3>Notas internas</h3>
+          <section className="ficha-sec" aria-label="Notas do contato">
+            <h4>Notas do contato</h4>
             {ficha.notes.length === 0 ? (
               <p className="muted">Nenhuma nota ainda.</p>
             ) : (

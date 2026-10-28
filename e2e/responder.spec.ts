@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, openUserMenu, test } from "./fixtures";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
@@ -58,7 +58,8 @@ test("atendente responde com assinatura, reenvia o que falhou, preserva o rascun
   await page.getByRole("button", { name: "Entrar" }).click();
 
   // O D1 é compartilhado: garante a assinatura ligada antes de começar
-  await page.getByTestId("user-name").click();
+  await openUserMenu(page);
+  await page.getByRole("link", { name: "Perfil", exact: true }).click();
   const signature = page.getByLabel("Assinar minhas mensagens com meu nome");
   await expect(signature).toBeEnabled();
   await signature.check();

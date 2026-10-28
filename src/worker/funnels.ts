@@ -1,6 +1,7 @@
 import { and, asc, eq, exists, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
+import type { ConversationStatus, MessageType } from "./db/schema";
 import { type LabelView, labelsByContact } from "./labels";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
 import { publish } from "./realtime";
@@ -177,6 +178,9 @@ export type CardView = {
   conversationId: string | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  status: ConversationStatus | null;
+  avatarUrl: string | null;
+  lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
   labels: LabelView[];
 };
 
@@ -197,10 +201,16 @@ funnels.get("/:id/board", requireAuth, async (c) => {
       conversationId: schema.conversation.id,
       assigneeId: schema.conversation.assigneeId,
       assigneeName: schema.user.name,
+      status: schema.conversation.status,
+      avatarUrl: schema.contact.avatarUrl,
+      msgType: schema.message.type,
+      msgText: schema.message.text,
+      msgTimestamp: schema.message.timestamp,
     })
     .from(schema.funnelCard)
     .innerJoin(schema.contact, eq(schema.contact.id, schema.funnelCard.contactId))
     .leftJoin(schema.conversation, eq(schema.conversation.contactId, schema.contact.id))
+    .leftJoin(schema.message, eq(schema.message.id, schema.conversation.lastMessageId))
     .leftJoin(schema.user, eq(schema.user.id, schema.conversation.assigneeId))
     .where(
       and(
@@ -228,7 +238,13 @@ funnels.get("/:id/board", requireAuth, async (c) => {
       ...s,
       cards: rows
         .filter((r) => r.stageId === s.id)
-        .map(({ stageId: _stage, ...r }): CardView => ({ ...r, labels: labels.get(r.contactId) ?? [] })),
+        .map(
+          ({ stageId: _stage, msgType, msgText, msgTimestamp, ...r }): CardView => ({
+            ...r,
+            lastMessage: msgType && msgTimestamp != null ? { type: msgType, text: msgText, timestamp: msgTimestamp } : null,
+            labels: labels.get(r.contactId) ?? [],
+          }),
+        ),
     })),
   });
 });

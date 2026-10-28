@@ -1,10 +1,13 @@
+import { GripVertical, MoreVertical } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { api, type Board, type BoardFilter, type ContactRow, type FunnelCard, type Member } from "../api";
 import { authClient } from "../auth-client";
-import { contactLabel, formatPhone } from "../format";
+import { StatusPill } from "../components/StatusPill";
+import { LabelTag } from "../components/LabelTag";
+import { contactLabel, initials, listTime, messagePreview } from "../format";
 import { useFunnels } from "../funnels";
-import { LabelChip, useLabels } from "../labels";
+import { useLabels } from "../labels";
 import { onRealtime } from "../realtime";
 
 /** Move o card no quadro local (o mesmo que o servidor fará): tira de onde está e põe na etapa, na posição dada. */
@@ -46,6 +49,7 @@ export function FunnelsPage() {
   const [filter, setFilter] = useState<BoardFilter>({ label: "", assignee: "" });
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
+  const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const boardEl = useRef<HTMLDivElement>(null);
@@ -155,7 +159,7 @@ export function FunnelsPage() {
     const out: React.ReactNode[] = [];
     const overHere = drag?.over?.stageId === stage.id ? drag.over.index : -1;
     let k = 0;
-    for (const card of stage.cards) {
+    for (const card of stage.cards.filter(matches)) {
       const dragging = drag?.contactId === card.contactId;
       if (!dragging && k === overHere) out.push(<li key="drop" className="kcard-drop" aria-hidden="true" />);
       if (!dragging) k++;
@@ -184,17 +188,53 @@ export function FunnelsPage() {
     return out;
   }
 
+  const needle = query.trim().toLowerCase();
+  const matches = (c: FunnelCard) =>
+    !needle || [contactLabel(c), c.phone ?? "", c.lastMessage ? messagePreview(c.lastMessage.type, c.lastMessage.text) : ""].some((t) => t.toLowerCase().includes(needle));
   const taken = new Set(board?.stages.flatMap((s) => s.cards.map((c) => c.contactId)));
 
   if (funnels && id && !funnels.some((f) => f.id === id) && funnels[0]) return <Navigate to={`/funis/${funnels[0].id}`} replace />;
 
   return (
-    <div className="shell funnels-page">
-      <header className="topbar">
+    <div className="shell funnels-page board-wrap">
+      <header className="board-head">
         <h1>Funis</h1>
-        <div className="user">
-          {isAdmin && <Link to="/funis/gerenciar">Gerenciar funis</Link>}
-          <Link to="/">Voltar</Link>
+        {funnels && funnels.length > 0 && (
+          <div className="chip-row" role="group" aria-label="Funil">
+            {funnels.map((f) => (
+              <button key={f.id} type="button" className={`chip${f.id === funnel?.id ? " on" : ""}`} aria-pressed={f.id === funnel?.id} onClick={() => navigate(`/funis/${f.id}`)}>
+                {f.name}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="board-head-end">
+      <div className="funnels-bar">
+        <input type="search" aria-label="Filtrar cards" placeholder="Filtrar cards" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <select aria-label="Filtrar por etiqueta" value={filter.label} onChange={(e) => setFilter((f) => ({ ...f, label: e.target.value }))}>
+          <option value="">Todas as etiquetas</option>
+          {labels.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Filtrar por responsável" value={filter.assignee} onChange={(e) => setFilter((f) => ({ ...f, assignee: e.target.value }))}>
+          <option value="">Todos os responsáveis</option>
+          <option value="me">Meus</option>
+          <option value="none">Sem responsável</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+      </div>
+          {isAdmin && (
+            <Link className="board-manage" to="/funis/gerenciar">
+              Gerenciar funis
+            </Link>
+          )}
         </div>
       </header>
       {funnels === null ? (
@@ -205,33 +245,6 @@ export function FunnelsPage() {
         </p>
       ) : (
         <>
-          <div className="funnels-bar">
-            <select aria-label="Funil" value={funnel?.id ?? ""} onChange={(e) => navigate(`/funis/${e.target.value}`)}>
-              {funnels.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
-            <select aria-label="Filtrar por etiqueta" value={filter.label} onChange={(e) => setFilter((f) => ({ ...f, label: e.target.value }))}>
-              <option value="">Todas as etiquetas</option>
-              {labels.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-            <select aria-label="Filtrar por responsável" value={filter.assignee} onChange={(e) => setFilter((f) => ({ ...f, assignee: e.target.value }))}>
-              <option value="">Todos os responsáveis</option>
-              <option value="me">Meus</option>
-              <option value="none">Sem responsável</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
           {funnel && funnel.stages.length > 0 && <AddContact funnelId={funnel.id} stages={funnel.stages} taken={taken} onAdded={load} onError={setNotice} />}
           {notice && (
             <p className="error funnels-msg" role="alert">
@@ -281,10 +294,60 @@ function Card(props: {
   onRemove: () => void;
 }) {
   const { card } = props;
+  const [menuOpen, setMenuOpen] = useState(false);
   const name = contactLabel(card);
+  const preview = card.lastMessage ? messagePreview(card.lastMessage.type, card.lastMessage.text) : "";
+  const tags = card.labels.slice(0, 2);
+  const more = card.labels.length - tags.length;
+  const body = (
+    <>
+      <div className="kcard-line">
+        <span className="avatar avatar--xs" aria-hidden="true">
+          {card.avatarUrl ? <img src={card.avatarUrl} alt="" /> : initials(name)}
+        </span>
+        <span className="kcard-name">{name}</span>
+        {card.lastMessage && <span className="kcard-time">{listTime(card.lastMessage.timestamp)}</span>}
+      </div>
+      {preview && <p className="kcard-preview">{preview}</p>}
+      <div className="kcard-meta">
+        {card.status && <StatusPill status={card.status} />}
+        {tags.map((l) => (
+          <LabelTag key={l.id} label={l} />
+        ))}
+        {more > 0 && <span className="label-tag label-tag--more">+{more}</span>}
+      </div>
+    </>
+  );
   return (
     <>
-      <div className="kcard-head">
+      {card.conversationId ? (
+        <Link className="kcard-main" to={`/conversas/${card.conversationId}`} aria-label={`Abrir conversa de ${name}`}>
+          {body}
+        </Link>
+      ) : (
+        <div className="kcard-main">{body}</div>
+      )}
+      <div className="kcard-tools">
+        <div className="kcard-menu">
+          <button type="button" className="kcard-more" aria-label={`Ações de ${name}`} aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+            <MoreVertical size={18} aria-hidden="true" />
+          </button>
+          {menuOpen && (
+          <div className="kcard-menu-body">
+            {card.conversationId && <Link to={`/conversas/${card.conversationId}?ficha=1`}>Ficha</Link>}
+            <select aria-label={`Mover ${name} para`} value={props.stageId} onChange={(e) => props.onMove(e.target.value)}>
+              {props.stages.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="secondary" aria-label={`Tirar ${name} do funil`} onClick={props.onRemove}>
+              Tirar do funil
+            </button>
+          </div>
+          )}
+        </div>
         <button
           type="button"
           className="kcard-grip"
@@ -294,33 +357,7 @@ function Card(props: {
           onPointerUp={props.onGripUp}
           onPointerCancel={props.onCancel}
         >
-          ⠿
-        </button>
-        <div className="kcard-id">
-          <strong>{name}</strong>
-          {card.phone && <span className="muted">{formatPhone(card.phone)}</span>}
-        </div>
-      </div>
-      {card.labels.length > 0 && (
-        <div className="chips">
-          {card.labels.map((l) => (
-            <LabelChip key={l.id} label={l} />
-          ))}
-        </div>
-      )}
-      <span className="muted kcard-assignee">{card.assigneeName ? `Responsável: ${card.assigneeName}` : "Sem responsável"}</span>
-      <div className="kcard-actions">
-        {card.conversationId && <Link to={`/conversas/${card.conversationId}`}>Conversa</Link>}
-        {card.conversationId && <Link to={`/conversas/${card.conversationId}?ficha=1`}>Ficha</Link>}
-        <select aria-label={`Mover ${name} para`} value={props.stageId} onChange={(e) => props.onMove(e.target.value)}>
-          {props.stages.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        <button type="button" className="secondary" aria-label={`Tirar ${name} do funil`} onClick={props.onRemove}>
-          Tirar
+          <GripVertical size={18} aria-hidden="true" />
         </button>
       </div>
     </>

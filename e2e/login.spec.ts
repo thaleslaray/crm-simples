@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, openUserMenu, test } from "./fixtures";
 import { E2E_ADMIN } from "./e2e-env";
 
 test("entra com e-mail e senha, ve a caixa de entrada, sai e volta para o login", async ({ page }) => {
@@ -18,6 +18,7 @@ test("entra com e-mail e senha, ve a caixa de entrada, sai e volta para o login"
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Atendimento" })).toBeVisible();
+  await openUserMenu(page);
   await expect(page.getByTestId("user-name")).toHaveText(E2E_ADMIN.name);
 
   // Nada estoura a tela (sem rolagem horizontal), inclusive no celular
@@ -26,6 +27,7 @@ test("entra com e-mail e senha, ve a caixa de entrada, sai e volta para o login"
 
   // Recarregar mantem a sessao
   await page.reload();
+  await openUserMenu(page);
   await expect(page.getByTestId("user-name")).toHaveText(E2E_ADMIN.name);
 
   // Sair -> volta ao login e a rota protegida fecha de novo

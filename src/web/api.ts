@@ -7,7 +7,16 @@ export interface Conversation {
   assigneeName: string | null;
   unreadCount: number;
   contact: { id: string; name: string | null; phone: string | null; labels: Label[] };
-  lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
+  lastMessage: {
+    type: MessageType;
+    text: string | null;
+    timestamp: number;
+    direction: "in" | "out";
+    /** Entrega da última mensagem enviada (nulo se for do cliente). */
+    status: SendStatus | null;
+    authorId: string | null;
+    authorName: string | null;
+  } | null;
 }
 
 /** Etiqueta do contato: nome + cor (hex). */
@@ -77,6 +86,9 @@ export interface FunnelCard {
   conversationId: string | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  status: ConversationStatus | null;
+  avatarUrl: string | null;
+  lastMessage: { type: MessageType; text: string | null; timestamp: number } | null;
   labels: Label[];
 }
 
@@ -139,6 +151,8 @@ export interface Message {
   /** Só mensagens de saída: enviando, enviada, entregue, lida, reproduzida, falhou (recusa) ou incerto (timeout). */
   status?: SendStatus | null;
   authorName?: string | null;
+  /** Id de quem enviou (null: cliente ou membro removido); dá a cor estável do autor. */
+  sentById?: string | null;
   timestamp: number;
   media: MessageMedia | null;
   location: { lat: number; lng: number; name: string | null; address: string | null } | null;
