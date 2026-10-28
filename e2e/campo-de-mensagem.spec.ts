@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from "@playwright/test";
-import { expect, openUserMenu, test } from "./fixtures";
+import { expect, test } from "./fixtures";
+import { backToInbox, openSettingsItem } from "./navegacao";
 import { E2E_ADMIN, E2E_UAZAPI_PORT, E2E_WEBHOOK } from "./e2e-env";
 
 const FAKE = `http://127.0.0.1:${E2E_UAZAPI_PORT}/__fake`;
@@ -61,13 +62,12 @@ test("campo de mensagem: nota não vai ao cliente, / filtra e insere, microfone 
   await page.getByRole("button", { name: "Entrar" }).click();
 
   // Uma resposta rápida para o "/" achar
-  await openUserMenu(page);
-  await page.getByRole("link", { name: "Respostas rápidas" }).click();
+  await openSettingsItem(page, /Respostas rápidas/);
   await page.getByLabel("Atalho (sem espaços)").fill(shortcut);
   await page.getByLabel("Texto", { exact: true }).fill("Olá {nome}, já te ajudo");
   await page.getByRole("button", { name: "Adicionar" }).click();
   await expect(page.getByRole("list", { name: "Respostas cadastradas" }).getByText(`/${shortcut}`)).toBeVisible();
-  await page.getByRole("link", { name: "Voltar" }).click();
+  await backToInbox(page);
 
   await page.getByRole("link", { name: new RegExp(`Paula ${run}`) }).first().click();
   const conversation = page.getByRole("article", { name: `Conversa com Paula ${run}` });
