@@ -5,7 +5,8 @@ import { fillName, filterQuickReplies, slashQuery } from "../quick-replies";
 import { getDraft, setDraft } from "../drafts";
 import { contactLabel, dayLabel, eventText, formatSize, messagePreview, messageTime, sameDay } from "../format";
 import { onRealtime } from "../realtime";
-import { ContactPanel } from "./ContactPanel";
+import { readFichaAberta, saveFichaAberta } from "../ficha-aberta";
+import { ContactPanel, StartConversationButton } from "./ContactPanel";
 import { ChatHeader } from "../components/ChatHeader";
 import { EventPill } from "../components/EventPill";
 import { MessageBubble } from "../components/MessageBubble";
@@ -367,7 +368,11 @@ export function ConversationPage() {
   );
 
   // ?ficha=1: aberta a partir do card do funil, já na ficha.
-  const [fichaOpen, setFichaOpen] = useState(() => searchParams.get("ficha") === "1" || window.matchMedia("(min-width: 1100px)").matches);
+  const [fichaOpen, setFichaState] = useState(() => searchParams.get("ficha") === "1" || readFichaAberta());
+  const setFichaOpen = useCallback((open: boolean) => {
+    setFichaState(open);
+    saveFichaAberta(open);
+  }, []);
 
   const sendNote = useCallback(async () => {
     const text = draft.trim();
@@ -474,11 +479,11 @@ export function ConversationPage() {
   const label = contactLabel(conversation.contact);
 
   return (
-    <article className="conversation" aria-label={`Conversa com ${label}`}>
+    <article className={`conversation${fichaOpen ? " conversation--ficha" : ""}`} aria-label={`Conversa com ${label}`}>
       <ChatHeader
         conversation={conversation}
         fichaOpen={fichaOpen}
-        onToggleFicha={() => setFichaOpen((o) => !o)}
+        onToggleFicha={() => setFichaOpen(!fichaOpen)}
         onSearch={focusSearch}
         onChanged={(c) => setState((s) => (s.kind === "ready" ? { ...s, conversation: c } : s))}
         onReload={refreshConversation}
@@ -676,7 +681,13 @@ export function ConversationPage() {
         )}
       </form>
       </div>
-      {fichaOpen && <ContactPanel contactId={conversation.contact.id} onClose={() => setFichaOpen(false)} />}
+      {fichaOpen && (
+        <ContactPanel
+          contactId={conversation.contact.id}
+          onClose={() => setFichaOpen(false)}
+          heroAction={(contact) => <StartConversationButton contact={contact} />}
+        />
+      )}
       </div>
     </article>
   );
