@@ -6,6 +6,7 @@ declare global {
     __notifications: { title: string; body: string; tag: string; click: () => void }[];
     __beeps: number;
     __permissionAsks: number;
+    __sockets: WebSocket[];
   }
 }
 
@@ -18,6 +19,16 @@ test("mensagem nova com a aba em segundo plano toca som, notifica com nome e pr�
     window.__notifications = [];
     window.__beeps = 0;
     window.__permissionAsks = 0;
+    // O React em dev monta o efeito duas vezes: o primeiro socket do tempo real fecha logo. Guardo todos para
+    // saber quando ha um realmente aberto (o evento "websocket" do Playwright dispara na criacao, nao na abertura).
+    window.__sockets = [];
+    const RealWebSocket = window.WebSocket;
+    window.WebSocket = class extends RealWebSocket {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols);
+        window.__sockets.push(this);
+      }
+    };
     document.hasFocus = () => false;
     class FakeNotification {
       static permission = "default";
@@ -75,13 +86,15 @@ test("mensagem nova com a aba em segundo plano toca som, notifica com nome e pr�
     expect(res.status()).toBe(200);
   };
 
-  const socket = page.waitForEvent("websocket"); // só escrevo depois de o tempo real estar conectado
   await page.goto("/login");
   await page.getByLabel("E-mail").fill(E2E_ADMIN.email);
   await page.getByLabel("Senha").fill(E2E_ADMIN.password);
   await page.getByRole("button", { name: "Entrar" }).click(); // o clique é o gesto que libera som e pede a permissão
   await expect(page.getByRole("navigation", { name: "Conversas" })).toBeVisible();
-  await socket;
+  // só escrevo depois de o tempo real estar conectado
+  await expect
+    .poll(() => page.evaluate(() => window.__sockets.some((s) => s.url.endsWith("/api/realtime") && s.readyState === WebSocket.OPEN)))
+    .toBe(true);
   await page.mouse.click(5, 5);
   await expect.poll(() => page.evaluate(() => window.__permissionAsks)).toBe(1);
 
