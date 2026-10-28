@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { E2E_ADMIN } from "./e2e-env";
 
 test("entra com e-mail e senha, ve a caixa de entrada, sai e volta para o login", async ({ page }) => {

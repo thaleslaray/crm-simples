@@ -1,4 +1,5 @@
-import { type APIRequestContext, expect, test } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { E2E_ADMIN, E2E_WEBHOOK } from "./e2e-env";
 
 // O D1 do E2E é compartilhado entre desktop e celular: ids e telefone únicos por execução.
@@ -63,6 +64,9 @@ test("mensagem recebida aparece na caixa de entrada e o histórico carrega as an
   if (info.project.name === "mobile") {
     await page.getByRole("link", { name: "Voltar à caixa de entrada" }).click();
     await expect(item).toBeVisible();
+    // Reabre a conversa: o print opcional (E2E_PRINTS) é tirado ao fim do teste e deve mostrá-la
+    await item.click();
+    await expect(conversation).toBeVisible();
   } else {
     await expect(item).toBeVisible();
   }

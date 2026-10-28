@@ -2,6 +2,8 @@
 
 Lido na revisão. Cada regra aqui é julgamento; o que é mecânico já está em `pnpm check` (typecheck e `scripts/lint-tests.ts`).
 
+Achado de ausência ("falta teste de X", "não trata Y") cita onde o revisor procurou: arquivo e termo buscado.
+
 ## Testes
 
 - **Borda do Worker.** Todo teste entra por onde o sistema é chamado de verdade (HTTP, webhook, fila, cron, WebSocket) e confere só o que um usuário ou a Uazapi observariam: resposta da API, evento no WebSocket, chamada registrada na Uazapi falsa, objeto no R2. Prova de "não aconteceu" também vem pela borda (login seguinte falha, rota responde 401/403), não por contagem de linhas.
@@ -17,7 +19,7 @@ Lido na revisão. Cada regra aqui é julgamento; o que é mecânico já está em
 ## Segurança
 
 - Payload do webhook e headers com `token` nunca vão para log.
-- Segredos só via `env` (secrets do Worker); nada de segredo em código, teste E2E ou argumento de linha de comando.
+- Segredo real só via `env` (secrets do Worker), nunca em código, teste ou argumento de linha de comando. Valores de teste, que só valem contra a Uazapi falsa e o D1 local, ficam fixos em `vitest.config.ts` e `e2e/`.
 - Envio à Uazapi que deu timeout fica "incerto" e não é reenviado automaticamente.
 
 ## Estilo
