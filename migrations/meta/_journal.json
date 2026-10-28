@@ -43,6 +43,13 @@
       "when": 1793152656779,
       "tag": "0005_simple_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793152876956,
+      "tag": "0006_marvelous_centennial",
+      "breakpoints": true
     }
   ]
 }

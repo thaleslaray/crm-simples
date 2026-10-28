@@ -1,3 +1,5 @@
+import type { UazapiMessage } from "../ingest";
+
 /**
  * Cliente Uazapi: interface unica e injetavel para tudo que fala com a Uazapi.
  * Hoje: `getInstanceStatus()`, `sendText()` e midia (`downloadMedia`, `openFile`).
@@ -24,7 +26,15 @@ export interface SentText {
   messageId: string | null;
 }
 
+export interface FindMessagesPage {
+  /** Mensagens no mesmo formato do evento `messages` (mais recentes primeiro). */
+  messages: UazapiMessage[];
+  hasMore: boolean;
+}
+
 export interface UazapiClient {
+  /** `/message/find`: uma pagina de mensagens da instancia, para a reconciliacao (formato nao validado com a Uazapi real). */
+  findMessages(input: { limit: number; offset: number }): Promise<FindMessagesPage>;
   getInstanceStatus(): Promise<InstanceStatus>;
   /** Inicia o pareamento (QR code). `history_days: 0`: nao importa historico anterior a conexao. */
   connect(): Promise<InstanceStatus>;
@@ -136,6 +146,11 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
     request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
   return {
+    async findMessages({ limit, offset }) {
+      const res = await postJson("/message/find", { limit, offset });
+      const body = (await res.json()) as { messages?: UazapiMessage[]; hasMore?: boolean };
+      return { messages: Array.isArray(body.messages) ? body.messages : [], hasMore: body.hasMore === true };
+    },
     async getInstanceStatus() {
       return readInstance(await request("/instance/status"));
     },
