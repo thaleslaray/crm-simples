@@ -1,5 +1,7 @@
 import { and, eq } from "drizzle-orm";
+import { loadConversation } from "./conversations";
 import { createDb, schema } from "./db";
+import { publish } from "./realtime";
 import type { SendStatus } from "./db/schema";
 import { createUazapiClient, UazapiHttpError } from "./uazapi/client";
 
@@ -90,6 +92,17 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
       status = err instanceof UazapiHttpError ? "failed" : "uncertain";
     }
   }
-  await db.update(schema.message).set({ status, ...patch }).where(eq(schema.message.id, messageId));
-  return { id: messageId, direction: "out", type: "text", text, status, authorName: author.name, timestamp };
+  try {
+    await db.update(schema.message).set({ status, ...patch }).where(eq(schema.message.id, messageId));
+  } catch {
+    // Id da Uazapi ja usado por outra mensagem (unicidade): o envio aconteceu, entao o estado nao pode ficar "sending".
+    await db.update(schema.message).set({ status }).where(eq(schema.message.id, messageId));
+  }
+  const message: OutgoingMessage = { id: messageId, direction: "out", type: "text", text, status, authorName: author.name, timestamp };
+  // Reenvio nao cria mensagem nova: so a primeira tentativa avisa as outras sessoes.
+  if (!("messageId" in input)) {
+    const conversation = await loadConversation(db, conv.id);
+    if (conversation) await publish(env, { type: "message.created", conversation, message });
+  }
+  return message;
 }

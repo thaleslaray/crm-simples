@@ -3,6 +3,7 @@ import { authClient } from "./auth-client";
 import { ConversationPage } from "./pages/ConversationPage";
 import { InboxPage, NoConversationSelected } from "./pages/InboxPage";
 import { LoginPage } from "./pages/LoginPage";
+import { ProfilePage } from "./pages/ProfilePage";
 
 /** Rota protegida: sem sessao, redireciona para /login. */
 function RequireSession() {
@@ -17,6 +18,7 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireSession />}>
+        <Route path="/perfil" element={<ProfilePage />} />
         <Route element={<InboxPage />}>
           <Route path="/" element={<NoConversationSelected />} />
           <Route path="/conversas/:id" element={<ConversationPage />} />

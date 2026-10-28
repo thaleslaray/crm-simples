@@ -4,7 +4,10 @@ import { E2E_UAZAPI_PORT } from "./e2e-env";
 
 const fake = await startFakeUazapi({
   port: E2E_UAZAPI_PORT,
-  defaults: [{ method: "GET", path: "/instance/status", responses: [{ body: { instance: { status: "connected" } } }] }],
+  defaults: [
+    { method: "GET", path: "/instance/status", responses: [{ body: { instance: { status: "connected" } } }] },
+    { method: "POST", path: "/send/text", responses: [{ body: { id: "owner:e2e-out", messageid: "e2e-out" } }] },
+  ],
 });
 console.log(`Uazapi falsa em ${fake.url}`);
 process.on("SIGTERM", () => void fake.close().then(() => process.exit(0)));

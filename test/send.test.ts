@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { signIn } from "./helpers/api";
 import { conversationWithClient, history, resend, sendText, setSignature, type HistoryMessage } from "./helpers/conversations";
 import { fakeUazapi } from "./helpers/fake-uazapi";
+import { connectRealtime } from "./helpers/realtime";
 import { loginAsAtendente } from "./helpers/session";
 import { createUser } from "./helpers/users";
 
@@ -102,6 +103,22 @@ describe("Responder com texto", () => {
     expect(Date.now() - t0).toBeGreaterThanOrEqual(1000);
     expect((await messageOf(res)).status).toBe("sent");
     expect(await uazapi.calls()).toHaveLength(2);
+  });
+
+  it("outra sessão conectada recebe a mensagem enviada em tempo real, já com o estado final", async () => {
+    const ana = await loginAsAna();
+    const conversa = await conversationWithClient(ana);
+    const outra = await connectRealtime(await loginAsAtendente("outra@exemplo.com"));
+    await uazapi.program("POST", SEND, [{ body: { id: "owner:RT1" } }]);
+
+    await sendText(ana, conversa, "Já te respondo");
+
+    expect(await outra.next()).toMatchObject({
+      type: "message.created",
+      conversation: { id: conversa, lastMessage: { type: "text", text: "Já te respondo" } },
+      message: { direction: "out", text: "Já te respondo", status: "sent", authorName: "Ana" },
+    });
+    outra.close();
   });
 
   it("exige login, conversa existente e texto não vazio", async () => {

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, lt, or, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
+import type { SendStatus } from "./db/schema";
 import { type AppEnv, requireAuth } from "./middleware";
 import { sendOutgoingText } from "./send";
 
@@ -13,9 +14,13 @@ const INBOX_LIMIT = 200;
 
 export interface Message {
   id: string;
-  direction: "in";
+  direction: "in" | "out";
   type: "text" | "unsupported";
   text: string | null;
+  /** So mensagens de saida. */
+  status?: SendStatus | null;
+  /** Atendente que enviou (so saida). */
+  authorName?: string | null;
   timestamp: number;
 }
 
@@ -79,6 +84,8 @@ const messageColumns = {
   direction: schema.message.direction,
   type: schema.message.type,
   text: schema.message.text,
+  status: schema.message.status,
+  authorName: schema.user.name,
   timestamp: schema.message.timestamp,
 };
 
@@ -103,6 +110,7 @@ conversations.get("/:id/messages", async (c) => {
     const newer = await db
       .select(messageColumns)
       .from(schema.message)
+      .leftJoin(schema.user, eq(schema.user.id, schema.message.sentById))
       .where(
         and(
           eq(schema.message.conversationId, id),
@@ -118,15 +126,7 @@ conversations.get("/:id/messages", async (c) => {
   }
 
   const rows = await db
-    .select({
-      id: schema.message.id,
-      direction: schema.message.direction,
-      type: schema.message.type,
-      text: schema.message.text,
-      status: schema.message.status,
-      authorName: schema.user.name,
-      timestamp: schema.message.timestamp,
-    })
+    .select(messageColumns)
     .from(schema.message)
     .leftJoin(schema.user, eq(schema.user.id, schema.message.sentById))
     .where(

@@ -1,11 +1,15 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ApiError, api, type Conversation, type Message } from "../api";
+import { getDraft, setDraft } from "../drafts";
 import { onRealtime } from "../realtime";
 import { contactLabel, dayLabel, formatPhone, initials, messagePreview, messageTime, sameDay } from "../format";
 
 // Distância do topo (px) que dispara o carregamento das mensagens mais antigas.
 const LOAD_OLDER_THRESHOLD = 120;
+
+// Prefixo do id da bolha "enviando" que só existe no navegador até a API responder.
+const TEMP = "tmp-";
 
 type State =
   | { kind: "loading" }
@@ -25,7 +29,7 @@ export function ConversationPage() {
   const stickToBottom = useRef(false);
   // Última mensagem vista, para a ressincronização ao reconectar.
   const lastSeen = useRef<Message | null>(null);
-  lastSeen.current = state.kind === "ready" ? (state.messages.at(-1) ?? null) : null;
+  lastSeen.current = state.kind === "ready" ? (state.messages.findLast((m) => !m.id.startsWith(TEMP)) ?? null) : null;
 
   const load = useCallback(
     (alive: () => boolean) => {
@@ -120,6 +124,58 @@ export function ConversationPage() {
     if (el && state.kind === "ready" && state.nextBefore && el.scrollHeight <= el.clientHeight) void loadOlder();
   }, [state, loadOlder]);
 
+  const [draft, setDraftState] = useState("");
+  const [sendError, setSendError] = useState(false);
+  // Rascunho é por conversa: ao trocar de conversa, carrega o dela.
+  useEffect(() => {
+    setDraftState(id ? getDraft(id) : "");
+    setSendError(false);
+  }, [id]);
+
+  const replaceMessage = useCallback((from: string, to: Message | null) => {
+    setState((s) => {
+      if (s.kind !== "ready") return s;
+      const known = to ? s.messages.some((m) => m.id === to.id) : false;
+      const messages = s.messages.flatMap((m) => (m.id !== from ? [m] : to && !known ? [to] : []));
+      return { ...s, messages };
+    });
+  }, []);
+
+  const sendDraft = useCallback(async () => {
+    const text = draft.trim();
+    if (!id || !text) return;
+    const tempId = `${TEMP}${crypto.randomUUID()}`;
+    const temp: Message = { id: tempId, direction: "out", type: "text", text, status: "sending", timestamp: Date.now() };
+    stickToBottom.current = true;
+    setState((s) => (s.kind === "ready" && s.conversation.id === id ? { ...s, messages: [...s.messages, temp] } : s));
+    setDraftState("");
+    setDraft(id, "");
+    setSendError(false);
+    try {
+      replaceMessage(tempId, (await api.sendText(id, text)).message);
+    } catch {
+      // Nem chegou ao servidor: tira a bolha e devolve o texto ao campo.
+      replaceMessage(tempId, null);
+      setDraftState(text);
+      setDraft(id, text);
+      setSendError(true);
+    }
+  }, [draft, id, replaceMessage]);
+
+  const resend = useCallback(
+    async (m: Message) => {
+      if (!id) return;
+      replaceMessage(m.id, { ...m, status: "sending" });
+      try {
+        const sent = (await api.resend(id, m.id)).message;
+        setState((s) => (s.kind === "ready" ? { ...s, messages: s.messages.map((x) => (x.id === m.id ? sent : x)) } : s));
+      } catch {
+        replaceMessage(m.id, { ...m, status: "failed" });
+      }
+    },
+    [id, replaceMessage],
+  );
+
   if (state.kind === "loading") return <p className="empty">Carregando…</p>;
   if (state.kind === "not-found")
     return (
@@ -172,14 +228,70 @@ export function ConversationPage() {
                   <span>{dayLabel(m.timestamp)}</span>
                 </li>
               )}
-              <li className={`bubble bubble--${m.direction}${m.type === "unsupported" ? " is-unsupported" : ""}`}>
+              <li
+                className={`bubble bubble--${m.direction}${m.type === "unsupported" ? " is-unsupported" : ""}${m.status ? ` is-${m.status}` : ""}`}
+              >
+                {m.direction === "out" && m.authorName && <span className="bubble-author">{m.authorName}</span>}
                 <p>{messagePreview(m.type, m.text)}</p>
-                <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
+                <span className="bubble-meta">
+                  {m.status === "failed" && (
+                    <>
+                      <span className="bubble-status" role="status">
+                        Falhou
+                      </span>
+                      <button type="button" className="link" onClick={() => void resend(m)}>
+                        Reenviar
+                      </button>
+                    </>
+                  )}
+                  {m.status === "uncertain" && (
+                    <span className="bubble-status" role="status">
+                      Incerto: o WhatsApp não confirmou. Confira antes de enviar de novo.
+                    </span>
+                  )}
+                  {m.status === "sending" && <span className="bubble-status">Enviando…</span>}
+                  <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
+                </span>
               </li>
             </Fragment>
           ))}
         </ol>
       </div>
+      <form
+        className="composer"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void sendDraft();
+        }}
+      >
+        {sendError && (
+          <p className="error" role="alert">
+            Não foi possível enviar. Tente de novo.
+          </p>
+        )}
+        <div className="composer-row">
+          <textarea
+            aria-label="Mensagem"
+            placeholder="Escreva uma mensagem"
+            rows={1}
+            value={draft}
+            onChange={(e) => {
+              setDraftState(e.target.value);
+              if (id) setDraft(id, e.target.value);
+            }}
+            onKeyDown={(e) => {
+              // Ctrl/Cmd+Enter envia; Enter sozinho quebra a linha (no celular não há outra forma de quebrar).
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                void sendDraft();
+              }
+            }}
+          />
+          <button type="submit" disabled={!draft.trim()}>
+            Enviar
+          </button>
+        </div>
+      </form>
     </article>
   );
 }

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { NavLink, Outlet, useMatch, useNavigate } from "react-router";
+import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { api, type Conversation } from "../api";
 import { authClient } from "../auth-client";
+import { clearDrafts } from "../drafts";
 import { contactLabel, initials, listTime, messagePreview } from "../format";
 import { onRealtime, useRealtimeConnection } from "../realtime";
 
@@ -32,6 +33,7 @@ export function InboxPage() {
   }, [load]);
 
   async function signOut() {
+    clearDrafts();
     await authClient.signOut();
     navigate("/login", { replace: true });
   }
@@ -41,7 +43,9 @@ export function InboxPage() {
       <header className="topbar">
         <h1>Caixa de entrada</h1>
         <div className="user">
-          <span data-testid="user-name">{data?.user.name}</span>
+          <Link to="/perfil" data-testid="user-name">
+            {data?.user.name}
+          </Link>
           <button type="button" className="secondary" onClick={signOut}>
             Sair
           </button>
