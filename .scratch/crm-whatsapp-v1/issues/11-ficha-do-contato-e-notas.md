@@ -4,16 +4,16 @@
 
 **Blocked by:** 05 (Status e responsável)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Foto via avatar da Uazapi, renovada quando a URL temporária expirar
-- [ ] Campos editáveis fixos: nome, e-mail, empresa, observação; telefone somente leitura
-- [ ] Histórico de conversas do contato com status e responsáveis
-- [ ] Notas internas na linha do tempo, visualmente distintas, com autor e horário
-- [ ] Teste garante que nota interna nunca gera chamada à Uazapi
-- [ ] Ficha agrega as notas de todas as conversas do contato
-- [ ] Notas e edições publicadas no hub
-- [ ] Toda tela nova funciona bem em viewport de celular e de desktop
+- [x] Foto via avatar da Uazapi, renovada quando a URL temporária expirar
+- [x] Campos editáveis fixos: nome, e-mail, empresa, observação; telefone somente leitura
+- [x] Histórico de conversas do contato com status e responsáveis
+- [x] Notas internas na linha do tempo, visualmente distintas, com autor e horário
+- [x] Teste garante que nota interna nunca gera chamada à Uazapi
+- [x] Ficha agrega as notas de todas as conversas do contato
+- [x] Notas e edições publicadas no hub
+- [x] Toda tela nova funciona bem em viewport de celular e de desktop
 
 ## Comments
 
