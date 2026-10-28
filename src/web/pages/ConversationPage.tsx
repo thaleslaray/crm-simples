@@ -111,7 +111,15 @@ export function ConversationPage() {
         if (fresh.length === 0) return s;
         const el = scroller.current;
         stickToBottom.current = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-        return { ...s, messages: [...s.messages, ...fresh] };
+        // O evento da minha própria mensagem pode chegar antes da resposta do envio: ocupa o lugar da bolha "enviando" em vez de duplicar.
+        const messages = [...s.messages];
+        const added: Message[] = [];
+        for (const m of fresh) {
+          const at = m.direction === "out" ? messages.findIndex((t) => t.id.startsWith(TEMP) && t.type === m.type && t.text === m.text) : -1;
+          if (at >= 0) messages[at] = m;
+          else added.push(m);
+        }
+        return { ...s, messages: [...messages, ...added] };
       });
     const refreshStatus = () =>
       Promise.all([api.conversation(id), api.events(id), api.notes(id)])

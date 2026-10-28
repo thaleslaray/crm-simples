@@ -14,7 +14,8 @@ export function CompanyPage() {
   useEffect(() => {
     api
       .workspace()
-      .then((r) => setName(r.companyName))
+      // Só a primeira resposta preenche o campo: uma segunda (busca repetida) não apaga o que já foi digitado.
+      .then((r) => setName((typed) => typed ?? r.companyName))
       .catch(() =>
         setMsg({ ok: false, text: "Não foi possível carregar o nome." }),
       );

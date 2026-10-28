@@ -48,12 +48,13 @@ async function reply(
       responses: [{ body: { id: `owner:${id}`, messageid: id } }],
     },
   });
+  const sent = conversation.getByRole("img", { name: "Enviada" });
+  const before = await sent.count();
   await conversation.getByLabel("Mensagem").fill(text);
   await conversation.getByRole("button", { name: "Enviar" }).click();
   await expect(conversation.getByText(text)).toBeVisible();
-  await expect(
-    conversation.getByRole("img", { name: "Enviada" }).last(),
-  ).toBeVisible();
+  // O tique de enviada da própria resposta (e não o da anterior).
+  await expect(sent).toHaveCount(before + 1);
 }
 
 async function noHorizontalOverflow(page: Page) {
