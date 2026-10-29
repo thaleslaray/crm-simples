@@ -41,16 +41,22 @@ publica o CRM sozinho.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/thaleslaray/crm-simples)
 
-Sem terminal. Clique no botão, entre na Cloudflare e no GitHub se ele pedir, e confirme na tela:
+Sem terminal. Clique no botão e siga:
 
-1. A Cloudflare cria **um repositório seu** no GitHub (dê o nome que quiser) e mostra os recursos que vai criar (banco,
-   mídia, filas).
-2. Ela pede **um só valor**: o `SETUP_CODE`, uma frase só sua que você vai usar para criar o administrador. Os segredos
-   do login e do webhook o próprio CRM gera sozinho (veja "Segredos gerados pelo CRM", abaixo).
-3. Clique em **Deploy**. O primeiro build leva de 1 a 3 minutos.
-4. Abra o endereço que a Cloudflare mostra (`https://<nome>.<subdominio>.workers.dev`). O CRM abre na tela de
-   **Primeiro acesso**: digite o código de instalação (`SETUP_CODE`), o seu nome, e-mail e uma senha de 12 caracteres ou
-   mais. Você já entra na caixa de entrada.
+1. **Entre na Cloudflare.** Se você tem mais de uma conta, escolha em qual instalar.
+2. **Conecte o seu GitHub.** Na primeira vez aparece "Connect a Git account to continue". Clique em
+   **New GitHub connection**: abre uma página do GitHub, clique no botão verde (**Install** ou **Authorize**). Se ela
+   perguntar quais repositórios, escolha **All repositories** (o botão precisa disso para criar o repositório novo).
+   Volte para a tela da Cloudflare: o seu usuário do GitHub aparece em "Git account".
+3. **Confira o nome.** "Project name" vira o nome do repositório no seu GitHub e do CRM na Cloudflare. Troque se já
+   tiver um repositório com esse nome.
+4. **Digite o código de instalação** no campo `SETUP_CODE`: uma frase só sua, que você usa uma vez para criar o
+   administrador. Os segredos do login e do webhook o próprio CRM gera sozinho (veja "Segredos gerados pelo CRM",
+   abaixo). O resto da tela (banco, mídia, fila e comandos) já vem preenchido: não mexa.
+5. Clique em **Deploy**. O primeiro build leva de 1 a 3 minutos.
+6. Abra o endereço que a Cloudflare mostra (`https://<nome>.<subdominio>.workers.dev`). O CRM abre na tela de
+   **Primeiro acesso**: digite o código de instalação, o seu nome, e-mail e uma senha de 12 caracteres ou mais. Você
+   já entra na caixa de entrada.
 
 Depois do primeiro admin a tela fecha para sempre; o `SETUP_CODE` só vale enquanto não existe nenhum usuário. Cada push
 no repositório criado publica o CRM de novo.
