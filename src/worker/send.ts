@@ -18,7 +18,6 @@ type Input = { conversationId: string; userId: string; origin: string } & (
   | { media: OutgoingMedia; replyTo?: string }
 );
 
-/** Voz vira `voice`; o resto pelo mime. */
 const MAX_FILE_NAME = 255;
 const MAX_MIME_LENGTH = 100;
 const MIME_FORMAT = /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+$/;
@@ -37,6 +36,7 @@ export function mediaMime(type: string): string {
   return type.length <= MAX_MIME_LENGTH && MIME_FORMAT.test(type) ? type : "application/octet-stream";
 }
 
+/** Voz vira `voice`; o resto pelo mime. */
 function mediaType(file: File, voice: boolean): MessageType {
   if (voice) return "voice";
   if (file.type.startsWith("image/")) return "image";
