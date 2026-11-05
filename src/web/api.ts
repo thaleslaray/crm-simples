@@ -308,7 +308,10 @@ export const api = {
       credentials: "same-origin",
       body: form,
     });
-    if (!res.ok) throw new ApiError(res.status);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw Object.assign(new ApiError(res.status), { code: body.error });
+    }
     return (await res.json()) as { message: Message };
   },
   resend: (id: string, messageId: string) =>

@@ -19,6 +19,24 @@ type Input = { conversationId: string; userId: string; origin: string } & (
 );
 
 /** Voz vira `voice`; o resto pelo mime. */
+const MAX_FILE_NAME = 255;
+const MAX_MIME_LENGTH = 100;
+const MIME_FORMAT = /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+$/;
+
+/** Nome do anexo vem do navegador: encurta em 255 caracteres guardando a extensao. */
+export function safeFileName(name: string): string | null {
+  if (!name) return null;
+  if (name.length <= MAX_FILE_NAME) return name;
+  const dot = name.lastIndexOf(".");
+  const ext = dot > 0 && name.length - dot <= 20 ? name.slice(dot) : "";
+  return name.slice(0, MAX_FILE_NAME - ext.length) + ext;
+}
+
+/** Tipo do anexo tambem vem do navegador: so passa o formato tipo/subtipo curto. */
+export function mediaMime(type: string): string {
+  return type.length <= MAX_MIME_LENGTH && MIME_FORMAT.test(type) ? type : "application/octet-stream";
+}
+
 function mediaType(file: File, voice: boolean): MessageType {
   if (voice) return "voice";
   if (file.type.startsWith("image/")) return "image";
@@ -88,10 +106,10 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
     text = media ? (media.voice ? "" : media.caption) : (input as { text: string }).text;
     if (media) {
       type = mediaType(media.file, media.voice);
-      mediaName = media.file.name || null;
+      mediaName = safeFileName(media.file.name);
       hasMedia = true;
       // Grava antes de a mensagem existir: sem objeto no R2 nao ha mensagem para a Uazapi buscar.
-      await env.MEDIA.put(`out/${messageId}`, await media.file.arrayBuffer(), { httpMetadata: { contentType: media.file.type || undefined } });
+      await env.MEDIA.put(`out/${messageId}`, await media.file.arrayBuffer(), { httpMetadata: { contentType: mediaMime(media.file.type) } });
     }
     await db.insert(schema.message).values({
       id: messageId,
@@ -105,7 +123,7 @@ export async function sendOutgoingText(env: Cloudflare.Env, input: Input): Promi
       ...(media && {
         mediaStatus: "available" as const,
         mediaKey: `out/${messageId}`,
-        mediaMime: media.file.type || null,
+        mediaMime: mediaMime(media.file.type),
         mediaSize: media.file.size,
         mediaName,
       }),

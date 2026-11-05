@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, exists, gt, isNull, lt, lte, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { type Context, Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { createDb, type Db, schema } from "./db";
 import { CONVERSATION_STATUSES, type ConversationStatus, type SendStatus } from "./db/schema";
 import { labelsByContact } from "./labels";
@@ -16,6 +17,26 @@ import { errorName } from "./errors";
 
 export const conversations = new Hono<AppEnv>();
 conversations.use("*", requireAuth);
+
+/** Teto do anexo: o arquivo passa pela memoria do Worker antes de ir ao R2. */
+const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
+
+// Limite do corpo ANTES de ler: o formulario leva o arquivo (20 MB) mais margem para legenda e campos;
+// as rotas JSON so levam texto curto.
+const mediaBodyLimit = bodyLimit({
+  maxSize: MAX_MEDIA_BYTES + 1024 * 1024,
+  onError: (c) => c.json({ error: "arquivo_grande_demais", message: "Arquivo grande demais (máximo 20 MB)." }, 413),
+});
+const jsonBodyLimit = bodyLimit({
+  maxSize: 64 * 1024,
+  onError: (c) => c.json({ error: "corpo_grande_demais", message: "Conteúdo grande demais." }, 413),
+});
+
+conversations.use("*", async (c, next) => {
+  if (c.req.method === "GET" || c.req.method === "HEAD") return next();
+  const multipart = c.req.header("content-type")?.startsWith("multipart/form-data") && /\/messages$/.test(c.req.path);
+  return (multipart ? mediaBodyLimit : jsonBodyLimit)(c, next);
+});
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
@@ -334,9 +355,6 @@ async function conversationExists(db: Db, id: string): Promise<boolean> {
 
 const MAX_TEXT_LENGTH = 4096;
 
-/** Teto do anexo: o arquivo passa pela memoria do Worker antes de ir ao R2. */
-const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
-
 // Nova conversa: contato existente (`contactId`) ou numero digitado (`phone`); cria o contato se for novo.
 conversations.post("/start", async (c) => {
   const body = await c.req.json<{ contactId?: unknown; phone?: unknown; text?: unknown }>().catch(() => null);
@@ -452,6 +470,7 @@ conversations.post("/:id/notes", async (c) => {
   const body = await c.req.json<{ text?: unknown }>().catch(() => null);
   const note = await createNote(db, id, c.get("user").id, body?.text);
   if (note === "invalid") return c.json({ error: "texto_invalido" }, 400);
+  if (note === "limit") return c.json({ error: "limite_de_notas", message: "Esta conversa já tem 500 notas (o máximo)." }, 409);
   await publish(c.env, { type: "note.created", conversationId: id, note });
   return c.json({ note }, 201);
 });
