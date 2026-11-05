@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { api } from "./helpers/api";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { api, postJson, signIn } from "./helpers/api";
 import { history, inbox } from "./helpers/conversations";
 import { connectRealtime } from "./helpers/realtime";
-import { loginAsAtendente } from "./helpers/session";
+import { loginAsAdmin, loginAsAtendente } from "./helpers/session";
+import { createResetLink, resetPassword } from "./helpers/team";
+import { createUser } from "./helpers/users";
 import { postWebhook, textMessageEvent } from "./helpers/webhook";
 
 describe("tempo real: conexao", () => {
@@ -74,5 +76,45 @@ describe("tempo real: ressincronizacao ao reconectar", () => {
     await postWebhook(textMessageEvent());
     const [conversa] = await inbox(cookie);
     expect((await api(`/api/conversations/${conversa!.id}/messages?after=lixo`, { cookie })).status).toBe(400);
+  });
+});
+
+describe("tempo real: sessao revogada", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("redefinir a senha fecha os sockets do membro", async () => {
+    const admin = await loginAsAdmin();
+    const anaId = await createUser({ email: "ana@exemplo.com", password: "senha-segura-123" });
+    const ana = (await signIn("ana@exemplo.com", "senha-segura-123")).cookie;
+    const conn = await connectRealtime(ana);
+    const { token } = await createResetLink(admin, anaId);
+
+    await resetPassword(token, "outra-senha-456");
+
+    expect(await conn.closed()).toBe(1008);
+  });
+
+  it("o logout fecha so o socket daquela sessao; o outro aparelho segue recebendo", async () => {
+    await createUser({ email: "ana@exemplo.com", password: "senha-segura-123" });
+    const celular = (await signIn("ana@exemplo.com", "senha-segura-123")).cookie;
+    const notebook = (await signIn("ana@exemplo.com", "senha-segura-123")).cookie;
+    const sockCelular = await connectRealtime(celular);
+    const sockNotebook = await connectRealtime(notebook);
+
+    expect((await postJson("/api/auth/sign-out", {}, { cookie: celular })).status).toBe(200);
+
+    expect(await sockCelular.closed()).toBe(1008);
+    await postWebhook(textMessageEvent({ text: "oi" }));
+    expect(await sockNotebook.next()).toMatchObject({ type: "message.created" });
+  });
+
+  it("socket com sessao vencida nao recebe o evento e e fechado", async () => {
+    const conn = await connectRealtime(await loginAsAtendente());
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 30 * 24 * 60 * 60 * 1000 });
+
+    await postWebhook(textMessageEvent({ text: "oi" }));
+
+    expect(await conn.closed()).toBe(1008);
+    await expect(conn.next(200)).rejects.toThrow();
   });
 });

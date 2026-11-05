@@ -1,10 +1,10 @@
 import { asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { issueLink } from "./access-links";
+import { issueLink, revokeLinksIssuedBy } from "./access-links";
 import { createDb, schema } from "./db";
 import { ROLES } from "./db/schema";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
-import { closeSocketsOf } from "./realtime";
+import { closeSocketsOf } from "./realtime-hub";
 import { releaseConversationsOf } from "./status";
 
 export const members = new Hono<AppEnv>();
@@ -45,12 +45,15 @@ teamAdmin.patch("/members/:id", async (c) => {
   const id = c.req.param("id");
   // Sem rebaixar a si mesmo: evita a equipe ficar sem admin.
   if (id === c.get("user").id) return c.json({ error: "proprio_membro" }, 409);
-  const done = await createDb(c.env.DB)
+  const db = createDb(c.env.DB);
+  const done = await db
     .update(schema.user)
     .set({ role, updatedAt: new Date() })
     .where(eq(schema.user.id, id))
     .returning({ id: schema.user.id });
   if (done.length === 0) return c.json({ error: "nao_encontrado" }, 404);
+  // Os links que ele emitiu dependiam do poder de admin que ele acabou de perder.
+  if (role !== "admin") await revokeLinksIssuedBy(db, id);
   return c.json({ ok: true });
 });
 
@@ -71,6 +74,8 @@ teamAdmin.delete("/members/:id", async (c) => {
   if (!(await db.query.user.findFirst({ where: eq(schema.user.id, id), columns: { id: true } }))) {
     return c.json({ error: "nao_encontrado" }, 404);
   }
+  // Links emitidos por ele antes de excluir: a FK poria o emissor em NULL e o link sobreviveria.
+  await revokeLinksIssuedBy(db, id);
   // Sessoes primeiro: o acesso some mesmo se a devolucao das conversas falhar no meio.
   await db.delete(schema.session).where(eq(schema.session.userId, id));
   await closeSocketsOf(c.env, id);

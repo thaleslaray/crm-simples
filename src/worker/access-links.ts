@@ -1,4 +1,5 @@
-import { and, eq, isNull } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
+import { and, eq, gt, isNull, ne } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import { Hono } from "hono";
 import { createAuth, MIN_PASSWORD } from "./auth";
@@ -6,6 +7,7 @@ import { createDb, type Db, schema } from "./db";
 import { buildUserStatements } from "./db/seed-user";
 import { ROLES, type AccessLinkKind, type Role } from "./db/schema";
 import type { AppEnv } from "./middleware";
+import { closeSocketsOf } from "./realtime-hub";
 
 /** Validade dos links de convite e de redefinicao. */
 export const LINK_TTL_MS = 3 * 24 * 60 * 60 * 1000;
@@ -20,6 +22,8 @@ export async function issueLink(
   db: Db,
   input: { kind: AccessLinkKind; createdById: string; role?: Role; userId?: string },
 ) {
+  // Um link novo de redefinicao substitui os anteriores do mesmo membro.
+  if (input.kind === "redefinicao" && input.userId) await revokeResetLinks(db, input.userId);
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const token = btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
   const now = Date.now();
@@ -35,6 +39,30 @@ export async function issueLink(
     expiresAt,
   });
   return { token, expiresAt };
+}
+
+/** Faz os links ainda abertos valerem como vencidos (mesma resposta de um link expirado). */
+const revokeWhere = (db: Db, where: SQL | undefined) =>
+  db
+    .update(schema.accessLink)
+    .set({ expiresAt: Date.now() })
+    .where(and(isNull(schema.accessLink.usedAt), gt(schema.accessLink.expiresAt, Date.now()), where));
+
+/** Invalida os links de redefinicao abertos do membro, exceto `exceptId`. */
+export async function revokeResetLinks(db: Db, userId: string, exceptId?: string): Promise<void> {
+  await revokeWhere(
+    db,
+    and(
+      eq(schema.accessLink.kind, "redefinicao"),
+      eq(schema.accessLink.userId, userId),
+      exceptId ? ne(schema.accessLink.id, exceptId) : undefined,
+    ),
+  );
+}
+
+/** Invalida os links abertos emitidos por um admin que perdeu o poder (rebaixado ou excluido). */
+export async function revokeLinksIssuedBy(db: Db, adminId: string): Promise<void> {
+  await revokeWhere(db, eq(schema.accessLink.createdById, adminId));
 }
 
 export type LinkState =
@@ -135,5 +163,8 @@ accessLinks.post("/password-resets/:token", async (c) => {
     // Quem tinha a senha antiga (ou um acesso roubado) perde a sessao.
     c.env.DB.prepare("DELETE FROM session WHERE user_id = ?").bind(userId),
   ]);
+  await revokeResetLinks(db, userId, found.link.id);
+  // Os WebSockets abertos com a senha antiga caem junto com as sessoes.
+  await closeSocketsOf(c.env, userId);
   return c.json({ ok: true });
 });
