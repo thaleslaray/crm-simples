@@ -286,12 +286,14 @@ export function ConversationPage() {
     return () => mq.removeEventListener("change", on);
   }, []);
   const [sendError, setSendError] = useState(false);
+  const [sendErrorText, setSendErrorText] = useState<string | null>(null);
   // Mensagem que o atendente escolheu "Responder": a próxima mensagem sai citando-a.
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   // Rascunho é por conversa: ao trocar de conversa, carrega o dela.
   useEffect(() => {
     setDraftState(id ? getDraft(id) : "");
     setSendError(false);
+    setSendErrorText(null);
     setReplyingTo(null);
   }, [id]);
 
@@ -360,6 +362,7 @@ export function ConversationPage() {
     setDraftState("");
     setDraft(id, "");
     setSendError(false);
+    setSendErrorText(null);
     setReplyingTo(null);
     if (await sendOptimistic(temp, async () => (await api.sendText(id, text, quoting?.id)).message)) {
       void refreshConversation();
@@ -402,6 +405,7 @@ export function ConversationPage() {
     setDraftState("");
     setDraft(id, "");
     setSendError(false);
+    setSendErrorText(null);
     try {
       const { note } = await api.addNote(id, text);
       stickToBottom.current = true;
@@ -425,9 +429,17 @@ export function ConversationPage() {
       const type: Message["type"] = opts.voice ? "voice" : file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "document";
       const temp: Message = { id: `${TEMP}${crypto.randomUUID()}`, direction: "out", type, text: opts.caption || null, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote: quoteOf(quoting) };
       setSendError(false);
+      setSendErrorText(null);
       setSendingFile(true);
       setReplyingTo(null);
-      const sent = await sendOptimistic(temp, async () => (await api.sendMedia(id, file, { text: opts.caption, voice: opts.voice, replyTo: quoting?.id })).message);
+      const sent = await sendOptimistic(temp, async () => {
+        try {
+          return (await api.sendMedia(id, file, { text: opts.caption, voice: opts.voice, replyTo: quoting?.id })).message;
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 413) setSendErrorText("Arquivo grande demais (máximo 20 MB).");
+          throw e;
+        }
+      });
       if (!sent) {
         setReplyingTo(quoting);
         setSendError(true);
@@ -568,7 +580,7 @@ export function ConversationPage() {
       >
         {sendError && (
           <p className="error" role="alert">
-            Não foi possível enviar. Tente de novo.
+            {sendErrorText ?? "Não foi possível enviar. Tente de novo."}
           </p>
         )}
         {replyingTo && !noteMode && (

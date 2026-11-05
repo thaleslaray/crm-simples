@@ -55,6 +55,17 @@ export function refreshAvatar(cookie: string, contactId: string) {
 }
 
 /** Faz a foto do contato parecer buscada ha muito tempo (arrange: URL temporaria expirada). */
+export async function seedNotes(conversationId: string, count: number): Promise<void> {
+  await env.DB.prepare(
+    `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?1)
+     INSERT INTO conversation_note (id, conversation_id, text, created_at)
+     SELECT 'seed-note-' || i, ?2, 'nota ' || i, 1600000000000 + i * 1000 FROM n`,
+  )
+    .bind(count, conversationId)
+    .run();
+}
+
+/** Faz a foto do contato parecer buscada ha muito tempo (arrange: URL temporaria expirada). */
 export async function ageAvatar(contactId: string, ageMs: number): Promise<void> {
   await env.DB.prepare("UPDATE contact SET avatar_fetched_at = ? WHERE id = ?").bind(Date.now() - ageMs, contactId).run();
 }
