@@ -51,8 +51,10 @@ export function ConnectionPage() {
   const failure = (code?: string) =>
     code === "endereco_invalido"
       ? "Endereço inválido. Use o endereço completo, começando com https://."
-      : code === "token_obrigatorio"
-        ? "Informe o admin token."
+      : code === "token_obrigatorio_ao_trocar_endereco"
+        ? "Ao trocar o endereço da Uazapi, digite o Admin Token de novo."
+        : code === "token_obrigatorio"
+          ? "Informe o admin token."
         : code === "nome_obrigatorio"
           ? "Dê um nome para a instância."
           : code === "uazapi_recusou"

@@ -101,6 +101,46 @@ describe("dados da Uazapi pela tela: admin token", () => {
     expect(await uazapi.calls()).toMatchObject([{ method: "GET", path: "/instance/all", headers: { admintoken: ADMIN_TOKEN } }]);
   });
 
+  // "localhost" e "127.0.0.1" sao enderecos diferentes para o Worker, mas caem no mesmo servidor falso.
+  const outroEndereco = () => env.UAZAPI_BASE_URL.replace("127.0.0.1", "localhost");
+
+  it("trocar o endereco sem digitar o token de novo da 400 e nao manda o token salvo para lugar nenhum", async () => {
+    const cookie = await loginAsAdmin();
+    await programList();
+    await save(cookie);
+    const antes = (await uazapi.calls()).length;
+
+    const res = await save(cookie, "", outroEndereco());
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "token_obrigatorio_ao_trocar_endereco" });
+    expect(await uazapi.calls()).toHaveLength(antes);
+    expect((await getUazapiConfig(cookie).then((r) => r.json())) as object).toMatchObject({ baseUrl: env.UAZAPI_BASE_URL });
+  });
+
+  it("mesmo endereco sem token reaproveita o token salvo", async () => {
+    const cookie = await loginAsAdmin();
+    await programList();
+    await save(cookie);
+
+    const res = await save(cookie, "");
+
+    expect(res.status).toBe(200);
+    expect(await uazapi.calls()).toMatchObject([{ headers: { admintoken: ADMIN_TOKEN } }, { headers: { admintoken: ADMIN_TOKEN } }]);
+  });
+
+  it("outro endereco com token novo funciona", async () => {
+    const cookie = await loginAsAdmin();
+    await programList();
+    await save(cookie);
+
+    const res = await save(cookie, "token-novo-xyz", outroEndereco());
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ baseUrl: outroEndereco() });
+    expect((await uazapi.calls()).at(-1)).toMatchObject({ headers: { admintoken: "token-novo-xyz" } });
+  });
+
   it("o admin token gravado no banco nao esta em claro", async () => {
     const cookie = await loginAsAdmin();
     await programList();
@@ -148,19 +188,6 @@ describe("dados da Uazapi pela tela: admin token", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ error: "endereco_invalido" });
     expect(await uazapi.calls()).toEqual([]);
-  });
-
-  it("admin token vazio mantem o atual e troca so o endereco", async () => {
-    const cookie = await loginAsAdmin();
-    await programList();
-    await save(cookie);
-    const outroEndereco = env.UAZAPI_BASE_URL.replace("127.0.0.1", "localhost");
-
-    const res = await save(cookie, "", outroEndereco);
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ baseUrl: outroEndereco, adminTokenHint: "••••wxyz" });
-    expect((await uazapi.calls()).at(-1)).toMatchObject({ headers: { admintoken: ADMIN_TOKEN } });
   });
 
   it("admin token vazio sem nenhum guardado e recusado", async () => {
@@ -356,7 +383,7 @@ describe("dados da Uazapi pela tela: escolher e criar instancia", () => {
     const cookie = await prepare();
     await chooseUazapiInstance(cookie, { id: LOJA.id });
 
-    await putUazapiConfig(cookie, { baseUrl: env.UAZAPI_BASE_URL.replace("127.0.0.1", "localhost"), adminToken: "" });
+    await putUazapiConfig(cookie, { baseUrl: env.UAZAPI_BASE_URL.replace("127.0.0.1", "localhost"), adminToken: ADMIN_TOKEN });
 
     expect(await (await getUazapiConfig(cookie)).json()).toMatchObject({ instance: null });
   });

@@ -31,8 +31,14 @@ uazapiAdmin.put("/", async (c) => {
   if (!baseUrl) return c.json({ error: "endereco_invalido" }, 400);
 
   const db = createDb(c.env.DB);
-  // Campo vazio mantem o admin token atual (o navegador nunca o recebe de volta).
-  const adminToken = textOf(body?.adminToken) || (await loadAdminAccess(c.env, db))?.adminToken;
+  // Campo vazio mantem o admin token atual (o navegador nunca o recebe de volta), mas so para o MESMO endereco:
+  // reaproveitar o token salvo em outro servidor o entregaria a quem controla esse endereco.
+  let adminToken = textOf(body?.adminToken);
+  if (!adminToken) {
+    const saved = await loadAdminAccess(c.env, db);
+    if (saved && saved.baseUrl !== baseUrl) return c.json({ error: "token_obrigatorio_ao_trocar_endereco" }, 400);
+    adminToken = saved?.adminToken ?? "";
+  }
   if (!adminToken) return c.json({ error: "token_obrigatorio" }, 400);
 
   try {
