@@ -9,7 +9,9 @@ import {
   changeRole,
   createInvite,
   createResetLink,
+  countOpenResetLinks,
   expireAllLinks,
+  insertResetLink,
   inviteInfo,
   removeMember,
   resetInfo,
@@ -371,5 +373,61 @@ describe("Lista de membros e papel", () => {
     expect((await changeRole(admin, anaId, "dono")).status).toBe(400);
     expect((await changeRole(admin, "nao-existe", "admin")).status).toBe(404);
     expect((await changeRole(admin, eu.id, "atendente")).status).toBe(409);
+  });
+});
+
+describe("Links nao sobrevivem ao emissor nem a um link mais novo", () => {
+  it("convite emitido por admin rebaixado e recusado", async () => {
+    const admin = await loginAsAdmin();
+    const outroId = await createUser({ email: "outro@exemplo.com", password: SENHA, role: "admin" });
+    const outro = (await signIn("outro@exemplo.com", SENHA)).cookie;
+    const convite = await createInvite(outro);
+
+    expect((await changeRole(admin, outroId, "atendente")).status).toBe(200);
+
+    const info = await inviteInfo(convite.token);
+    expect(info.status).toBe(410);
+    expect(await info.json()).toMatchObject({ error: "expirado" });
+    const entrada = await acceptInvite(convite.token, { name: "Novo", email: "novo@exemplo.com", password: SENHA });
+    expect(entrada.status).toBe(410);
+  });
+
+  it("convite emitido por admin excluido e recusado", async () => {
+    const admin = await loginAsAdmin();
+    const outroId = await createUser({ email: "outro@exemplo.com", password: SENHA, role: "admin" });
+    const outro = (await signIn("outro@exemplo.com", SENHA)).cookie;
+    const convite = await createInvite(outro);
+
+    expect((await removeMember(admin, outroId)).status).toBe(200);
+
+    expect((await inviteInfo(convite.token)).status).toBe(410);
+    const entrada = await acceptInvite(convite.token, { name: "Novo", email: "novo@exemplo.com", password: SENHA });
+    expect(entrada.status).toBe(410);
+  });
+
+  it("um novo link de redefinicao invalida o anterior do mesmo membro", async () => {
+    const admin = await loginAsAdmin();
+    const anaId = await createUser({ email: "ana@exemplo.com", password: SENHA });
+    const velho = await createResetLink(admin, anaId);
+    const novo = await createResetLink(admin, anaId);
+
+    expect((await resetInfo(velho.token)).status).toBe(410);
+    expect((await resetPassword(velho.token, "outra-senha-456")).status).toBe(410);
+    expect((await resetPassword(novo.token, "outra-senha-456")).status).toBe(200);
+  });
+
+  it("redefinir invalida os outros links nao usados do membro, sem mexer nos de outro membro", async () => {
+    const admin = await loginAsAdmin();
+    const anaId = await createUser({ email: "ana@exemplo.com", password: SENHA });
+    const beaId = await createUser({ email: "bea@exemplo.com", password: SENHA });
+    const doBea = await createResetLink(admin, beaId);
+    const ana = await createResetLink(admin, anaId);
+    // Link antigo da Ana que escapou da invalidacao na emissao (ex.: emitido antes desta regra existir).
+    await insertResetLink(anaId, beaId);
+
+    expect((await resetPassword(ana.token, "outra-senha-456")).status).toBe(200);
+
+    expect(await countOpenResetLinks(anaId)).toBe(0);
+    expect((await resetInfo(doBea.token)).status).toBe(200);
   });
 });

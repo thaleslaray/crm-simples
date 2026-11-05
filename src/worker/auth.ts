@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createDb, schema } from "./db";
 import { getAuthSecret } from "./instance-secrets";
+import { closeSocketsOfSession } from "./realtime-hub";
 
 /** Tamanho minimo da senha: vale no login do Better Auth e nos fluxos de convite e redefinicao. */
 export const MIN_PASSWORD = 12;
@@ -38,6 +39,12 @@ export async function createAuth(env: Cloudflare.Env, requestUrl: string) {
         // input:false => o cliente nunca consegue definir/alterar estes campos pela API publica.
         role: { type: "string", required: false, defaultValue: "atendente", input: false },
         signatureEnabled: { type: "boolean", required: false, defaultValue: true, input: false },
+      },
+    },
+    // Sessao encerrada (logout ou exclusao pelo Better Auth): o tempo real dela fecha junto.
+    databaseHooks: {
+      session: {
+        delete: { after: async (session) => void (await closeSocketsOfSession(env, session.id)) },
       },
     },
     session: {

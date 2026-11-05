@@ -60,3 +60,23 @@ export function resetPassword(token: string, password: string) {
 export async function expireAllLinks(): Promise<void> {
   await env.DB.prepare("UPDATE access_link SET expires_at = ?").bind(Date.now() - 1000).run();
 }
+
+/** Arrange: grava direto no D1 um link de redefinicao ainda aberto (sem passar pela emissao). */
+export async function insertResetLink(userId: string, createdById: string): Promise<void> {
+  const now = Date.now();
+  await env.DB.prepare(
+    "INSERT INTO access_link (id, kind, token_hash, user_id, created_by_id, created_at, expires_at) VALUES (?, 'redefinicao', ?, ?, ?, ?, ?)",
+  )
+    .bind(crypto.randomUUID(), crypto.randomUUID(), userId, createdById, now, now + 60_000)
+    .run();
+}
+
+/** Quantos links de redefinicao do membro ainda valem (nao usados e nao vencidos). */
+export async function countOpenResetLinks(userId: string): Promise<number> {
+  const row = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM access_link WHERE kind = 'redefinicao' AND user_id = ? AND used_at IS NULL AND expires_at > ?",
+  )
+    .bind(userId, Date.now())
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}

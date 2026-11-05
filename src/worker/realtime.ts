@@ -5,7 +5,9 @@ import type { Conversation, Message } from "./conversations";
 import type { Note } from "./notes";
 import type { TimelineEvent } from "./status";
 import { errorName } from "./errors";
+import { createAuth } from "./auth";
 import { type AppEnv, requireFreshAuth } from "./middleware";
+import { hub } from "./realtime-hub";
 
 /** Eventos publicados no hub. A conversa traz o `assigneeId`, que decide quem recebe som e aviso. */
 export type RealtimeEvent =
@@ -23,7 +25,6 @@ export type RealtimeEvent =
   // O admin trocou o nome da empresa: os clientes trocam o titulo sem recarregar.
   | { type: "workspace.changed"; companyName: string };
 
-const hub = (env: Cloudflare.Env) => env.INBOX_HUB.getByName("inbox");
 
 /** Publica no hub. Falha aqui nunca derruba a escrita que ja foi gravada: o cliente se ressincroniza pela API. */
 export async function publish(env: Cloudflare.Env, event: RealtimeEvent): Promise<void> {
@@ -34,24 +35,20 @@ export async function publish(env: Cloudflare.Env, event: RealtimeEvent): Promis
   }
 }
 
-/** Fecha os WebSockets de um membro (removido da equipe). Falha aqui nao desfaz a remocao: a sessao ja foi revogada. */
-export async function closeSocketsOf(env: Cloudflare.Env, userId: string): Promise<void> {
-  try {
-    await hub(env).closeUser(userId);
-  } catch (err) {
-    console.error("realtime: falha ao fechar sockets", { erro: errorName(err) });
-  }
-}
-
 export const realtime = new Hono<AppEnv>();
 
 // Sessao validada ANTES do upgrade; sem ela, 401 e o hub nem e acordado.
-// O hub guarda o id do membro no socket para poder fecha-lo se ele for removido.
+// O hub guarda no socket o membro, a sessao e o vencimento, para fecha-lo se o acesso for revogado.
 realtime.get("/", requireFreshAuth, async (c) => {
   // Cross-site WebSocket hijacking: o cookie vai junto de qualquer site, entao o Origin tem que ser o nosso host.
   const origin = c.req.header("origin");
   if (origin && new URL(origin).host !== new URL(c.req.url).host) return c.json({ error: "origem_invalida" }, 403);
   const headers = new Headers(c.req.raw.headers);
+  // O requireFreshAuth ja validou; aqui so se le o id e o vencimento da sessao, que o hub guarda no socket.
+  const current = await (await createAuth(c.env, c.req.url)).api.getSession({ headers: c.req.raw.headers, query: { disableCookieCache: true } });
+  if (!current) return c.json({ error: "nao_autenticado" }, 401);
   headers.set("x-user-id", c.get("user").id);
+  headers.set("x-session-id", current.session.id);
+  headers.set("x-session-expires-at", String(new Date(current.session.expiresAt).getTime()));
   return await hub(c.env).fetch(new Request(c.req.raw, { headers }));
 });
