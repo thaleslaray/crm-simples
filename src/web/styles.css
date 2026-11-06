@@ -1,7 +1,7 @@
 /* Tokens do tema. Tons de base alinhados ao WhatsApp atual (claro quente, escuro grafite);
    os papéis próprios do CRM (status, nota interna, negócio) são nossos. `data-theme` vem de theme.ts. */
 :root {
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font: "Roboto Variable", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --bg-rail: #f7f5f3;
   --bg-panel: #ffffff;
   --bg-hover: #f6f5f4;
@@ -283,17 +283,21 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .messages ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .messages-edge { text-align: center; font-size: 0.8rem; margin: 8px 0; min-height: 1em; }
 .event-pill { align-self: center; margin: 10px 0; max-width: 90%; text-align: center; }
-.event-pill > span { display: inline-flex; align-items: center; gap: 6px; background: var(--pill-event); color: var(--text-2); font-size: 0.78rem; padding: 5px 12px; border-radius: 8px; box-shadow: var(--shadow); }
-.event-pill--date > span { text-transform: uppercase; font-size: 0.75rem; }
+.event-pill > span { display: inline-flex; align-items: center; gap: 6px; background: var(--pill-event); color: var(--text-2); font-size: 0.78rem; padding: 4px 12px; border-radius: 6px; box-shadow: 0 0 1px 1px rgba(10, 10, 10, 0.06), 0 1px 0 rgba(10, 10, 10, 0.05); }
+.event-pill--date > span { font-size: 0.75rem; }
 
-.bubble { max-width: min(65%, 560px); padding: 6px 9px 6px 10px; border-radius: 8px; background: var(--bubble-in); color: var(--text); box-shadow: var(--shadow); display: grid; gap: 2px; font-size: 0.89rem; line-height: 1.35; }
+.bubble { position: relative; max-width: min(65%, 560px); padding: 6px 7px 8px 9px; border-radius: 7.5px; background: var(--bubble-in); color: var(--text); box-shadow: var(--shadow); display: grid; gap: 2px; font-size: 0.89rem; line-height: 1.35; }
 .bubble--in { align-self: flex-start; }
-.bubble--in.bubble--first { margin-top: 8px; border-top-left-radius: 0; }
+.bubble--in.bubble--first { margin-top: 10px; border-top-left-radius: 0; }
+/* Pontinha no primeiro balão de cada sequência: triângulo na cor do balão, colado no canto reto. */
+.bubble--first::before { content: ""; position: absolute; top: 0; width: 8px; height: 13px; background: inherit; }
+.bubble--in.bubble--first::before { left: -8px; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.bubble--out.bubble--first::before { right: -8px; clip-path: polygon(0 0, 100% 0, 0 100%); }
 .bubble p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .bubble time { justify-self: end; font-size: 0.7rem; color: var(--text-2); }
 
 .bubble--out { align-self: flex-end; background: var(--bubble-out); }
-.bubble--out.bubble--first { margin-top: 8px; border-top-right-radius: 0; }
+.bubble--out.bubble--first { margin-top: 10px; border-top-right-radius: 0; }
 .bubble-author { font-size: 0.8rem; font-weight: 600; }
 .bubble-meta { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 8px; font-size: 0.75rem; color: var(--muted); }
 .bubble-meta time { justify-self: auto; }
