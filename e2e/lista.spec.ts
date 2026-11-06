@@ -128,8 +128,8 @@ test("chips filtram, contagens batem e a terceira linha mostra status, responsá
   await expect.poll(() => countOf(semDono)).toBe(semDono0 + 1);
   await expect.poll(() => countOf(naoLidas)).toBe(naoLidas0 + 3);
 
-  // Terceira linha: status, responsável (ou "sem dono") e até 2 etiquetas + "+N"
-  await expect(row(names.a)).toContainText("Aberta");
+  // Terceira linha: status (só quando não é "Aberta"), responsável (ou "sem dono") e até 2 etiquetas + "+N"
+  await expect(row(names.a)).not.toContainText("Aberta");
   await expect(row(names.a)).toContainText("sem dono");
   await expect(row(names.a)).toContainText(tags[0]!);
   await expect(row(names.a)).toContainText(tags[1]!);

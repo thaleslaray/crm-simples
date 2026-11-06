@@ -61,7 +61,8 @@ test("atendente assume, responde, o cliente volta, resolve e filtra a caixa", as
   const item = page
     .getByRole("link", { name: new RegExp(`Cliente ${run}`) })
     .first();
-  await expect(item).toContainText("Aberta");
+  // "Aberta" é o status comum: a linha não repete o selo.
+  await expect(item).not.toContainText("Aberta");
   await expect(item).toContainText("sem dono");
   await item.click();
   const conversation = page.getByRole("article", {

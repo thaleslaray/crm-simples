@@ -665,7 +665,7 @@ export function ConversationPage() {
             placeholder={
               noteMode
                 ? narrow ? "Nota para a equipe" : "Escreva uma nota para a equipe"
-                : narrow ? "Mensagem ou /" : "Digite uma mensagem ou / para respostas rápidas"
+                : narrow ? "Mensagem ou /" : "Mensagem ou / para atalhos"
             }
             rows={1}
             value={draft}

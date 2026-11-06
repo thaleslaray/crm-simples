@@ -47,7 +47,7 @@ export function ContactsPage() {
         <input
           type="search"
           aria-label="Buscar contato"
-          placeholder="Buscar por nome ou telefone"
+          placeholder="Buscar"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

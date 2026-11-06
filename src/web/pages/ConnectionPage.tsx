@@ -228,7 +228,7 @@ export function ConnectionPage() {
               />
             </label>
             <div className="qr-actions">
-              <button type="submit" disabled={busy || !baseUrl.trim() || (!adminConfigured && !adminToken.trim())}>
+              <button type="submit" className="secondary" disabled={busy || !baseUrl.trim() || (!adminConfigured && !adminToken.trim())}>
                 Salvar
               </button>
               {adminConfigured && (

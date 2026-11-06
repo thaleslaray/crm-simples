@@ -210,7 +210,7 @@ export function FunnelsPage() {
         )}
         <div className="board-head-end">
       <div className="funnels-bar">
-        <input type="search" aria-label="Filtrar cards" placeholder="Filtrar cards" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" aria-label="Filtrar cards" placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} />
         <select aria-label="Filtrar por etiqueta" value={filter.label} onChange={(e) => setFilter((f) => ({ ...f, label: e.target.value }))}>
           <option value="">Todas as etiquetas</option>
           {labels.map((l) => (

@@ -105,7 +105,7 @@ test("campo de mensagem: nota não vai ao cliente, / filtra e insere, microfone 
     "placeholder",
     mobile
       ? "Mensagem ou /"
-      : "Digite uma mensagem ou / para respostas rápidas",
+      : "Mensagem ou / para atalhos",
   );
   await field.fill("oi");
   await expect(

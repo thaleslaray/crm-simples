@@ -247,7 +247,7 @@ export function InboxPage() {
             <input
               type="search"
               aria-label="Buscar"
-              placeholder="Pesquisar nome, telefone ou mensagem"
+              placeholder="Buscar"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -368,10 +368,15 @@ function ConversationItem({
           )}
         </span>
         <span className="conv-meta">
-          <StatusPill status={c.status} />
-          <span className="conv-dot" aria-hidden="true">
-            ·
-          </span>
+          {/* "Aberta" é o status comum de quase toda linha: o selo só aparece quando foge disso. */}
+          {c.status !== "aberta" && (
+            <>
+              <StatusPill status={c.status} />
+              <span className="conv-dot" aria-hidden="true">
+                ·
+              </span>
+            </>
+          )}
           <span className={`conv-assignee${c.assigneeName ? "" : " is-none"}`}>
             {c.assigneeName ?? "sem dono"}
           </span>

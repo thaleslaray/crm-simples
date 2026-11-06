@@ -162,12 +162,12 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .conv-preview { font-size: 0.9rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .is-unsupported > p, .conv-preview.is-unsupported { font-style: italic; }
 
-.search-heading { margin: 0; padding: 8px 16px 4px; font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.search-heading { margin: 0; padding: 8px 16px 4px; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
 .conv-preview mark { background: #fde68a; color: #111b21; border-radius: 2px; }
 
 /* Coluna da lista: cabeçalho, busca, chips e linhas no estilo do WhatsApp Web */
 .side-head { display: flex; align-items: center; padding: 14px 16px 10px 20px; gap: 8px; }
-.side-head h1 { font-size: 22px; font-weight: 700; margin: 0; flex: 1; min-width: 0; letter-spacing: -0.2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-head h1 { font-size: 22px; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fab { width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50%; display: grid; place-items: center; background: var(--fab-bg); color: var(--fab-fg); }
 .search-pill { margin: 0 12px 10px; display: flex; align-items: center; gap: 10px; background: var(--bg-input); border-radius: 999px; padding: 0 16px; height: 40px; color: var(--text-2); }
 .search-pill input { border: 0; background: transparent; outline: 0; flex: 1; min-width: 0; padding: 0; min-height: 0; height: 100%; font-size: 15px; color: var(--text); }
@@ -176,7 +176,7 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .inbox-chip:hover { background: var(--bg-hover); }
 .inbox-chip--on { background: var(--bg-active); color: var(--text); border-color: transparent; font-weight: 500; }
 .inbox-chip--filter { background: var(--filter-on-bg); color: var(--filter-on-fg); border-color: transparent; }
-.chip-count { font-size: 12.5px; }
+.chip-count { font-size: 12px; }
 .menu-wrap { position: relative; flex: none; }
 .menu { position: absolute; top: calc(100% + 4px); right: 0; background: var(--bg-panel); border-radius: 12px; box-shadow: var(--menu-shadow); padding: 8px; min-width: 230px; z-index: 30; display: grid; }
 .menu a, .menu button { display: flex; align-items: center; justify-content: flex-start; gap: 14px; padding: 10px 12px; min-height: 44px; border-radius: 8px; font-size: 0.9rem; text-align: left; text-decoration: none; background: transparent; color: var(--text); width: 100%; }
@@ -186,7 +186,7 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .menu .is-on { background: var(--bg-active); font-weight: 600; }
 .menu hr { border: 0; border-top: 1px solid var(--divider); margin: 6px 0; width: 100%; }
 .menu-title { margin: 0; padding: 8px 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.menu-label { margin: 0; padding: 6px 12px; font-size: 0.75rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.4px; }
+.menu-label { margin: 0; padding: 6px 12px; font-size: 0.75rem; color: var(--text-2); }
 .menu.menu--filters { position: fixed; max-height: 60dvh; overflow-y: auto; }
 
 .conv-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 8px; display: flex; flex-direction: column; }
@@ -202,16 +202,16 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .conv-item--row .conv-name { font-size: 16.5px; font-weight: 400; flex: 1; min-width: 0; }
 .conv-item--row .conv-time { font-size: 12px; color: var(--text-2); }
 .conv-item--row.is-unread .conv-time { color: var(--green-strong); font-weight: 600; }
-.conv-item--row .conv-preview { font-size: 14.2px; flex: 1; min-width: 0; display: flex; align-items: center; gap: 3px; color: var(--text-2); }
+.conv-item--row .conv-preview { font-size: 14px; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; color: var(--text-2); }
 .conv-preview-text { overflow: hidden; text-overflow: ellipsis; }
 .conv-preview-author { flex: none; }
 .tick { flex: none; color: var(--text-2); }
 .tick--read { color: var(--tick-read); }
 .tick--failed { color: var(--danger); }
 .conv-item--row .unread-badge { background: var(--green); color: #fff; min-width: 20px; height: 20px; font-size: 12px; }
-.conv-item--row .conv-meta { margin-top: 5px; gap: 6px; font-size: 12.5px; flex-wrap: nowrap; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+.conv-item--row .conv-meta { margin-top: 4px; gap: 6px; font-size: 12px; flex-wrap: nowrap; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
 .conv-assignee { flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.conv-assignee.is-none { font-style: italic; }
+.conv-assignee.is-none { color: var(--text-2); }
 .conv-dot { color: var(--text-2); }
 .status-pill { display: inline-flex; align-items: center; flex: none; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-pill--aberta { background: var(--st-aberta-bg); color: var(--st-aberta-fg); }
@@ -387,6 +387,8 @@ button.quote { display: grid; gap: 1px; text-align: left; width: 100%; min-heigh
 .team-who { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .team-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 button.danger { color: var(--danger); }
+button.secondary.danger { color: var(--text-2); }
+button.secondary.danger:hover, button.secondary.danger:focus-visible { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 
 /* Funis em largura total (ticket design-08) */
 .funnels-page { min-height: 0; }
@@ -544,12 +546,17 @@ button.danger { color: var(--danger); }
 
 .bubble-meta button.link { color: var(--text-2); font-size: 0.72rem; min-height: 24px; text-decoration: none; }
 .bubble-meta button.link:hover { text-decoration: underline; }
+/* Com mouse, "Responder" aparece só ao passar sobre o balão (ou com foco); "Reenviar" fica sempre à vista. No toque, sempre à vista. */
+@media (hover: hover) {
+  .bubble:not(.is-failed) .bubble-meta button.link { opacity: 0; transition: opacity 120ms ease; }
+  .bubble:hover .bubble-meta button.link, .bubble:focus-within .bubble-meta button.link { opacity: 1; }
+}
 
 /* Duas colunas: Contatos e Configurações (ticket design-07) */
 .two-col { flex: 1; min-height: 0; display: flex; }
 .two-col-list { width: clamp(340px, 30%, 440px); flex-shrink: 0; min-height: 0; overflow-y: auto; background: var(--bg-panel); border-right: 1px solid var(--divider); }
 .two-col-detail { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; background: var(--bg-rail); display: flex; flex-direction: column; position: relative; }
-.two-col-title { font-size: 1.4rem; font-weight: 700; padding: 14px 20px 10px; letter-spacing: -0.2px; }
+.two-col-title { font-size: 1.4rem; font-weight: 600; padding: 14px 20px 10px; }
 .two-col-head { display: flex; align-items: center; gap: 12px; padding: 0 20px; min-height: 64px; flex-shrink: 0; background: var(--bg-panel); border-bottom: 1px solid var(--divider); }
 .two-col-head h2 { margin: 0; font-size: 1.25rem; font-weight: 500; }
 .two-col-back { display: none; width: 40px; height: 40px; margin-left: -8px; border-radius: 50%; place-items: center; color: var(--text-2); }
@@ -570,7 +577,7 @@ button.danger { color: var(--danger); }
 .btn-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 22px; border-radius: 999px; background: var(--green-strong); color: #fff; font-weight: 600; text-decoration: none; }
 .ficha--page { flex: 1; width: 100%; border-left: 0; position: static; box-shadow: none; max-width: none; background: var(--bg-rail); }
 .settings-card { display: flex; align-items: center; gap: 14px; margin: 0 12px 8px; padding: 12px 8px; border-bottom: 1px solid var(--divider); }
-.avatar--lg { width: 56px; height: 56px; font-size: 1.1rem; background: #7e57c2; color: #fff; }
+.avatar--lg { width: 56px; height: 56px; font-size: 1.1rem; background: var(--bg-active); color: var(--text); font-weight: 600; }
 .settings-card-who { display: grid; gap: 2px; min-width: 0; }
 .settings-card-who strong { font-size: 1.06rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-card-who small, .settings-item small { color: var(--text-2); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
