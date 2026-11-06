@@ -1,11 +1,12 @@
 // Tempo real: um WebSocket com o hub da caixa de entrada, que se reconecta sozinho.
 // Quem usa assina com `onRealtime`; ao abrir (inclusive a primeira vez), `reconnected` avisa para buscar pela API o que se perdeu.
 import { useEffect } from "react";
-import type { ConnectionState, Contact, Conversation, Message, Note, SendStatus, TimelineEvent } from "./api";
+import type { ConnectionState, Contact, Conversation, Message, MessageReaction, Note, SendStatus, TimelineEvent } from "./api";
 
 export type RealtimeEvent =
   | { type: "message.created"; conversation: Conversation; message: Message }
   | { type: "message.status"; conversationId: string; messageId: string; status: SendStatus }
+  | { type: "message.reactions"; conversationId: string; messageId: string; reactions: MessageReaction[] }
   | { type: "conversation.updated"; conversation: Conversation; event?: TimelineEvent | null }
   | { type: "note.created"; conversationId: string; note: Note }
   | { type: "contact.updated"; contact: Contact }
@@ -74,7 +75,7 @@ export function useRealtimeConnection() {
         if (e.data === "pong") return clearTimeout(pongTimer);
         try {
           const event = JSON.parse(String(e.data)) as RealtimeEvent;
-          if (["message.created", "message.status", "conversation.updated", "note.created", "contact.updated", "labels.changed", "products.changed", "campaigns.changed", "funnel.changed", "connection.changed", "workspace.changed"].includes(event.type)) emit(event);
+          if (["message.created", "message.status", "message.reactions", "conversation.updated", "note.created", "contact.updated", "labels.changed", "products.changed", "campaigns.changed", "funnel.changed", "connection.changed", "workspace.changed"].includes(event.type)) emit(event);
         } catch {
           // Mensagem desconhecida: ignora.
         }

@@ -246,6 +246,16 @@ export interface Message {
   contact: { name: string | null; phone: string | null } | null;
   /** Mensagem citada (some se a original é anterior à conexão do número). */
   quote?: MessageQuote | null;
+  /** Reações: no máximo uma do cliente e uma da equipe (`userName`: atendente da equipe; nulo para cliente ou celular). */
+  reactions: MessageReaction[];
+}
+
+export interface MessageReaction {
+  side: "contact" | "team";
+  emoji: string;
+  /** Id do atendente da reação da equipe (a tela compara com o próprio id para mostrar "Você"); nulo para cliente ou celular. */
+  userId: string | null;
+  userName: string | null;
 }
 
 export interface MessageQuote {
@@ -406,6 +416,13 @@ export const api = {
       "POST",
       `/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/resend`,
       {},
+    ),
+  /** Reage a uma mensagem do cliente; `emoji` vazio remove a reação da equipe. */
+  reactToMessage: (id: string, messageId: string, emoji: string) =>
+    sendJson<{ reactions: MessageReaction[] }>(
+      "PUT",
+      `/api/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/reaction`,
+      { emoji },
     ),
   me: () => getJson<{ user: { role: "admin" | "atendente" } }>("/api/me"),
   quickReplies: () => getJson<{ quickReplies: QuickReply[] }>("/api/quick-replies"),

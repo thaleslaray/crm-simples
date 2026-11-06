@@ -8,6 +8,7 @@ import { loadConversation, loadMessage } from "./conversations";
 import type { AppEnv } from "./middleware";
 import { applyStatusUpdate } from "./delivery";
 import { publish } from "./realtime";
+import { publishReactions } from "./reactions";
 import { publishUpdate } from "./status";
 import { errorName } from "./errors";
 import { getWebhookSecret } from "./instance-secrets";
@@ -75,7 +76,9 @@ async function processEvent(env: Cloudflare.Env, db: Db, eventId: string, payloa
       const ingested = await ingestMessage(db, (payload.message ?? {}) as UazapiMessage, env.MEDIA_QUEUE);
       await db.update(schema.webhookEvent).set({ processedAt: Date.now() }).where(eq(schema.webhookEvent.id, eventId));
       // Mensagem nova (nao duplicada): avisa o hub. Depois de gravar tudo; falha de publicacao nao some com a mensagem.
-      if (ingested?.alreadyStored) {
+      if (ingested && "reactedMessageId" in ingested) {
+        await publishReactions(env, db, ingested.conversationId, ingested.reactedMessageId);
+      } else if (ingested?.alreadyStored) {
         // Reprocessamento que so recuperou o negocio da campanha: a mensagem ja foi publicada antes.
         await publishCampaignHit(env, db, ingested.conversationId, ingested.campaign);
       } else if (ingested) {

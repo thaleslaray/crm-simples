@@ -279,9 +279,32 @@ export const message = sqliteTable(
   },
   (t) => [
     index("message_conversation_ts_idx").on(t.conversationId, t.timestamp, t.id),
+    // Busca do alvo de reacao/citacao pelo id do WhatsApp.
+    index("message_whatsapp_id_idx").on(t.whatsappMessageId),
     // Parcial: so as pendentes entram, a reconciliacao acha as presas sem varrer a tabela.
     index("message_media_pending_idx").on(t.timestamp).where(sql`${t.mediaStatus} = 'pending'`),
   ],
+);
+
+/** Lado da reacao: a equipe inteira usa o mesmo numero, entao ha no maximo UMA reacao da equipe e UMA do cliente por mensagem. */
+export const REACTION_SIDES = ["contact", "team"] as const;
+export type ReactionSide = (typeof REACTION_SIDES)[number];
+
+/** Reacao com emoji a uma mensagem (nao e mensagem: nao entra em `message`). */
+export const messageReaction = sqliteTable(
+  "message_reaction",
+  {
+    id: text("id").primaryKey(),
+    messageId: text("message_id")
+      .notNull()
+      .references(() => message.id, { onDelete: "cascade" }),
+    side: text("side", { enum: REACTION_SIDES }).notNull(),
+    emoji: text("emoji").notNull(),
+    /** Atendente que reagiu (so lado da equipe). Nulo: cliente, ou alguem da empresa pelo celular. */
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    timestamp: integer("timestamp").notNull(),
+  },
+  (t) => [uniqueIndex("message_reaction_side_idx").on(t.messageId, t.side)],
 );
 
 /** Eventos de sistema da linha do tempo: quem mudou o status/responsavel e quando (o vaivem automatico nao entra). */

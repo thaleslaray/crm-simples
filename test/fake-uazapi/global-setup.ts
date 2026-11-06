@@ -9,7 +9,7 @@ declare module "vitest" {
 
 /** Sobe a Uazapi falsa uma vez por execucao do vitest e expoe a URL ao config do pool (via inject). */
 export default async function setup(project: TestProject) {
-  const fake = await startFakeUazapi();
+  const fake = await startFakeUazapi({ defaults: [{ method: "POST", path: "/message/react", responses: [{ body: { success: true, message: "Reaction sent" } }] }] });
   project.provide("fakeUazapiUrl", fake.url);
   return () => fake.close();
 }

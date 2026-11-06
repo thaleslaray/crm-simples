@@ -4,6 +4,7 @@ import { createDb, type Db, schema } from "./db";
 import { publishCampaignHit } from "./campaign-deal";
 import { ingestMessage } from "./ingest";
 import { publish } from "./realtime";
+import { publishReactions } from "./reactions";
 import { getUazapiClient } from "./uazapi/config";
 import { errorName } from "./errors";
 
@@ -33,6 +34,10 @@ async function recoverMessages(env: Cloudflare.Env, db: Db, now: number): Promis
       try {
         const ingested = await ingestMessage(db, msg, env.MEDIA_QUEUE);
         if (!ingested) continue;
+        if ("reactedMessageId" in ingested) {
+          await publishReactions(env, db, ingested.conversationId, ingested.reactedMessageId);
+          continue;
+        }
         if (ingested.alreadyStored) {
           await publishCampaignHit(env, db, ingested.conversationId, ingested.campaign);
           continue;

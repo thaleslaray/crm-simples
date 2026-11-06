@@ -34,6 +34,7 @@ export interface HistoryMessage {
   location: { lat: number; lng: number; name: string | null; address: string | null } | null;
   contact: { name: string | null; phone: string | null } | null;
   quote?: { id: string; type: string; text: string | null; direction: string; authorName: string | null } | null;
+  reactions?: { side: "contact" | "team"; emoji: string; userId: string | null; userName: string | null }[];
 }
 
 export async function inbox(cookie: string): Promise<InboxConversation[]> {

@@ -34,6 +34,7 @@ const fake = await startFakeUazapi({
       path: "/message/markread",
       responses: [{ body: { ok: true } }],
     },
+    { method: "POST", path: "/message/react", responses: [{ body: { success: true, message: "Reaction sent" } }] },
     // Foto de perfil: um SVG embutido, para a ficha mostrar uma imagem de verdade sem sair da maquina.
     {
       method: "POST",

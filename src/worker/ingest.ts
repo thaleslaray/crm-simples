@@ -3,6 +3,7 @@ import type { Db } from "./db";
 import { schema } from "./db";
 import { applyCampaignCode, type CampaignHit } from "./campaign-deal";
 import { errorName } from "./errors";
+import { applyReaction } from "./reactions";
 import { reopenOnClientMessage } from "./status";
 
 /** Campos do evento `messages` da Uazapi que usamos. */
@@ -25,6 +26,8 @@ export interface UazapiMessage {
   content?: unknown;
   /** Resposta com citacao: id da mensagem citada, com ou sem o prefixo `owner:` (nao validado com webhook real). */
   quoted?: string;
+  /** Reacao: `messageid` do WhatsApp da mensagem alvo, com ou sem o prefixo `owner:` (nao validado com webhook real). */
+  reaction?: string;
 }
 
 type MessageType = (typeof schema.message.$inferInsert)["type"];
@@ -131,6 +134,46 @@ async function resolveConversation(db: Db, contactId: string, now: number): Prom
   return conv!.id;
 }
 
+/** Reacao gravada (ou removida): nao e mensagem, so o chamador avisa o tempo real. */
+export type ReactionIngest = { reactedMessageId: string; conversationId: string };
+
+/** Reacao no evento `messages`: tolera `messageType` reaction/reactionmessage ou o campo `reaction`; o alvo vem de `reaction` ou `content.key.ID`. */
+function reactionOf(msg: UazapiMessage): { target: string | null; emoji: string } | null {
+  const mt = msg.messageType?.toLowerCase();
+  if (mt !== "reactionmessage" && mt !== "reaction" && !str(msg.reaction)) return null;
+  const content = msg.content && typeof msg.content === "object" ? (msg.content as Record<string, unknown>) : {};
+  const key = content.key && typeof content.key === "object" ? (content.key as Record<string, unknown>) : {};
+  const raw = str(msg.reaction) ?? str(key.ID) ?? str(key.id);
+  return { target: raw ? raw.slice(raw.lastIndexOf(":") + 1) || null : null, emoji: str(msg.text) ?? str(content.text) ?? "" };
+}
+
+/** Grava a reacao na mensagem alvo (achada pelo `messageid` do WhatsApp). Alvo fora do banco: ignora (null). */
+async function ingestReaction(db: Db, msg: UazapiMessage, reaction: { target: string | null; emoji: string }): Promise<ReactionIngest | null> {
+  if (!reaction.target) return null;
+  const target = await db.query.message.findFirst({
+    where: eq(schema.message.whatsappMessageId, reaction.target),
+    columns: { id: true, conversationId: true },
+  });
+  if (!target) return null;
+  // `fromMe` com o mesmo emoji ja gravado: e o eco da reacao que o CRM mandou (mantem o atendente, nao publica).
+  if (msg.fromMe && reaction.emoji) {
+    const atual = await db.query.messageReaction.findFirst({
+      where: and(eq(schema.messageReaction.messageId, target.id), eq(schema.messageReaction.side, "team")),
+      columns: { emoji: true },
+    });
+    if (atual?.emoji === reaction.emoji) return null;
+  }
+  // `fromMe`: alguem da empresa reagiu pelo celular (sem atendente).
+  await applyReaction(db, {
+    messageId: target.id,
+    side: msg.fromMe ? "team" : "contact",
+    emoji: reaction.emoji,
+    userId: null,
+    timestamp: msg.messageTimestamp ?? Date.now(),
+  });
+  return { reactedMessageId: target.id, conversationId: target.conversationId };
+}
+
 export type IngestResult = {
   conversationId: string;
   messageId: string;
@@ -151,15 +194,18 @@ async function tryCampaignCode(db: Db, input: Parameters<typeof applyCampaignCod
 }
 
 /**
- * Processa o evento `messages`. Descarta grupo e `fromMe`; idempotente por `message.id`.
+ * Processa o evento `messages`. Descarta grupo e `fromMe` (exceto reacao, que nao e mensagem); idempotente por `message.id`.
  * Lanca se o payload nao tem `message.id` (o evento fica sem `processedAt`).
  */
 export async function ingestMessage(
   db: Db,
   msg: UazapiMessage,
   queue: Queue<MediaJob>,
-): Promise<IngestResult | null> {
-  if (msg.isGroup || msg.fromMe) return null;
+): Promise<IngestResult | ReactionIngest | null> {
+  if (msg.isGroup) return null;
+  const reaction = reactionOf(msg);
+  if (reaction) return ingestReaction(db, msg, reaction);
+  if (msg.fromMe) return null;
   if (!msg.id) throw new Error("mensagem sem id");
 
   const already = await db.query.message.findFirst({ where: eq(schema.message.externalId, msg.id) });

@@ -169,6 +169,13 @@
       "when": 1793971164851,
       "tag": "0023_campanha_automatica",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1793988146792,
+      "tag": "0024_reacoes",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import type { ConnectionState } from "./connection";
 import type { ContactView } from "./contacts";
 import type { Conversation, Message } from "./conversations";
 import type { Note } from "./notes";
+import type { Reaction } from "./reactions";
 import type { TimelineEvent } from "./status";
 import { errorName } from "./errors";
 import { createAuth } from "./auth";
@@ -13,6 +14,8 @@ import { hub } from "./realtime-hub";
 export type RealtimeEvent =
   | { type: "message.created"; conversation: Conversation; message: Message }
   | { type: "message.status"; conversationId: string; messageId: string; status: NonNullable<Message["status"]> }
+  // Lista COMPLETA e atual de reacoes da mensagem (o cliente troca a lista inteira).
+  | { type: "message.reactions"; conversationId: string; messageId: string; reactions: Reaction[] }
   // Status, responsavel ou nao lidas mudou; `event` e o evento de sistema da linha do tempo (ausente/nulo no vaivem automatico).
   | { type: "conversation.updated"; conversation: Conversation; event?: TimelineEvent | null }
   | { type: "note.created"; conversationId: string; note: Note }

@@ -175,6 +175,15 @@ export function ConversationPage() {
           );
         return;
       }
+      if (event.type === "message.reactions") {
+        if (event.conversationId === id)
+          setState((s) =>
+            s.kind === "ready"
+              ? { ...s, messages: s.messages.map((m) => (m.id === event.messageId ? { ...m, reactions: event.reactions } : m)) }
+              : s,
+          );
+        return;
+      }
       if (event.type !== "reconnected") return;
       void refreshStatus();
       const last = lastSeen.current;
@@ -362,7 +371,7 @@ export function ConversationPage() {
     const text = draft.trim();
     if (!id || !text) return;
     const quoting = replyingTo;
-    const temp: Message = { id: `${TEMP}${crypto.randomUUID()}`, direction: "out", type: "text", text, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote: quoteOf(quoting) };
+    const temp: Message = { id: `${TEMP}${crypto.randomUUID()}`, direction: "out", type: "text", text, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote: quoteOf(quoting), reactions: [] };
     setDraftState("");
     setDraft(id, "");
     setSendError(false);
@@ -432,7 +441,7 @@ export function ConversationPage() {
       if (!id) return false;
       const quoting = opts.quoting ?? null;
       const type: Message["type"] = opts.voice ? "voice" : file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "document";
-      const temp: Message = { id: `${TEMP}${crypto.randomUUID()}`, direction: "out", type, text: opts.caption || null, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote: quoteOf(quoting) };
+      const temp: Message = { id: `${TEMP}${crypto.randomUUID()}`, direction: "out", type, text: opts.caption || null, status: "sending", timestamp: Date.now(), media: null, location: null, contact: null, quote: quoteOf(quoting), reactions: [] };
       setSendError(false);
       setSendErrorText(null);
       setSendingFile(true);
@@ -489,6 +498,27 @@ export function ConversationPage() {
       void refreshConversation();
     },
     [id, replaceMessage, refreshConversation],
+  );
+
+  // Reação da equipe (uma por mensagem, como no WhatsApp: o número é um só). Aparece na hora e volta atrás se a Uazapi recusar.
+  const myName = authClient.useSession().data?.user.name ?? null;
+  const react = useCallback(
+    async (m: Message, emoji: string) => {
+      if (!id) return;
+      const setReactions = (reactions: Message["reactions"]) =>
+        setState((s) => (s.kind === "ready" ? { ...s, messages: s.messages.map((x) => (x.id === m.id ? { ...x, reactions } : x)) } : s));
+      const before = m.reactions ?? [];
+      const others = before.filter((r) => r.side !== "team");
+      setReactions(emoji ? [...others, { side: "team", emoji, userId: myId ?? null, userName: myName }] : others);
+      try {
+        setReactions((await api.reactToMessage(id, m.id, emoji)).reactions);
+      } catch {
+        setReactions(before);
+        setSendErrorText("Não foi possível reagir. Tente de novo.");
+        setSendError(true);
+      }
+    },
+    [id, myId, myName],
   );
 
   if (state.kind === "loading") return <p className="empty">Carregando…</p>;
@@ -564,6 +594,8 @@ export function ConversationPage() {
                   onOpenQuote={goToQuoted}
                   onReply={setReplyingTo}
                   onResend={(x) => void resend(x)}
+                  myId={myId}
+                  onReact={(x, emoji) => void react(x, emoji)}
                 />
               );
             }

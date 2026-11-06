@@ -66,6 +66,8 @@ export interface UazapiClient {
   sendText(input: { number: string; text: string; replyId?: string }): Promise<SentText>;
   /** `/message/markread`: marca mensagens recebidas (`id` = `message.id` da Uazapi) como lidas no WhatsApp. */
   markRead(messageIds: string[]): Promise<void>;
+  /** `/message/react`: reage a uma mensagem recebida (`id` = `messageid` do WhatsApp); `text` vazio remove a reacao. Mesmos erros de `sendText`. */
+  react(input: { id: string; text: string }): Promise<void>;
   /** Envia midia por link (`/send/media`). `ptt` e nota de voz; `text` e a legenda; `replyId` cita uma mensagem. Mesmos erros de `sendText`. */
   sendMedia(input: {
     number: string;
@@ -274,6 +276,9 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
         body: JSON.stringify({ id: messageIds }),
       });
       await res.body?.cancel();
+    },
+    async react({ id, text }) {
+      await (await postJson("/message/react", { id, text })).body?.cancel();
     },
     sendText: ({ number, text, replyId }) => postSend("/send/text", { number, text, ...(replyId ? { replyid: replyId } : {}) }),
     sendMedia: ({ replyId, ...input }) => postSend("/send/media", { ...input, ...(replyId ? { replyid: replyId } : {}) }),

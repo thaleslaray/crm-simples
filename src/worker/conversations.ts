@@ -8,6 +8,7 @@ import { labelsByContact } from "./labels";
 import { createNote, listNotes } from "./notes";
 import { type AppEnv, requireAuth } from "./middleware";
 import { publish } from "./realtime";
+import { applyReaction, loadReactions, publishReactions, type Reaction } from "./reactions";
 import { normalizePhone } from "../shared/phone";
 import { sendOutgoingText } from "./send";
 import { startConversation } from "./start-conversation";
@@ -181,13 +182,14 @@ export type MessageRow = {
 };
 
 /** Mensagem no formato da API. Midia "disponivel" cujo objeto saiu do R2 (regra de 365 dias) aparece como "expired". */
-export async function messageView(bucket: R2Bucket, m: MessageRow) {
+export async function messageView(bucket: R2Bucket, m: MessageRow, reactions: Reaction[]) {
   const { mediaStatus, mediaKey, mediaMime, mediaSize, mediaName, extra, quotedMessageId, quotedType, quotedText, quotedDirection, quotedAuthorName, ...base } = m;
   let status: "pending" | "available" | "failed" | "expired" | null = mediaStatus;
   if (mediaStatus === "available" && (!mediaKey || !(await bucket.head(mediaKey)))) status = "expired";
   const details = extra ? (JSON.parse(extra) as Record<string, unknown>) : null;
   return {
     ...base,
+    reactions,
     media: status ? { status, mime: mediaMime, size: mediaSize, name: mediaName } : null,
     location: m.type === "location" ? details : null,
     contact: m.type === "contact" ? contactView(details) : null,
@@ -269,10 +271,14 @@ export async function loadMessage(db: Db, bucket: R2Bucket, id: string): Promise
     .leftJoin(quoted, quoteJoinOn)
     .leftJoin(quotedAuthor, eq(quotedAuthor.id, quoted.sentById))
     .where(eq(schema.message.id, id));
-  return row ? messageView(bucket, row) : null;
+  return row ? messageView(bucket, row, (await loadReactions(db, [row.id])).get(row.id) ?? []) : null;
 }
 
-const views = (bucket: R2Bucket, rows: MessageRow[]) => Promise.all(rows.map((m) => messageView(bucket, m)));
+/** Uma consulta de reacoes para a pagina inteira (nada de N+1). */
+async function views(db: Db, bucket: R2Bucket, rows: MessageRow[]) {
+  const reactions = await loadReactions(db, rows.map((m) => m.id));
+  return Promise.all(rows.map((m) => messageView(bucket, m, reactions.get(m.id) ?? [])));
+}
 
 conversations.get("/:id/messages", async (c) => {
   const db = createDb(c.env.DB);
@@ -295,7 +301,7 @@ conversations.get("/:id/messages", async (c) => {
     const older = await loadOlder(db, id, olderCount + 1, cur, true); // inclui a propria mensagem
     const newer = await loadNewer(db, id, limit - olderCount - 1, cur);
     const raw = [...older.page, ...newer.page];
-    const messages = await views(c.env.MEDIA, raw);
+    const messages = await views(db, c.env.MEDIA, raw);
     return c.json({
       messages,
       nextBefore: older.more ? encodeCursor(raw[0]!) : null,
@@ -308,7 +314,7 @@ conversations.get("/:id/messages", async (c) => {
     const after = decodeCursor(rawAfter);
     if (!after) return c.json({ error: "cursor_invalido" }, 400);
     const newer = await loadNewer(db, id, limit, after);
-    return c.json({ messages: await views(c.env.MEDIA, newer.page), nextBefore: null, nextAfter: newer.more ? encodeCursor(newer.page.at(-1)!) : null });
+    return c.json({ messages: await views(db, c.env.MEDIA, newer.page), nextBefore: null, nextAfter: newer.more ? encodeCursor(newer.page.at(-1)!) : null });
   }
 
   const rawBefore = c.req.query("before");
@@ -316,7 +322,7 @@ conversations.get("/:id/messages", async (c) => {
   if (rawBefore && !before) return c.json({ error: "cursor_invalido" }, 400);
 
   const older = await loadOlder(db, id, limit, before ?? undefined);
-  return c.json({ messages: await views(c.env.MEDIA, older.page), nextBefore: older.more ? encodeCursor(older.page[0]!) : null });
+  return c.json({ messages: await views(db, c.env.MEDIA, older.page), nextBefore: older.more ? encodeCursor(older.page[0]!) : null });
 });
 
 // Abrir a conversa: zera o contador e marca no WhatsApp as mensagens do cliente que ainda nao tinham sido vistas.
@@ -473,4 +479,36 @@ conversations.post("/:id/notes", async (c) => {
   if (note === "limit") return c.json({ error: "limite_de_notas", message: "Esta conversa já tem 500 notas (o máximo)." }, 409);
   await publish(c.env, { type: "note.created", conversationId: id, note });
   return c.json({ note }, 201);
+});
+
+/** Reacao: janela do WhatsApp (so mensagens de ate 7 dias). */
+const REACTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_EMOJI_UNITS = 16;
+// Um unico emoji: bandeira, tecla (1⃣), ou pictograma com variacao, tom de pele e/ou sequencia ZWJ.
+const SINGLE_EMOJI =
+  /^(?:\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}\uFE0F?\p{Emoji_Modifier}?[\u{E0020}-\u{E007F}]*(?:\u200D\p{Extended_Pictographic}\uFE0F?\p{Emoji_Modifier}?)*)$/u;
+const validEmoji = (v: unknown): v is string => typeof v === "string" && (v === "" || (v.length <= MAX_EMOJI_UNITS && SINGLE_EMOJI.test(v)));
+
+// Reagir a uma mensagem do cliente (emoji vazio remove). A Uazapi vai PRIMEIRO: se recusar, nada e gravado.
+conversations.put("/:id/messages/:messageId/reaction", async (c) => {
+  const db = createDb(c.env.DB);
+  const conversationId = c.req.param("id");
+  const body = await c.req.json<{ emoji?: unknown }>().catch(() => null);
+  const target = await db.query.message.findFirst({
+    where: and(eq(schema.message.id, c.req.param("messageId")), eq(schema.message.conversationId, conversationId)),
+    columns: { id: true, direction: true, whatsappMessageId: true, timestamp: true },
+  });
+  if (!target) return c.json({ error: "nao_encontrado" }, 404);
+  const emoji = body?.emoji;
+  if (!validEmoji(emoji)) return c.json({ error: "emoji_invalido" }, 400);
+  if (target.direction !== "in" || !target.whatsappMessageId) return c.json({ error: "reacao_indisponivel" }, 409);
+  if (Date.now() - target.timestamp > REACTION_WINDOW_MS) return c.json({ error: "reacao_expirada" }, 409);
+  try {
+    await (await getUazapiClient(c.env)).react({ id: target.whatsappMessageId, text: emoji });
+  } catch (err) {
+    console.error("conversa: falha ao reagir na Uazapi", { erro: errorName(err) });
+    return c.json({ error: "falha_ao_reagir" }, 502);
+  }
+  await applyReaction(db, { messageId: target.id, side: "team", emoji, userId: c.get("user").id, timestamp: Date.now() });
+  return c.json({ reactions: await publishReactions(c.env, db, conversationId, target.id) });
 });
