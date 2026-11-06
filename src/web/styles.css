@@ -1,26 +1,26 @@
 /* Tokens do tema (estilo WhatsApp Web). `data-theme` vem de theme.ts; sem JS vale o claro. */
 :root {
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --bg-rail: #f7f5f3;
+  --bg-rail: #f0f2f0;
   --bg-panel: #ffffff;
-  --bg-hover: #f5f6f6;
-  --bg-active: #f0f2f5;
-  --bg-input: #f0f2f5;
-  --bg-chat: #efeae2;
+  --bg-hover: #f2f5f2;
+  --bg-active: #e9eeea;
+  --bg-input: #e9eeea;
+  --bg-chat: #eae7df;
   --bubble-in: #ffffff;
-  --bubble-out: #d9fdd3;
+  --bubble-out: #d6f8cc;
   --bubble-note: #fff6c2;
   --bubble-note-border: #f0dc7a;
   --composer-note: #fff9d9;
-  --text: #111b21;
-  --text-2: #667781;
-  --divider: #e9edef;
+  --text: #18251d;
+  --text-2: #68756c;
+  --divider: #e2e7e3;
   --green: #25d366;
   --green-strong: #1daa61;
   --green-text: #008069;
   --tick-read: #53bdeb;
   --pill-event: #ffffffd9;
-  --doodle-stroke: #e3ddd2;
+  --doodle-stroke: #dcd8cd;
   --shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
   --menu-shadow: 0 2px 5px rgba(11, 20, 26, 0.26), 0 2px 10px rgba(11, 20, 26, 0.16);
   --author-0: #6a3fb5; --author-1: #0b6fc4; --author-2: #c2185b; --author-3: #0b7a62;
@@ -29,11 +29,11 @@
   --st-aberta-bg: #ffe9d6; --st-aberta-fg: #b54708;
   --st-andamento-bg: #dcecff; --st-andamento-fg: #1d5fbf;
   --st-aguardando-bg: #e3e9ef; --st-aguardando-fg: #4a5d70;
-  --st-resolvida-bg: #f0f2f5; --st-resolvida-fg: #8696a0;
+  --st-resolvida-bg: #e9eeea; --st-resolvida-fg: #68756c;
   --shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
   --menu-shadow: 0 2px 5px rgba(11, 20, 26, 0.26), 0 2px 10px rgba(11, 20, 26, 0.16);
-  --fab-bg: #111b21; --fab-fg: #fff;
-  --filter-on-bg: #d9fdd3; --filter-on-fg: #0a5d3a;
+  --fab-bg: #18251d; --fab-fg: #fff;
+  --filter-on-bg: #d6f8cc; --filter-on-fg: #0a5d3a;
   /* Nomes antigos das telas atuais, ligados aos tokens novos. */
   --bg: var(--bg-input);
   --fg: var(--text);
@@ -47,23 +47,23 @@
   font-family: var(--font);
 }
 :root[data-theme="dark"] {
-  --bg-rail: #202c33;
-  --bg-panel: #111b21;
-  --bg-hover: #202c33;
-  --bg-active: #2a3942;
-  --bg-input: #202c33;
-  --bg-chat: #0b141a;
-  --bubble-in: #202c33;
-  --bubble-out: #005c4b;
+  --bg-rail: #202420;
+  --bg-panel: #161917;
+  --bg-hover: #262b27;
+  --bg-active: #2e332f;
+  --bg-input: #2e332f;
+  --bg-chat: #101612;
+  --bubble-in: #242925;
+  --bubble-out: #144b37;
   --bubble-note: #3d3514;
   --bubble-note-border: #6b5c1f;
   --composer-note: #2f2a12;
-  --text: #e9edef;
-  --text-2: #8696a0;
-  --divider: #222d34;
-  --green-text: #21c063;
-  --pill-event: #182229;
-  --doodle-stroke: #162027;
+  --text: #edf0ed;
+  --text-2: #a1a6a2;
+  --divider: #2b302c;
+  --green-text: #58c577;
+  --pill-event: #1d211e;
+  --doodle-stroke: #1a221d;
   --shadow: 0 1px 0.5px rgba(0, 0, 0, 0.4);
   --menu-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(0, 0, 0, 0.4);
   --author-0: #d1b3ff; --author-1: #8cc8ff; --author-2: #ff9ec4; --author-3: #7ee8c3;
@@ -71,10 +71,10 @@
   --st-aberta-bg: #4a2b12; --st-aberta-fg: #ffb371;
   --st-andamento-bg: #16324f; --st-andamento-fg: #8cc0ff;
   --st-aguardando-bg: #26343f; --st-aguardando-fg: #a7b8c7;
-  --st-resolvida-bg: #202c33; --st-resolvida-fg: #667781;
-  --fab-bg: #e9edef; --fab-fg: #111b21;
-  --filter-on-bg: #103529; --filter-on-fg: #8ff0b6;
-  --brand-fg: #111b21;
+  --st-resolvida-bg: #242925; --st-resolvida-fg: #a1a6a2;
+  --fab-bg: #edf0ed; --fab-fg: #161917;
+  --filter-on-bg: #183c2b; --filter-on-fg: #d9fbe5;
+  --brand-fg: #102c18;
   --danger: #ff6b6b;
   color-scheme: dark;
 }
@@ -174,7 +174,7 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .filter-chips { display: flex; gap: 3px; padding: 0 12px 10px; align-items: center; overflow-x: auto; scrollbar-width: none; }
 .inbox-chip { flex: none; border: 1px solid var(--divider); border-radius: 999px; padding: 0 8px; height: 32px; min-height: 32px; font-size: 14px; color: var(--text-2); background: transparent; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .inbox-chip:hover { background: var(--bg-hover); }
-.inbox-chip--on { background: var(--bg-active); color: var(--text); border-color: transparent; font-weight: 500; }
+.inbox-chip--on { background: var(--filter-on-bg); color: var(--filter-on-fg); border-color: transparent; font-weight: 500; }
 .inbox-chip--filter { background: var(--filter-on-bg); color: var(--filter-on-fg); border-color: transparent; }
 .chip-count { font-size: 12px; }
 .menu-wrap { position: relative; flex: none; }
@@ -421,7 +421,7 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 .chip-row { display: flex; gap: 8px; overflow-x: auto; min-width: 0; max-width: 100%; }
 .chip { flex: none; min-height: 36px; padding: 0 14px; border: 1px solid var(--divider); border-radius: 999px; background: transparent; color: var(--text-2); font-size: 0.9rem; white-space: nowrap; }
 .chip:hover { background: var(--bg-hover); }
-.chip.on { background: var(--bg-active); color: var(--text); border-color: transparent; font-weight: 600; }
+.chip.on { background: var(--filter-on-bg); color: var(--filter-on-fg); border-color: transparent; font-weight: 600; }
 .board-head-end { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .board-manage { color: var(--green-text); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; min-height: 44px; }
 .funnels-bar { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -595,7 +595,7 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 .two-col-pad { padding: 8px 20px; margin: 0; }
 /* Quebra em linhas (rolagem vertical se forem muitas): rolar na horizontal escondia o "Todos" ao filtrar por uma etiqueta à direita. */
 .contacts-side .chip-row { padding: 0 12px 10px; flex-wrap: wrap; gap: 6px 8px; overflow-x: hidden; overflow-y: auto; max-height: 112px; flex-shrink: 0; }
-.chip[aria-pressed="true"] { background: var(--bg-active); color: var(--text); border-color: transparent; font-weight: 600; }
+.chip[aria-pressed="true"] { background: var(--filter-on-bg); color: var(--filter-on-fg); border-color: transparent; font-weight: 600; }
 .chip-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 .contacts-side .contact-list { border: 0; border-radius: 0; background: transparent; padding: 0 6px 12px; }
 .contact-row { display: flex; align-items: center; gap: 13px; padding: 10px 12px; border-radius: 12px; color: inherit; text-decoration: none; }
@@ -680,4 +680,12 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
   .report-table td { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 8px; min-width: 0; }
   .report-table td::before { content: attr(data-label); color: var(--muted); font-weight: 400; }
   .report-table td[data-label="Faturado"] { grid-column: 1 / -1; order: 1; }
+}
+
+/* Foco pelo teclado: o mesmo contorno verde em todo controle. */
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--green-strong); outline-offset: 2px; }
+/* Mensagem nova sobe 4px ao aparecer, como no app; nada se o aparelho pediu menos movimento. */
+@media (prefers-reduced-motion: no-preference) {
+  .bubble { animation: bubble-in 0.15s ease-out; }
+  @keyframes bubble-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 }
