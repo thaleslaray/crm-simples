@@ -284,7 +284,9 @@ describe("Funis: negocios", () => {
     await newDeal(atendente, vendas.id, c2, novo);
     await newDeal(atendente, vendas.id, c3, proposta);
 
-    expect((await deleteStage(admin, vendas.id, novo)).status).toBe(409);
+    const semDestino = await deleteStage(admin, vendas.id, novo);
+    expect(semDestino.status).toBe(409);
+    expect(await semDestino.json()).toEqual({ error: "etapa_com_negocios" });
     expect((await deleteStage(admin, vendas.id, novo, novo)).status).toBe(400);
     expect((await deleteStage(admin, vendas.id, novo, "nao")).status).toBe(400);
     expect(await layout(admin, vendas.id)).toMatchObject({ Novo: [P1, P2], Proposta: [P3] });
@@ -521,6 +523,29 @@ describe("Funis: ganhou e perdeu", () => {
     const { atendente, vendas, proposta, dealId } = await cenario();
     await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 500 });
     expect((await moveDeal(atendente, vendas.id, dealId, proposta)).status).toBe(409);
+  });
+
+  it("negocio fechado nao e editado (409) e o admin corrige reabrindo", async () => {
+    const { admin, atendente, vendas, dealId, closed } = await cenario();
+    await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 500 });
+
+    const res = await editDeal(atendente, vendas.id, dealId, { valueCents: 1 });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "negocio_fechado" });
+    expect((await closed(admin, "ganho"))[0]!.valueCents).toBe(500);
+
+    await reopenDeal(admin, vendas.id, dealId);
+    expect((await editDeal(atendente, vendas.id, dealId, { valueCents: 1 })).status).toBe(200);
+  });
+
+  it("negocio fechado nao e removido (409) e continua em Ganhos", async () => {
+    const { admin, atendente, vendas, dealId, closed } = await cenario();
+    await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 500 });
+
+    const res = await removeDeal(atendente, vendas.id, dealId);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "negocio_fechado" });
+    expect(await closed(admin, "ganho")).toHaveLength(1);
   });
 
   it("fechar e reabrir publicam evento de funil em tempo real", async () => {

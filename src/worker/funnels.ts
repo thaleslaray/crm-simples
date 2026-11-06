@@ -180,7 +180,7 @@ funnels.delete("/:id/stages/:stageId", requireAuth, requireRole("admin"), async 
   const moving = await stageDeals(db, stageId);
   if (moving.length > 0) {
     const body = (await c.req.json().catch(() => null)) as { moveTo?: unknown } | null;
-    if (body?.moveTo === undefined) return c.json({ error: "etapa_com_cards" }, 409);
+    if (body?.moveTo === undefined) return c.json({ error: "etapa_com_negocios" }, 409);
     if (typeof body.moveTo !== "string" || body.moveTo === stageId || !(await stageOf(db, id, body.moveTo))) {
       return c.json({ error: "destino_invalido" }, 400);
     }
@@ -385,6 +385,7 @@ funnels.patch("/:id/deals/:dealId", requireAuth, async (c) => {
   const { id, dealId } = c.req.param();
   const deal = await db.query.deal.findFirst({ where: and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id)) });
   if (!deal) return c.json({ error: "nao_encontrado" }, 404);
+  if (deal.status !== "aberto") return c.json({ error: "negocio_fechado" }, 409);
   if (!(await campaignAllowed(db, fields.originCampaignId, deal.originCampaignId))) return c.json({ error: "negocio_invalido" }, 400);
   if (fields.productId && fields.productId !== deal.productId) {
     const product = await findProduct(db, fields.productId);
@@ -417,13 +418,17 @@ funnels.put("/:id/deals/:dealId", requireAuth, async (c) => {
   return c.json({ ok: true });
 });
 
+// Negocio fechado e somente leitura: a condicao `aberto` no DELETE segura a corrida com um fechamento.
 funnels.delete("/:id/deals/:dealId", requireAuth, async (c) => {
+  const db = createDb(c.env.DB);
   const { id, dealId } = c.req.param();
-  const gone = await createDb(c.env.DB)
+  const deal = await db.query.deal.findFirst({ where: and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id)), columns: { status: true } });
+  if (!deal) return c.json({ error: "nao_encontrado" }, 404);
+  const gone = await db
     .delete(schema.deal)
-    .where(and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id)))
-    .returning();
-  if (gone.length === 0) return c.json({ error: "nao_encontrado" }, 404);
+    .where(and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id), eq(schema.deal.status, "aberto")))
+    .returning({ id: schema.deal.id });
+  if (gone.length === 0) return c.json({ error: "negocio_fechado" }, 409);
   await changed(c.env, id);
   return c.json({ ok: true });
 });

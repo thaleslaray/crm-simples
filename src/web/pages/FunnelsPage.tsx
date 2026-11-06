@@ -422,9 +422,11 @@ function Card(props: {
                 </select>
               </>
             )}
-            <button type="button" className="secondary" aria-label={`Remover negócio de ${name}`} onClick={props.onRemove}>
-              Remover negócio
-            </button>
+            {!closed && (
+              <button type="button" className="secondary" aria-label={`Remover negócio de ${name}`} onClick={props.onRemove}>
+                Remover negócio
+              </button>
+            )}
           </div>
           )}
         </div>
