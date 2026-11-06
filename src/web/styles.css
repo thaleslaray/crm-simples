@@ -415,7 +415,7 @@ button.danger { color: var(--danger); }
 .add-contact-body input { flex: 2 1 180px; min-height: 44px; }
 .add-contact-results { flex: 1 1 100%; list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .add-contact-results button { width: 100%; text-align: left; overflow-wrap: anywhere; }
-.board { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 16px 20px; overflow: auto; align-items: stretch; scroll-snap-type: x proximity; overscroll-behavior: contain; }
+.board { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 16px 20px; overflow: auto; align-items: stretch; scroll-snap-type: x proximity; scroll-padding-inline: 20px; overscroll-behavior: contain; }
 .board-col { flex: 0 0 280px; max-width: 100%; background: color-mix(in srgb, var(--bg-panel) 70%, transparent); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px; scroll-snap-align: start; }
 .board-col--over { outline: 2px dashed var(--green-strong); outline-offset: -2px; }
 .board-col h2 { font-size: 0.9rem; font-weight: 600; margin: 2px 4px 2px; display: flex; align-items: baseline; gap: 6px; overflow-wrap: anywhere; }
