@@ -280,3 +280,103 @@ test("admin monta o funil, cria negocio com produto, a equipe arrasta o cartao e
   await page.getByRole("button", { name: `Remover negócio de ${clientName}` }).click();
   await expect(page.getByText(clientName)).toHaveCount(0);
 });
+
+test("Ganhou e Perdeu: diálogos pedem valor e motivo, o negócio fechado sai do quadro, aparece nos filtros sem arrastar e o admin reabre; a ficha também fecha", async ({
+  page,
+  request,
+}, info) => {
+  const project = info.project.name;
+  const run = `${project}${Date.now()}`;
+  const phone = `55118${String(Date.now()).slice(-8)}`;
+  const clientName = `Cliente f${run}`;
+  const funnelName = `Fecha${run}`;
+  await clientWrites(request, `f${run}`, phone);
+  await signInAsAdmin(page);
+
+  // Arrange pela API: funil, produto e negocio
+  const funnel = ((await (await page.request.post("/api/funnels", { data: { name: funnelName } })).json()) as { funnel: { id: string } }).funnel;
+  const stage = ((await (await page.request.post(`/api/funnels/${funnel.id}/stages`, { data: { name: "Novo" } })).json()) as { stage: { id: string } }).stage;
+  const curso = `Curso${run}`;
+  const product = ((await (await page.request.post("/api/products", { data: { name: curso, priceCents: 99700 } })).json()) as { product: { id: string } }).product;
+  const contacts = ((await (await page.request.get(`/api/contacts?q=${phone.slice(-6)}`)).json()) as { contacts: { id: string }[] }).contacts;
+  const dealRes = await page.request.post(`/api/funnels/${funnel.id}/deals`, { data: { contactId: contacts[0]!.id, stageId: stage.id, productId: product.id } });
+  expect(dealRes.status()).toBe(201);
+
+  await page.goto(`/funis/${funnel.id}`);
+  const card = page.locator(".kcard").filter({ hasText: clientName });
+  await expect(card).toBeVisible();
+
+  // Ganhou: dialogo acessivel, valor pre-preenchido; Esc fecha sem fechar o negocio
+  await card.getByRole("button", { name: `Ações de ${clientName}` }).click();
+  await page.getByRole("button", { name: `Ganhou: ${clientName}` }).click();
+  const dialog = page.getByRole("dialog", { name: "Negócio ganho" });
+  await expect(dialog).toBeVisible();
+  const valor = dialog.getByLabel("Valor fechado");
+  await expect(valor).toBeFocused();
+  await expect(valor).toHaveValue(/997,00/);
+  await snap(page, "ganhou", project);
+  await noHorizontalOverflow(page);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(card).toBeVisible();
+
+  // Valor vazio bloqueia; valor editado fecha
+  await card.getByRole("button", { name: `Ações de ${clientName}` }).click();
+  await page.getByRole("button", { name: `Ganhou: ${clientName}` }).click();
+  await valor.fill("");
+  await expect(dialog.getByRole("button", { name: "Confirmar ganho" })).toBeDisabled();
+  await valor.fill("90000");
+  await expect(valor).toHaveValue(/900,00/);
+  await dialog.getByRole("button", { name: "Confirmar ganho" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(card).toHaveCount(0);
+
+  // Filtro Ganhos: valor e data, sem alca de arrastar
+  await page.getByLabel("Filtrar por situação").selectOption({ label: "Ganhos" });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText("Ganho");
+  await expect(card).toContainText(/900,00/);
+  await expect(card).toContainText(new Date().toLocaleDateString("pt-BR"));
+  await expect(card.getByRole("button", { name: `Arrastar ${clientName}` })).toHaveCount(0);
+  await snap(page, "ganhos", project);
+
+  // Admin reabre: volta ao quadro de abertos
+  await card.getByRole("button", { name: `Ações de ${clientName}` }).click();
+  await page.getByRole("button", { name: `Reabrir negócio de ${clientName}` }).click();
+  await expect(card).toHaveCount(0);
+  await page.getByLabel("Filtrar por situação").selectOption({ label: "Abertos" });
+  await expect(card).toBeVisible();
+
+  // Perdeu: motivo obrigatorio, observacao opcional
+  await card.getByRole("button", { name: `Ações de ${clientName}` }).click();
+  await page.getByRole("button", { name: `Perdeu: ${clientName}` }).click();
+  const perdeu = page.getByRole("dialog", { name: "Negócio perdido" });
+  await expect(perdeu.getByLabel("Motivo")).toBeFocused();
+  await expect(perdeu.getByRole("button", { name: "Confirmar perda" })).toBeDisabled();
+  await snap(page, "perdeu", project);
+  await noHorizontalOverflow(page);
+  await perdeu.getByLabel("Motivo").selectOption({ label: "Comprou de outro" });
+  await perdeu.getByLabel("Observação (opcional)").fill("Foi para o concorrente");
+  await perdeu.getByRole("button", { name: "Confirmar perda" }).click();
+  await expect(card).toHaveCount(0);
+  await page.getByLabel("Filtrar por situação").selectOption({ label: "Perdidos" });
+  await expect(card).toContainText("Perdido: Comprou de outro");
+  await expect(card).toContainText("Foi para o concorrente");
+  await snap(page, "perdidos", project);
+
+  // Reabre de novo e fecha pela ficha do contato
+  await card.getByRole("button", { name: `Ações de ${clientName}` }).click();
+  await page.getByRole("button", { name: `Reabrir negócio de ${clientName}` }).click();
+  await page.getByLabel("Filtrar por situação").selectOption({ label: "Abertos" });
+  await card.getByRole("button", { name: `Ações de ${clientName}` }).click();
+  await page.getByRole("link", { name: "Ficha" }).first().click();
+  const ficha = page.getByRole("complementary", { name: "Ficha do contato" });
+  await ficha.getByRole("button", { name: `Perdeu o negócio ${curso} em ${funnelName}` }).click();
+  const dlg = page.getByRole("dialog", { name: "Negócio perdido" });
+  await dlg.getByLabel("Motivo").selectOption({ label: "Preço" });
+  await dlg.getByRole("button", { name: "Confirmar perda" }).click();
+  await expect(ficha.getByRole("region", { name: "Negócios do contato" })).toContainText("Perdido");
+  await expect(ficha.getByRole("button", { name: `Reabrir negócio ${curso} em ${funnelName}` })).toBeVisible();
+  await noHorizontalOverflow(page);
+  await snap(page, "ficha-perdido", project);
+});

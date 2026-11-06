@@ -1,5 +1,4 @@
 import { api, postJson } from "./api";
-import { env } from "cloudflare:workers";
 import { conversationWithClient, inbox } from "./conversations";
 
 // Funis, etapas e cards pela API, como o front faz.
@@ -15,6 +14,11 @@ export interface FunnelView {
 }
 export interface CardView {
   dealId: string;
+  dealStatus: "aberto" | "ganho" | "perdido";
+  lostReason: string | null;
+  lostNote: string | null;
+  closedAt: number | null;
+  closedById: string | null;
   productId: string | null;
   productName: string | null;
   valueCents: number | null;
@@ -64,10 +68,10 @@ export async function newDeal(cookie: string, funnelId: string, contactId: strin
   return ((await res.json()) as { deal: { id: string } }).deal.id;
 }
 
-/** Fecha o negocio direto no banco (arrange: as rotas de fechar sao do ticket 03). */
-export async function closeDealDirect(dealId: string, status: "ganho" | "perdido"): Promise<void> {
-  await env.DB.prepare("UPDATE deal SET status = ?, closed_at = ? WHERE id = ?").bind(status, Date.now(), dealId).run();
-}
+export const closeDeal = (cookie: string, funnelId: string, dealId: string, body: Record<string, unknown>) =>
+  json(cookie, "POST", `/api/funnels/${funnelId}/deals/${dealId}/close`, body);
+export const reopenDeal = (cookie: string, funnelId: string, dealId: string) =>
+  json(cookie, "POST", `/api/funnels/${funnelId}/deals/${dealId}/reopen`, {});
 
 export async function listFunnels(cookie: string): Promise<FunnelView[]> {
   const res = await api("/api/funnels", { cookie });

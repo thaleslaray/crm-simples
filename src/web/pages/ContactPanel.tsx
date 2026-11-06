@@ -1,6 +1,8 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { ArrowLeft, SquareKanban, X } from "lucide-react";
-import { api, type Contact, type DealStatus, type Ficha } from "../api";
+import { api, type Contact, type ContactDeal, type DealStatus, type Ficha } from "../api";
+import { authClient } from "../auth-client";
+import { CloseDealDialog } from "../components/CloseDealDialog";
 import { DealFields, draftToInput, emptyDraft } from "../components/DealFields";
 import { contactLabel, formatMoney, formatPhone, initials, messageTime } from "../format";
 import { useFunnels } from "../funnels";
@@ -81,6 +83,9 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
   const [pendingStage, setPendingStage] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
   const [dealError, setDealError] = useState(false);
+  const [closing, setClosing] = useState<{ deal: ContactDeal; kind: "ganho" | "perdido" } | null>(null);
+  const { data: session } = authClient.useSession();
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "admin";
 
   const fill = (c: Contact) => setForm({ name: c.name ?? "", email: c.email ?? "", company: c.company ?? "", notes: c.notes ?? "" });
 
@@ -258,8 +263,21 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
                         </span>
                       </span>
                     </span>
+                    {d.status !== "aberto" && isAdmin && (
+                      <div className="ficha-funnel-row">
+                        <button type="button" className="secondary" aria-label={`Reabrir negócio ${title} em ${d.funnelName}`} onClick={() => void changeDeal(() => api.reopenDeal(d.funnelId, d.id))}>
+                          Reabrir
+                        </button>
+                      </div>
+                    )}
                     {d.status === "aberto" && (
                       <div className="ficha-funnel-row">
+                        <button type="button" className="secondary" aria-label={`Ganhou o negócio ${title} em ${d.funnelName}`} onClick={() => setClosing({ deal: d, kind: "ganho" })}>
+                          Ganhou
+                        </button>
+                        <button type="button" className="secondary" aria-label={`Perdeu o negócio ${title} em ${d.funnelName}`} onClick={() => setClosing({ deal: d, kind: "perdido" })}>
+                          Perdeu
+                        </button>
                         <select
                           aria-label={`Etapa do negócio ${title} em ${d.funnelName}`}
                           value={d.stageId}
@@ -321,6 +339,17 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
                   + Negócio
                 </button>
               ))}
+            {closing && (
+              <CloseDealDialog
+                funnelId={closing.deal.funnelId}
+                dealId={closing.deal.id}
+                kind={closing.kind}
+                subject={[closing.deal.productName, closing.deal.funnelName].filter(Boolean).join(" · ")}
+                initialValueCents={closing.deal.valueCents}
+                onClose={() => setClosing(null)}
+                onDone={() => (setClosing(null), load())}
+              />
+            )}
             {dealError && (
               <p className="error" role="alert">
                 Não foi possível alterar o negócio.

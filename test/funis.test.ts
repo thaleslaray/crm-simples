@@ -6,7 +6,8 @@ import { newProduct, updateProduct } from "./helpers/produtos";
 import { connectRealtime } from "./helpers/realtime";
 import {
   addDeal,
-  closeDealDirect,
+  closeDeal,
+  reopenDeal,
   editDeal,
   addStage,
   board,
@@ -336,8 +337,8 @@ describe("Funis: negocios", () => {
     await newDeal(atendente, vendas.id, c1, novo);
     const ganho = await newDeal(atendente, vendas.id, c1, novo);
     const perdido = await newDeal(atendente, vendas.id, c2, novo);
-    await closeDealDirect(ganho, "ganho");
-    await closeDealDirect(perdido, "perdido");
+    await closeDeal(atendente, vendas.id, ganho, { status: "ganho", valueCents: 100 });
+    await closeDeal(atendente, vendas.id, perdido, { status: "perdido", lostReason: "preco" });
 
     expect((await board(atendente, vendas.id)).body.stages.flatMap((s) => s.cards).map((c) => c.contactId)).toEqual([c1]);
   });
@@ -349,7 +350,7 @@ describe("Funis: negocios", () => {
     const d1 = await newDeal(atendente, vendas.id, c1, proposta, { productId: curso.id, originKind: "indicacao" });
     const d2 = await newDeal(atendente, suporte.id, c1, suporte.stages[0]!.id);
     const d3 = await newDeal(atendente, vendas.id, c1, novo, { valueCents: 500 });
-    await closeDealDirect(d3, "ganho");
+    await closeDeal(atendente, vendas.id, d3, { status: "ganho", valueCents: 500 });
 
     expect((await ficha(atendente, c1)).deals).toEqual([
       { id: d1, funnelId: vendas.id, funnelName: "Vendas", stageId: proposta, stageName: "Proposta", productId: curso.id, productName: "Curso", valueCents: 99700, status: "aberto", originKind: "indicacao" },
@@ -395,5 +396,137 @@ describe("Funis: negocios", () => {
     expect(await listFunnels(admin)).toEqual([]);
     expect((await board(admin, vendas.id)).status).toBe(404);
     expect((await ficha(admin, c1)).deals).toEqual([]);
+  });
+});
+
+describe("Funis: ganhou e perdeu", () => {
+  async function cenario() {
+    const admin = await loginAsAdmin();
+    const atendente = await loginAsAtendente();
+    const vendas = await newFunnel(admin, "Vendas", ["Novo", "Proposta"]);
+    const [novo, proposta] = vendas.stages.map((s) => s.id) as [string, string];
+    const c1 = await newClient(admin, P1);
+    const dealId = await newDeal(atendente, vendas.id, c1, novo, { valueCents: 99700 });
+    const closed = async (cookie: string, status: string) => (await board(cookie, vendas.id, `?status=${status}`)).body.stages.flatMap((s) => s.cards);
+    return { admin, atendente, vendas, novo, proposta, c1, dealId, closed };
+  }
+
+  it("Ganhou grava o valor confirmado, quem fechou e quando; o negocio sai do quadro aberto e aparece em Ganhos", async () => {
+    const { atendente, vendas, dealId, closed } = await cenario();
+    const before = Date.now();
+
+    expect((await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 90000 })).status).toBe(200);
+
+    expect((await board(atendente, vendas.id)).body.stages.flatMap((s) => s.cards)).toEqual([]);
+    const [card] = await closed(atendente, "ganho");
+    expect(card).toMatchObject({ dealId, dealStatus: "ganho", valueCents: 90000, lostReason: null });
+    expect(card!.closedAt).toBeGreaterThanOrEqual(before);
+    expect(card!.closedById).toBeTruthy();
+    expect(await closed(atendente, "perdido")).toEqual([]);
+  });
+
+  it("Perdeu grava o motivo e a observacao; aparece em Perdidos", async () => {
+    const { atendente, vendas, dealId, closed } = await cenario();
+
+    expect((await closeDeal(atendente, vendas.id, dealId, { status: "perdido", lostReason: "comprou_de_outro", lostNote: "foi para o concorrente" })).status).toBe(200);
+
+    expect(await closed(atendente, "perdido")).toMatchObject([{ dealId, dealStatus: "perdido", lostReason: "comprou_de_outro", lostNote: "foi para o concorrente", valueCents: 99700 }]);
+    expect(await closed(atendente, "ganho")).toEqual([]);
+    expect((await board(atendente, vendas.id)).body.stages.flatMap((s) => s.cards)).toEqual([]);
+  });
+
+  it("Perdeu sem observacao grava so o motivo", async () => {
+    const { atendente, vendas, dealId, closed } = await cenario();
+    expect((await closeDeal(atendente, vendas.id, dealId, { status: "perdido", lostReason: "preco" })).status).toBe(200);
+    expect(await closed(atendente, "perdido")).toMatchObject([{ lostReason: "preco", lostNote: null }]);
+  });
+
+  it("fechar recusa ganho sem valor (ou zero, negativo, quebrado), perdido sem motivo ou com motivo fora da lista, observacao longa demais e status invalido", async () => {
+    const { atendente, vendas, dealId, closed } = await cenario();
+    const bad = [
+      { status: "ganho" },
+      { status: "ganho", valueCents: 0 },
+      { status: "ganho", valueCents: -5 },
+      { status: "ganho", valueCents: 10.5 },
+      { status: "ganho", valueCents: "100" },
+      { status: "perdido" },
+      { status: "perdido", lostReason: "nao_gostou" },
+      { status: "perdido", lostReason: "preco", lostNote: "x".repeat(501) },
+      { status: "perdido", lostReason: "preco", lostNote: 42 },
+      { status: "aberto" },
+      {},
+    ];
+    for (const body of bad) expect((await closeDeal(atendente, vendas.id, dealId, body)).status, JSON.stringify(body)).toBe(400);
+    expect((await closeDeal(atendente, vendas.id, dealId, { status: "perdido", lostReason: "preco", lostNote: "x".repeat(500) })).status).toBe(200);
+    expect(await closed(atendente, "perdido")).toHaveLength(1);
+  });
+
+  it("fechar negocio ja fechado responde 409 e nao muda nada; inexistente ou de outro funil responde 404", async () => {
+    const { admin, atendente, vendas, dealId, closed } = await cenario();
+    const outro = await newFunnel(admin, "Outro", ["A"]);
+    expect((await closeDeal(atendente, outro.id, dealId, { status: "ganho", valueCents: 1 })).status).toBe(404);
+    expect((await closeDeal(atendente, vendas.id, "nao-existe", { status: "ganho", valueCents: 1 })).status).toBe(404);
+
+    await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 500 });
+    expect((await closeDeal(atendente, vendas.id, dealId, { status: "perdido", lostReason: "preco" })).status).toBe(409);
+    expect((await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 900 })).status).toBe(409);
+    expect(await closed(atendente, "ganho")).toMatchObject([{ valueCents: 500 }]);
+    expect(await closed(atendente, "perdido")).toEqual([]);
+  });
+
+  it("admin reabre: volta a aberto na mesma etapa, no fim dela, e limpa motivo, observacao e dados do fechamento", async () => {
+    const { admin, atendente, vendas, novo, c1, dealId, closed } = await cenario();
+    const c2 = await newClient(admin, P2);
+    await closeDeal(atendente, vendas.id, dealId, { status: "perdido", lostReason: "preco", lostNote: "caro" });
+    const outro = await newDeal(atendente, vendas.id, c2, novo);
+
+    expect((await reopenDeal(admin, vendas.id, dealId)).status).toBe(200);
+
+    expect(await closed(admin, "perdido")).toEqual([]);
+    const [novoCol] = (await board(admin, vendas.id)).body.stages;
+    expect(novoCol!.cards.map((c) => c.dealId)).toEqual([outro, dealId]);
+    expect(novoCol!.cards[1]).toMatchObject({ dealStatus: "aberto", lostReason: null, lostNote: null, closedAt: null, closedById: null, contactId: c1 });
+    expect((await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 1 })).status).toBe(200);
+  });
+
+  it("atendente nao reabre (403); negocio aberto ou inexistente nao reabre", async () => {
+    const { admin, atendente, vendas, dealId, closed } = await cenario();
+    await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 500 });
+
+    expect((await reopenDeal(atendente, vendas.id, dealId)).status).toBe(403);
+    expect(await closed(admin, "ganho")).toHaveLength(1);
+
+    expect((await reopenDeal(admin, vendas.id, "nao-existe")).status).toBe(404);
+    await reopenDeal(admin, vendas.id, dealId);
+    expect((await reopenDeal(admin, vendas.id, dealId)).status).toBe(409);
+  });
+
+  it("negocio fechado nao e movido pelo quadro (409)", async () => {
+    const { atendente, vendas, proposta, dealId } = await cenario();
+    await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 500 });
+    expect((await moveDeal(atendente, vendas.id, dealId, proposta)).status).toBe(409);
+  });
+
+  it("fechar e reabrir publicam evento de funil em tempo real", async () => {
+    const { admin, atendente, vendas, dealId } = await cenario();
+    const ws = await connectRealtime(admin);
+    await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 500 });
+    expect(await ws.next()).toMatchObject({ type: "funnel.changed", funnelId: vendas.id });
+    await reopenDeal(admin, vendas.id, dealId);
+    expect(await ws.next()).toMatchObject({ type: "funnel.changed", funnelId: vendas.id });
+    ws.close();
+  });
+
+  it("a lista de Ganhos e Perdidos mostra o mais recente primeiro e respeita os filtros do quadro", async () => {
+    const { admin, atendente, vendas, novo, dealId } = await cenario();
+    const c2 = await newClient(admin, P2);
+    const d2 = await newDeal(atendente, vendas.id, c2, novo);
+    await closeDeal(atendente, vendas.id, dealId, { status: "ganho", valueCents: 1 });
+    await new Promise((r) => setTimeout(r, 5));
+    await closeDeal(atendente, vendas.id, d2, { status: "ganho", valueCents: 2 });
+
+    const ganhos = (await board(atendente, vendas.id, "?status=ganho")).body.stages[0]!.cards;
+    expect(ganhos.map((c) => c.dealId)).toEqual([d2, dealId]);
+    expect(await layout(atendente, vendas.id, "?status=ganho&product=none")).toMatchObject({ Novo: [P2, P1] });
   });
 });

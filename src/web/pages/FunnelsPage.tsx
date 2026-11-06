@@ -2,6 +2,7 @@ import { GripVertical, MoreVertical, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { api, type Board, type BoardFilter, type ContactRow, type FunnelCard, type Member } from "../api";
+import { CloseDealDialog, lostReasonLabel } from "../components/CloseDealDialog";
 import { DealFields, draftToInput, emptyDraft, useActiveProducts } from "../components/DealFields";
 import { authClient } from "../auth-client";
 import { StatusPill } from "../components/StatusPill";
@@ -48,12 +49,13 @@ export function FunnelsPage() {
   const labels = useLabels();
   const products = useActiveProducts();
   const [members, setMembers] = useState<Member[]>([]);
-  const [filter, setFilter] = useState<BoardFilter>({ label: "", assignee: "", product: "" });
+  const [filter, setFilter] = useState<BoardFilter>({ label: "", assignee: "", product: "", status: "" });
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [closing, setClosing] = useState<{ card: FunnelCard; kind: "ganho" | "perdido" } | null>(null);
   const boardEl = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,6 +103,17 @@ export function FunnelsPage() {
       load();
     } catch {
       setNotice("Não foi possível remover o negócio.");
+    }
+  }
+
+  async function reopenCard(card: FunnelCard) {
+    if (!funnelId) return;
+    setNotice(null);
+    try {
+      await api.reopenDeal(funnelId, card.dealId);
+      load();
+    } catch {
+      setNotice("Não foi possível reabrir o negócio.");
     }
   }
 
@@ -182,6 +195,9 @@ export function FunnelsPage() {
             onCancel={() => setDrag(null)}
             onMove={(to) => void applyMove(card.dealId, to)}
             onRemove={() => void removeCard(card)}
+            isAdmin={isAdmin}
+            onClose={(kind) => setClosing({ card, kind })}
+            onReopen={() => void reopenCard(card)}
           />
         </li>,
       );
@@ -212,6 +228,11 @@ export function FunnelsPage() {
         <div className="board-head-end">
       <div className="funnels-bar">
         <input type="search" aria-label="Filtrar negócios" placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <select aria-label="Filtrar por situação" value={filter.status} onChange={(e) => setFilter((f) => ({ ...f, status: e.target.value as BoardFilter["status"] }))}>
+          <option value="">Abertos</option>
+          <option value="ganho">Ganhos</option>
+          <option value="perdido">Perdidos</option>
+        </select>
         <select aria-label="Filtrar por etiqueta" value={filter.label} onChange={(e) => setFilter((f) => ({ ...f, label: e.target.value }))}>
           <option value="">Todas as etiquetas</option>
           {labels.map((l) => (
@@ -280,13 +301,24 @@ export function FunnelsPage() {
                   </h2>
                   <ul>
                     {renderCards(stage)}
-                    {stage.cards.length === 0 && !drag && <li className="board-empty">Arraste um negócio para cá</li>}
+                    {stage.cards.length === 0 && !drag && <li className="board-empty">{filter.status ? "Nenhum negócio" : "Arraste um negócio para cá"}</li>}
                   </ul>
                 </section>
               ))}
             </div>
           )}
         </>
+      )}
+      {closing && (
+        <CloseDealDialog
+          funnelId={funnelId!}
+          dealId={closing.card.dealId}
+          kind={closing.kind}
+          subject={[contactLabel(closing.card), closing.card.productName].filter(Boolean).join(" · ")}
+          initialValueCents={closing.card.valueCents}
+          onClose={() => setClosing(null)}
+          onDone={() => (setClosing(null), load())}
+        />
       )}
     </div>
   );
@@ -302,6 +334,9 @@ function Card(props: {
   onCancel: () => void;
   onMove: (stageId: string) => void;
   onRemove: () => void;
+  isAdmin: boolean;
+  onClose: (kind: "ganho" | "perdido") => void;
+  onReopen: () => void;
 }) {
   const { card } = props;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -311,6 +346,7 @@ function Card(props: {
   const more = card.labels.length - tags.length;
   // "Aberta" é o estado comum de quase todo card: o selo só aparece quando o status foge disso.
   const status = card.status === "aberta" ? null : card.status;
+  const closed = card.dealStatus !== "aberto";
   const body = (
     <>
       <div className="kcard-line">
@@ -326,7 +362,14 @@ function Card(props: {
           {card.valueCents !== null && <span className="kcard-value">{formatMoney(card.valueCents)}</span>}
         </p>
       )}
-      {preview && <p className="kcard-preview">{preview}</p>}
+      {closed && (
+        <p className={`kcard-closed kcard-closed--${card.dealStatus}`}>
+          <strong>{card.dealStatus === "ganho" ? "Ganho" : `Perdido: ${lostReasonLabel(card.lostReason)}`}</strong>
+          {card.closedAt !== null && <span> · {new Date(card.closedAt).toLocaleDateString("pt-BR")}</span>}
+        </p>
+      )}
+      {closed && card.lostNote && <p className="kcard-preview">{card.lostNote}</p>}
+      {!closed && preview && <p className="kcard-preview">{preview}</p>}
       {(status || tags.length > 0) && (
         <div className="kcard-meta">
           {status && <StatusPill status={status} />}
@@ -355,19 +398,36 @@ function Card(props: {
           {menuOpen && (
           <div className="kcard-menu-body">
             {card.conversationId && <Link to={`/conversas/${card.conversationId}?ficha=1`}>Ficha</Link>}
-            <select aria-label={`Mover ${name} para`} value={props.stageId} onChange={(e) => props.onMove(e.target.value)}>
-              {props.stages.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            {closed ? (
+              props.isAdmin && (
+                <button type="button" className="secondary" aria-label={`Reabrir negócio de ${name}`} onClick={() => (setMenuOpen(false), props.onReopen())}>
+                  Reabrir negócio
+                </button>
+              )
+            ) : (
+              <>
+                <button type="button" className="secondary" aria-label={`Ganhou: ${name}`} onClick={() => (setMenuOpen(false), props.onClose("ganho"))}>
+                  Ganhou
+                </button>
+                <button type="button" className="secondary" aria-label={`Perdeu: ${name}`} onClick={() => (setMenuOpen(false), props.onClose("perdido"))}>
+                  Perdeu
+                </button>
+                <select aria-label={`Mover ${name} para`} value={props.stageId} onChange={(e) => props.onMove(e.target.value)}>
+                  {props.stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
             <button type="button" className="secondary" aria-label={`Remover negócio de ${name}`} onClick={props.onRemove}>
               Remover negócio
             </button>
           </div>
           )}
         </div>
+        {!closed && (
         <button
           type="button"
           className="kcard-grip"
@@ -379,6 +439,7 @@ function Card(props: {
         >
           <GripVertical size={18} aria-hidden="true" />
         </button>
+        )}
       </div>
     </>
   );

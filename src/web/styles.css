@@ -619,3 +619,8 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 @media (max-width: 767px) {
   .ficha--page .ficha-head { background: var(--bg-panel); border-bottom: 1px solid var(--divider); }
 }
+
+/* Negócio fechado no quadro */
+.kcard-closed { margin: 0; font-size: 0.85rem; color: var(--text-2); }
+.kcard-closed--ganho strong { color: var(--green-text); }
+.kcard-closed--perdido strong { color: var(--danger, #b3261e); }

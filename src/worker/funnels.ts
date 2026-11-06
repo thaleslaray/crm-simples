@@ -1,7 +1,7 @@
-import { and, asc, eq, exists, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, isNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
-import type { ConversationStatus, DealStatus, MessageType, OriginKind } from "./db/schema";
+import { DEAL_STATUSES, LOST_REASONS, type ConversationStatus, type DealStatus, type LostReason, type MessageType, type OriginKind } from "./db/schema";
 import { type LabelView, labelsByContact } from "./labels";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
 import { publish } from "./realtime";
@@ -10,6 +10,7 @@ export type StageView = { id: string; name: string };
 export type FunnelView = { id: string; name: string; stages: StageView[] };
 
 const MAX_NAME = 80;
+const MAX_LOST_NOTE = 500;
 
 function parseName(body: unknown): string | null {
   const name = (body as { name?: unknown } | null)?.name;
@@ -193,6 +194,11 @@ funnels.delete("/:id/stages/:stageId", requireAuth, requireRole("admin"), async 
 
 export type CardView = {
   dealId: string;
+  dealStatus: DealStatus;
+  lostReason: LostReason | null;
+  lostNote: string | null;
+  closedAt: number | null;
+  closedById: string | null;
   productId: string | null;
   productName: string | null;
   valueCents: number | null;
@@ -209,7 +215,7 @@ export type CardView = {
   labels: LabelView[];
 };
 
-// Quadro (so negocios abertos): ?label=<id> &assignee=me|none|<id> (responsavel da conversa do contato) &product=none|<id>.
+// Quadro: ?status=aberto(padrao)|ganho|perdido &label=<id> &assignee=me|none|<id> (responsavel da conversa do contato) &product=none|<id>.
 funnels.get("/:id/board", requireAuth, async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
@@ -218,10 +224,16 @@ funnels.get("/:id/board", requireAuth, async (c) => {
   const label = c.req.query("label");
   const assignee = c.req.query("assignee");
   const product = c.req.query("product");
+  const status = DEAL_STATUSES.find((s) => s === c.req.query("status")) ?? "aberto";
   const rows = await db
     .select({
       stageId: schema.deal.stageId,
       dealId: schema.deal.id,
+      dealStatus: schema.deal.status,
+      lostReason: schema.deal.lostReason,
+      lostNote: schema.deal.lostNote,
+      closedAt: schema.deal.closedAt,
+      closedById: schema.deal.closedById,
       productId: schema.deal.productId,
       productName: schema.product.name,
       valueCents: schema.deal.valueCents,
@@ -247,7 +259,7 @@ funnels.get("/:id/board", requireAuth, async (c) => {
     .where(
       and(
         eq(schema.deal.funnelId, id),
-        eq(schema.deal.status, "aberto"),
+        eq(schema.deal.status, status),
         product === "none" ? isNull(schema.deal.productId) : product ? eq(schema.deal.productId, product) : undefined,
         assignee === "none"
           ? isNull(schema.conversation.assigneeId)
@@ -264,7 +276,7 @@ funnels.get("/:id/board", requireAuth, async (c) => {
           : undefined,
       ),
     )
-    .orderBy(asc(schema.deal.position), sql`"deal"."rowid"`);
+    .orderBy(...(status === "aberto" ? [asc(schema.deal.position), sql`"deal"."rowid"`] : [desc(schema.deal.closedAt), sql`"deal"."rowid" desc`]));
   const labels = await labelsByContact(db, rows.map((r) => r.contactId));
   return c.json({
     funnel,
@@ -370,9 +382,10 @@ funnels.put("/:id/deals/:dealId", requireAuth, async (c) => {
   const { id, dealId } = c.req.param();
   const [stage, deal] = await Promise.all([
     stageOf(db, id, body.stageId),
-    db.query.deal.findFirst({ where: and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id)), columns: { id: true } }),
+    db.query.deal.findFirst({ where: and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id)), columns: { id: true, status: true } }),
   ]);
   if (!stage || !deal) return c.json({ error: "nao_encontrado" }, 404);
+  if (deal.status !== "aberto") return c.json({ error: "negocio_fechado" }, 409);
   const others = (await stageDeals(db, stage.id)).filter((d) => d !== dealId);
   const at = Math.min(Math.max(typeof body.index === "number" ? body.index : others.length, 0), others.length);
   others.splice(at, 0, dealId);
@@ -388,6 +401,57 @@ funnels.delete("/:id/deals/:dealId", requireAuth, async (c) => {
     .where(and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id)))
     .returning();
   if (gone.length === 0) return c.json({ error: "nao_encontrado" }, 404);
+  await changed(c.env, id);
+  return c.json({ ok: true });
+});
+
+// Fechar: Ganhou exige o valor confirmado (inteiro > 0); Perdeu exige o motivo da lista fixa, com observacao opcional.
+funnels.post("/:id/deals/:dealId/close", requireAuth, async (c) => {
+  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body || typeof body !== "object") return c.json({ error: "fechamento_invalido" }, 400);
+  let set: Partial<typeof schema.deal.$inferInsert>;
+  if (body.status === "ganho") {
+    const v = body.valueCents;
+    if (typeof v !== "number" || !Number.isSafeInteger(v) || v <= 0) return c.json({ error: "fechamento_invalido" }, 400);
+    set = { status: "ganho", valueCents: v };
+  } else if (body.status === "perdido") {
+    const reason = LOST_REASONS.find((r) => r === body.lostReason);
+    const note = body.lostNote;
+    if (!reason || (note !== undefined && note !== null && (typeof note !== "string" || note.length > MAX_LOST_NOTE))) {
+      return c.json({ error: "fechamento_invalido" }, 400);
+    }
+    set = { status: "perdido", lostReason: reason, lostNote: typeof note === "string" && note.trim() ? note.trim() : null };
+  } else {
+    return c.json({ error: "fechamento_invalido" }, 400);
+  }
+  const db = createDb(c.env.DB);
+  const { id, dealId } = c.req.param();
+  const deal = await db.query.deal.findFirst({ where: and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id)) });
+  if (!deal) return c.json({ error: "nao_encontrado" }, 404);
+  // A condicao `aberto` no UPDATE segura a corrida de dois fechamentos ao mesmo tempo.
+  const done = await db
+    .update(schema.deal)
+    .set({ ...set, closedAt: Date.now(), closedById: c.get("user").id })
+    .where(and(eq(schema.deal.id, dealId), eq(schema.deal.status, "aberto")))
+    .returning({ id: schema.deal.id });
+  if (done.length === 0) return c.json({ error: "negocio_ja_fechado" }, 409);
+  await changed(c.env, id);
+  return c.json({ ok: true });
+});
+
+// Reabrir: so admin (o papel e relido no D1 por `requireRole`). Volta a `aberto` no fim da mesma etapa.
+funnels.post("/:id/deals/:dealId/reopen", requireAuth, requireRole("admin"), async (c) => {
+  const db = createDb(c.env.DB);
+  const { id, dealId } = c.req.param();
+  const deal = await db.query.deal.findFirst({ where: and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id)) });
+  if (!deal) return c.json({ error: "nao_encontrado" }, 404);
+  const done = await db
+    .update(schema.deal)
+    .set({ status: "aberto", lostReason: null, lostNote: null, closedAt: null, closedById: null })
+    .where(and(eq(schema.deal.id, dealId), ne(schema.deal.status, "aberto")))
+    .returning({ id: schema.deal.id });
+  if (done.length === 0) return c.json({ error: "negocio_aberto" }, 409);
+  await setOrder(db, deal.stageId, [...(await stageDeals(db, deal.stageId)).filter((d) => d !== dealId), dealId]);
   await changed(c.env, id);
   return c.json({ ok: true });
 });

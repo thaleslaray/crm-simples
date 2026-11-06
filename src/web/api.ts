@@ -89,10 +89,19 @@ export interface Funnel {
 /** Origem do negócio: `campanha` vem da criação automática; as outras o atendente escolhe. */
 export type OriginKind = "campanha" | "indicacao" | "organico" | "cliente_antigo" | "outro";
 export type DealStatus = "aberto" | "ganho" | "perdido";
+export type LostReason = "preco" | "sem_resposta" | "comprou_de_outro" | "sem_interesse" | "sem_perfil" | "outro";
+
+/** Fechar o negócio: Ganhou traz o valor confirmado; Perdeu traz o motivo e, se quiser, uma observação. */
+export type DealCloseInput = { status: "ganho"; valueCents: number } | { status: "perdido"; lostReason: LostReason; lostNote?: string };
 
 /** Cartão do kanban: um negócio aberto (cliente, produto e valor) numa etapa. */
 export interface FunnelCard {
   dealId: string;
+  dealStatus: DealStatus;
+  lostReason: LostReason | null;
+  lostNote: string | null;
+  closedAt: number | null;
+  closedById: string | null;
   productId: string | null;
   productName: string | null;
   valueCents: number | null;
@@ -119,6 +128,8 @@ export interface BoardFilter {
   label: string;
   assignee: string;
   product: string;
+  /** Situação dos negócios no quadro; vazio é "aberto". */
+  status: "" | "ganho" | "perdido";
 }
 
 /** Negócio do contato, como a ficha mostra (abertos e fechados). */
@@ -430,6 +441,7 @@ export const api = {
     if (filter.label) qs.set("label", filter.label);
     if (filter.assignee) qs.set("assignee", filter.assignee);
     if (filter.product) qs.set("product", filter.product);
+    if (filter.status) qs.set("status", filter.status);
     return getJson<Board>(`/api/funnels/${encodeURIComponent(funnelId)}/board${qs.size ? `?${qs}` : ""}`);
   },
   addDeal: (funnelId: string, contactId: string, stageId: string, input: DealInput = {}) =>
@@ -441,6 +453,10 @@ export const api = {
     }),
   editDeal: (funnelId: string, dealId: string, input: DealInput) =>
     sendJson<{ ok: true }>("PATCH", `/api/funnels/${encodeURIComponent(funnelId)}/deals/${encodeURIComponent(dealId)}`, input),
+  closeDeal: (funnelId: string, dealId: string, input: DealCloseInput) =>
+    sendJson<{ ok: true }>("POST", `/api/funnels/${encodeURIComponent(funnelId)}/deals/${encodeURIComponent(dealId)}/close`, input),
+  reopenDeal: (funnelId: string, dealId: string) =>
+    sendJson<{ ok: true }>("POST", `/api/funnels/${encodeURIComponent(funnelId)}/deals/${encodeURIComponent(dealId)}/reopen`, {}),
   removeDeal: (funnelId: string, dealId: string) =>
     sendJson<{ ok: true }>("DELETE", `/api/funnels/${encodeURIComponent(funnelId)}/deals/${encodeURIComponent(dealId)}`, {}),
   connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
