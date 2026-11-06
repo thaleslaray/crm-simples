@@ -90,7 +90,7 @@ async function dragCard(
   }
 }
 
-test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a ficha altera a etapa e apagar etapa com cards pede destino", async ({
+test("admin monta o funil, cria negocio com produto, a equipe arrasta o cartao e o colega ve ao vivo; a ficha altera a etapa, o mesmo cliente tem dois negocios e apagar etapa com negocios pede destino", async ({
   page,
   request,
   browser,
@@ -128,15 +128,28 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await noHorizontalOverflow(page);
   await page.getByRole("link", { name: "Funis", exact: true }).click();
 
-  // Quadro: adiciona o contato escolhendo a etapa inicial
+  // Produtos do admin (cadastro pela API; a tela tem E2E proprio)
+  const curso = `Curso${run}`;
+  const mentoria = `Mentoria${run}`;
+  for (const [name, priceCents] of [[curso, 99700], [mentoria, 250000]] as const) {
+    expect((await page.request.post("/api/products", { data: { name, priceCents } })).ok()).toBe(true);
+  }
+
+  // Quadro: "+ Negocio" com contato, etapa inicial e produto (o valor vem do preco)
   await page.getByRole("button", { name: funnelName, exact: true }).click();
-  await page.getByText("Adicionar contato").click();
-  await page.getByLabel("Etapa inicial").selectOption({ label: "Novo" });
-  await page.getByLabel("Buscar contato para adicionar").fill(phone.slice(-6));
-  await page.getByRole("button", { name: `Adicionar ${clientName}` }).click();
+  await page.locator(".add-contact summary").click();
+  const painel = page.locator(".add-contact-body");
+  await painel.getByLabel("Etapa inicial").selectOption({ label: "Novo" });
+  await painel.getByLabel("Produto").selectOption({ label: curso });
+  await expect(painel.getByLabel("Valor")).toHaveValue(/997,00/);
+  await painel.getByLabel("Origem").selectOption({ label: "Indicação" });
+  await page.getByLabel("Buscar contato do negócio").fill(phone.slice(-6));
+  await page.getByRole("button", { name: `Criar negócio para ${clientName}` }).click();
   const novo = page.getByRole("region", { name: "Etapa Novo" });
   const fechado = page.getByRole("region", { name: "Etapa Fechado" });
   await expect(novo.getByText(clientName)).toBeVisible();
+  await expect(novo.getByText(curso)).toBeVisible();
+  await expect(novo.getByText(/997,00/)).toBeVisible();
   await snap(page, "quadro", project);
   await noHorizontalOverflow(page);
 
@@ -200,7 +213,8 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
   await page.getByRole("button", { name: `Ações de ${clientName}` }).click();
   await page.getByRole("link", { name: "Ficha" }).first().click();
   const ficha = page.getByRole("complementary", { name: "Ficha do contato" });
-  const stageSelect = ficha.getByLabel(`Etapa em ${funnelName}`);
+  await expect(ficha.getByRole("region", { name: "Negócios do contato" })).toContainText(`${curso} · R$ 997,00`);
+  const stageSelect = ficha.getByLabel(`Etapa do negócio ${curso} em ${funnelName}`);
   await expect(stageSelect.locator("option:checked")).toHaveText("Fechado");
   await stageSelect.selectOption({ label: "Extra" });
   await expect(stageSelect.locator("option:checked")).toHaveText("Extra");
@@ -226,15 +240,43 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
     .click();
   await expect(editor2.getByLabel("Nome da etapa Extra")).toHaveCount(0);
 
-  // O card foi para o destino; tirar o contato do funil o remove do quadro
+  // O negocio foi para o destino. O mesmo cliente ganha um segundo negocio (outro produto) pela ficha
   await page.goto("/funis");
   await page.getByRole("button", { name: funnelName, exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Etapa Novo" }).getByText(clientName),
   ).toBeVisible();
   await page.getByRole("button", { name: `Ações de ${clientName}` }).click();
-  await page
-    .getByRole("button", { name: `Tirar ${clientName} do funil` })
-    .click();
+  await page.getByRole("link", { name: "Ficha" }).first().click();
+  const ficha2 = page.getByRole("complementary", { name: "Ficha do contato" });
+  await ficha2.getByRole("button", { name: "+ Negócio" }).click();
+  await ficha2.getByLabel("Funil").selectOption({ label: funnelName });
+  await ficha2.getByLabel("Etapa inicial").selectOption({ label: "Fechado" });
+  await ficha2.getByLabel("Produto").selectOption({ label: mentoria });
+  await ficha2.getByRole("button", { name: "Criar negócio" }).click();
+  const negocios = ficha2.getByRole("region", { name: "Negócios do contato" });
+  await expect(negocios).toContainText(`${mentoria} · R$ 2.500,00`);
+  await expect(negocios).toContainText(`${curso} · R$ 997,00`);
+  await snap(page, "ficha-dois-negocios", project);
+  await noHorizontalOverflow(page);
+
+  // Quadro: dois cartoes do mesmo cliente; o filtro por produto separa
+  await page.goto("/funis");
+  await page.getByRole("button", { name: funnelName, exact: true }).click();
+  const cartoes = page.locator(".kcard").filter({ hasText: clientName });
+  await expect(cartoes).toHaveCount(2);
+  await page.getByLabel("Filtrar por produto").selectOption({ label: mentoria });
+  await expect(cartoes).toHaveCount(1);
+  await expect(cartoes.first()).toContainText(mentoria);
+  await page.getByLabel("Filtrar por produto").selectOption({ label: "Todos os produtos" });
+  await expect(cartoes).toHaveCount(2);
+
+  // Remover um negocio deixa o outro
+  await cartoes.filter({ hasText: mentoria }).getByRole("button", { name: `Ações de ${clientName}` }).click();
+  await page.getByRole("button", { name: `Remover negócio de ${clientName}` }).click();
+  await expect(cartoes).toHaveCount(1);
+  await expect(cartoes.first()).toContainText(curso);
+  await cartoes.first().getByRole("button", { name: `Ações de ${clientName}` }).click();
+  await page.getByRole("button", { name: `Remover negócio de ${clientName}` }).click();
   await expect(page.getByText(clientName)).toHaveCount(0);
 });

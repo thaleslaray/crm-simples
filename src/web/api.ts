@@ -86,8 +86,17 @@ export interface Funnel {
   stages: Stage[];
 }
 
-/** Card do kanban: um contato numa etapa. */
+/** Origem do negócio: `campanha` vem da criação automática; as outras o atendente escolhe. */
+export type OriginKind = "campanha" | "indicacao" | "organico" | "cliente_antigo" | "outro";
+export type DealStatus = "aberto" | "ganho" | "perdido";
+
+/** Cartão do kanban: um negócio aberto (cliente, produto e valor) numa etapa. */
 export interface FunnelCard {
+  dealId: string;
+  productId: string | null;
+  productName: string | null;
+  valueCents: number | null;
+  originKind: OriginKind | null;
   contactId: string;
   name: string | null;
   phone: string | null;
@@ -105,22 +114,36 @@ export interface Board {
   stages: (Stage & { cards: FunnelCard[] })[];
 }
 
-/** Filtros do kanban: etiqueta (id) e responsável da conversa ("me", "none" ou o id do membro). */
+/** Filtros do kanban: etiqueta (id), responsável da conversa ("me", "none" ou o id do membro) e produto ("none" ou o id). */
 export interface BoardFilter {
   label: string;
   assignee: string;
+  product: string;
 }
 
-/** Posição do contato num funil, como a ficha mostra. */
-export interface ContactFunnel {
+/** Negócio do contato, como a ficha mostra (abertos e fechados). */
+export interface ContactDeal {
+  id: string;
   funnelId: string;
   funnelName: string;
   stageId: string;
   stageName: string;
+  productId: string | null;
+  productName: string | null;
+  valueCents: number | null;
+  status: DealStatus;
+  originKind: OriginKind | null;
+}
+
+/** Campos que o atendente preenche ao criar ou editar um negócio. */
+export interface DealInput {
+  productId?: string | null;
+  valueCents?: number | null;
+  originKind?: OriginKind | null;
 }
 
 export interface Ficha {
-  funnels: ContactFunnel[];
+  deals: ContactDeal[];
   contact: Contact;
   conversations: { id: string; status: ConversationStatus; assigneeName: string | null; assignees: string[]; createdAt: number }[];
   notes: Note[];
@@ -395,7 +418,7 @@ export const api = {
     sendJson<{ ok: true }>("PATCH", `/api/funnels/${encodeURIComponent(funnelId)}/stages/${encodeURIComponent(stageId)}`, { name }),
   reorderStages: (funnelId: string, stageIds: string[]) =>
     sendJson<{ ok: true }>("PUT", `/api/funnels/${encodeURIComponent(funnelId)}/stages/order`, { stageIds }),
-  /** Etapa com cards: `moveTo` é a etapa que recebe os cards (sem ele o servidor responde 409). */
+  /** Etapa com negócios: `moveTo` é a etapa que recebe os negócios (sem ele o servidor responde 409). */
   deleteStage: (funnelId: string, stageId: string, moveTo?: string) =>
     sendJson<{ ok: true }>(
       "DELETE",
@@ -406,17 +429,20 @@ export const api = {
     const qs = new URLSearchParams();
     if (filter.label) qs.set("label", filter.label);
     if (filter.assignee) qs.set("assignee", filter.assignee);
+    if (filter.product) qs.set("product", filter.product);
     return getJson<Board>(`/api/funnels/${encodeURIComponent(funnelId)}/board${qs.size ? `?${qs}` : ""}`);
   },
-  addCard: (funnelId: string, contactId: string, stageId: string) =>
-    sendJson<{ ok: true }>("POST", `/api/funnels/${encodeURIComponent(funnelId)}/cards`, { contactId, stageId }),
-  moveCard: (funnelId: string, contactId: string, stageId: string, index?: number) =>
-    sendJson<{ ok: true }>("PUT", `/api/funnels/${encodeURIComponent(funnelId)}/cards/${encodeURIComponent(contactId)}`, {
+  addDeal: (funnelId: string, contactId: string, stageId: string, input: DealInput = {}) =>
+    sendJson<{ deal: { id: string } }>("POST", `/api/funnels/${encodeURIComponent(funnelId)}/deals`, { contactId, stageId, ...input }),
+  moveDeal: (funnelId: string, dealId: string, stageId: string, index?: number) =>
+    sendJson<{ ok: true }>("PUT", `/api/funnels/${encodeURIComponent(funnelId)}/deals/${encodeURIComponent(dealId)}`, {
       stageId,
       index,
     }),
-  removeCard: (funnelId: string, contactId: string) =>
-    sendJson<{ ok: true }>("DELETE", `/api/funnels/${encodeURIComponent(funnelId)}/cards/${encodeURIComponent(contactId)}`, {}),
+  editDeal: (funnelId: string, dealId: string, input: DealInput) =>
+    sendJson<{ ok: true }>("PATCH", `/api/funnels/${encodeURIComponent(funnelId)}/deals/${encodeURIComponent(dealId)}`, input),
+  removeDeal: (funnelId: string, dealId: string) =>
+    sendJson<{ ok: true }>("DELETE", `/api/funnels/${encodeURIComponent(funnelId)}/deals/${encodeURIComponent(dealId)}`, {}),
   connection: () => getJson<{ connection: ConnectionState }>("/api/connection"),
   /** Só admin: consulta a Uazapi e devolve o QR code atual. */
   connectionStatus: () => getJson<ConnectionWithQr>("/api/connection/status"),

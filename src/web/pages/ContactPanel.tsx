@@ -1,12 +1,15 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { ArrowLeft, SquareKanban, X } from "lucide-react";
-import { api, type Contact, type Ficha } from "../api";
-import { contactLabel, formatPhone, initials, messageTime } from "../format";
+import { api, type Contact, type DealStatus, type Ficha } from "../api";
+import { DealFields, draftToInput, emptyDraft } from "../components/DealFields";
+import { contactLabel, formatMoney, formatPhone, initials, messageTime } from "../format";
 import { useFunnels } from "../funnels";
 import { StatusPill } from "../components/StatusPill";
 import { LabelChip, useLabels } from "../labels";
 import { onRealtime } from "../realtime";
 import { NewConversationDialog } from "./NewConversation";
+
+const DEAL_STATUS_LABEL: Record<DealStatus, string> = { aberto: "Aberto", ganho: "Ganho", perdido: "Perdido" };
 
 function dateTime(ts: number): string {
   return `${new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${messageTime(ts)}`;
@@ -58,7 +61,7 @@ interface ContactPanelProps {
 }
 
 /**
- * Ficha do contato ("Dados do contato"): foto, nome e telefone; Etiquetas; Funis; Dados editáveis; Notas do contato.
+ * Ficha do contato ("Dados do contato"): foto, nome e telefone; Etiquetas; Negócios; Dados editáveis; Notas do contato.
  * Só depende do contato; o que é da conversa entra por props.
  */
 export function ContactPanel({ contactId, onClose, heroAction, className }: ContactPanelProps) {
@@ -73,9 +76,11 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
   const allLabels = useLabels();
   const [labelError, setLabelError] = useState(false);
   const allFunnels = useFunnels();
+  const [newDealOpen, setNewDealOpen] = useState(false);
   const [pendingFunnel, setPendingFunnel] = useState("");
   const [pendingStage, setPendingStage] = useState("");
-  const [funnelError, setFunnelError] = useState(false);
+  const [draft, setDraft] = useState(emptyDraft);
+  const [dealError, setDealError] = useState(false);
 
   const fill = (c: Contact) => setForm({ name: c.name ?? "", email: c.email ?? "", company: c.company ?? "", notes: c.notes ?? "" });
 
@@ -135,17 +140,19 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
     }
   }
 
-  async function changeFunnel(action: () => Promise<unknown>) {
-    setFunnelError(false);
+  async function changeDeal(action: () => Promise<unknown>) {
+    setDealError(false);
     try {
       await action();
       load();
     } catch {
-      setFunnelError(true);
+      setDealError(true);
     }
   }
 
-  const freeFunnels = (allFunnels ?? []).filter((f) => f.stages.length > 0 && !ficha?.funnels.some((x) => x.funnelId === f.id));
+  const funnelsWithStages = (allFunnels ?? []).filter((f) => f.stages.length > 0);
+  const chosenFunnel = funnelsWithStages.find((f) => f.id === pendingFunnel) ?? funnelsWithStages[0];
+  const chosenStage = chosenFunnel?.stages.find((st) => st.id === pendingStage)?.id ?? chosenFunnel?.stages[0]?.id;
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -230,76 +237,93 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
               </p>
             )}
           </section>
-          <section className="ficha-sec" aria-label="Funis do contato">
-            <h4>Funis</h4>
+          <section className="ficha-sec" aria-label="Negócios do contato">
+            <h4>Negócios</h4>
             <ul className="ficha-list">
-              {ficha.funnels.map((f) => (
-                <li key={f.funnelId} className="ficha-funnel">
-                  <span className="ficha-funnel-name">
-                    <span className="ficha-funnel-ic" aria-hidden="true">
-                      <SquareKanban size={18} />
+              {ficha.deals.map((d) => {
+                const title = d.productName ?? "Sem produto";
+                return (
+                  <li key={d.id} className="ficha-funnel">
+                    <span className="ficha-funnel-name">
+                      <span className="ficha-funnel-ic" aria-hidden="true">
+                        <SquareKanban size={18} />
+                      </span>
+                      <span className="ficha-deal-text">
+                        <strong>
+                          {title}
+                          {d.valueCents !== null && ` · ${formatMoney(d.valueCents)}`}
+                        </strong>
+                        <span className="muted">
+                          {d.funnelName} · {d.stageName} · {DEAL_STATUS_LABEL[d.status]}
+                        </span>
+                      </span>
                     </span>
-                    <strong>{f.funnelName}</strong>
-                  </span>
-                  <div className="ficha-funnel-row">
-                    <select
-                      aria-label={`Etapa em ${f.funnelName}`}
-                      value={f.stageId}
-                      onChange={(e) => void changeFunnel(() => api.moveCard(f.funnelId, contactId, e.target.value))}
-                    >
-                      {(allFunnels?.find((x) => x.id === f.funnelId)?.stages ?? [{ id: f.stageId, name: f.stageName }]).map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
+                    {d.status === "aberto" && (
+                      <div className="ficha-funnel-row">
+                        <select
+                          aria-label={`Etapa do negócio ${title} em ${d.funnelName}`}
+                          value={d.stageId}
+                          onChange={(e) => void changeDeal(() => api.moveDeal(d.funnelId, d.id, e.target.value))}
+                        >
+                          {(allFunnels?.find((x) => x.id === d.funnelId)?.stages ?? [{ id: d.stageId, name: d.stageName }]).map((st) => (
+                            <option key={st.id} value={st.id}>
+                              {st.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {ficha.deals.length === 0 && <p className="muted">Nenhum negócio.</p>}
+            {funnelsWithStages.length > 0 &&
+              (newDealOpen ? (
+                <form
+                  className="ficha-deal-new"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!chosenFunnel || !chosenStage) return;
+                    void changeDeal(() => api.addDeal(chosenFunnel.id, contactId, chosenStage, draftToInput(draft))).then(() => (setNewDealOpen(false), setDraft(emptyDraft)));
+                  }}
+                >
+                  <label>
+                    Funil
+                    <select value={chosenFunnel?.id} onChange={(e) => (setPendingFunnel(e.target.value), setPendingStage(""))}>
+                      {funnelsWithStages.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="button"
-                      className="secondary"
-                      aria-label={`Tirar do funil ${f.funnelName}`}
-                      onClick={() => void changeFunnel(() => api.removeCard(f.funnelId, contactId))}
-                    >
-                      Tirar
+                  </label>
+                  <label>
+                    Etapa inicial
+                    <select value={chosenStage} onChange={(e) => setPendingStage(e.target.value)}>
+                      {chosenFunnel?.stages.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <DealFields draft={draft} onChange={setDraft} />
+                  <div className="qr-actions">
+                    <button type="submit">Criar negócio</button>
+                    <button type="button" className="secondary" onClick={() => setNewDealOpen(false)}>
+                      Cancelar
                     </button>
                   </div>
-                </li>
+                </form>
+              ) : (
+                <button type="button" className="secondary" onClick={() => setNewDealOpen(true)}>
+                  + Negócio
+                </button>
               ))}
-            </ul>
-            {ficha.funnels.length === 0 && <p className="muted">Fora de qualquer funil.</p>}
-            {freeFunnels.length > 0 && (
-              <div className="ficha-funnel-add">
-                <select aria-label="Adicionar a um funil" value={pendingFunnel} onChange={(e) => (setPendingFunnel(e.target.value), setPendingStage(""))}>
-                  <option value="">Adicionar a um funil…</option>
-                  {freeFunnels.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-                {pendingFunnel && (
-                  <>
-                    <select aria-label="Etapa inicial no funil" value={pendingStage} onChange={(e) => setPendingStage(e.target.value)}>
-                      <option value="">Etapa inicial…</option>
-                      {freeFunnels.find((f) => f.id === pendingFunnel)?.stages.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={!pendingStage}
-                      onClick={() => void changeFunnel(() => api.addCard(pendingFunnel, contactId, pendingStage)).then(() => (setPendingFunnel(""), setPendingStage("")))}
-                    >
-                      Adicionar ao funil
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-            {funnelError && (
+            {dealError && (
               <p className="error" role="alert">
-                Não foi possível alterar o funil.
+                Não foi possível alterar o negócio.
               </p>
             )}
           </section>

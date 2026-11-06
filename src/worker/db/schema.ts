@@ -368,28 +368,6 @@ export const funnelStage = sqliteTable(
   (t) => [index("funnel_stage_funnel_idx").on(t.funnelId, t.position)],
 );
 
-/** Card = (contato, funil, etapa). No maximo um por contato em cada funil; `position` e a ordem dentro da etapa. */
-export const funnelCard = sqliteTable(
-  "funnel_card",
-  {
-    funnelId: text("funnel_id")
-      .notNull()
-      .references(() => funnel.id, { onDelete: "cascade" }),
-    contactId: text("contact_id")
-      .notNull()
-      .references(() => contact.id, { onDelete: "cascade" }),
-    stageId: text("stage_id")
-      .notNull()
-      .references(() => funnelStage.id, { onDelete: "cascade" }),
-    position: integer("position").notNull(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.funnelId, t.contactId] }),
-    index("funnel_card_stage_idx").on(t.stageId, t.position),
-    index("funnel_card_contact_idx").on(t.contactId),
-  ],
-);
-
 /** Produto (negocios e campanhas): nome unico sem diferenciar maiusculas, preco em centavos. Arquivado sai da lista de escolha. */
 export const product = sqliteTable(
   "product",
@@ -401,4 +379,50 @@ export const product = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (t) => [uniqueIndex("product_name_nocase_idx").on(sql`lower(${t.name})`)],
+);
+
+export const DEAL_STATUSES = ["aberto", "ganho", "perdido"] as const;
+export type DealStatus = (typeof DEAL_STATUSES)[number];
+export const LOST_REASONS = ["preco", "sem_resposta", "comprou_de_outro", "sem_interesse", "sem_perfil", "outro"] as const;
+export type LostReason = (typeof LOST_REASONS)[number];
+export const ORIGIN_KINDS = ["campanha", "indicacao", "organico", "cliente_antigo", "outro"] as const;
+export type OriginKind = (typeof ORIGIN_KINDS)[number];
+
+/**
+ * Negocio: um interesse do contato num produto, e o cartao do funil. O mesmo contato pode ter varios.
+ * `originCampaignId` ainda sem FK (a tabela `campaign` chega depois). `sourceMessageId` e unico (varios null)
+ * e garante a criacao automatica idempotente. `position` e a ordem dentro da etapa.
+ */
+export const deal = sqliteTable(
+  "deal",
+  {
+    id: text("id").primaryKey(),
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => contact.id, { onDelete: "cascade" }),
+    funnelId: text("funnel_id")
+      .notNull()
+      .references(() => funnel.id, { onDelete: "cascade" }),
+    stageId: text("stage_id")
+      .notNull()
+      .references(() => funnelStage.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    productId: text("product_id").references(() => product.id, { onDelete: "set null" }),
+    valueCents: integer("value_cents"),
+    status: text("status", { enum: DEAL_STATUSES }).notNull().default("aberto"),
+    lostReason: text("lost_reason", { enum: LOST_REASONS }),
+    lostNote: text("lost_note"),
+    originCampaignId: text("origin_campaign_id"),
+    originKind: text("origin_kind", { enum: ORIGIN_KINDS }),
+    sourceMessageId: text("source_message_id"),
+    createdAt: integer("created_at").notNull(),
+    closedAt: integer("closed_at"),
+    closedById: text("closed_by_id").references(() => user.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    index("deal_stage_idx").on(t.stageId, t.position),
+    index("deal_contact_idx").on(t.contactId),
+    index("deal_funnel_status_idx").on(t.funnelId, t.status),
+    uniqueIndex("deal_source_message_idx").on(t.sourceMessageId),
+  ],
 );

@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { assume, conversationOf, inbox } from "./helpers/conversations";
 import { applyLabel, newLabel } from "./helpers/etiquetas";
 import { ficha } from "./helpers/ficha";
+import { newProduct, updateProduct } from "./helpers/produtos";
 import { connectRealtime } from "./helpers/realtime";
 import {
-  addCard,
+  addDeal,
+  closeDealDirect,
+  editDeal,
   addStage,
   board,
   createFunnel,
@@ -12,10 +15,11 @@ import {
   deleteStage,
   layout,
   listFunnels,
-  moveCard,
+  moveDeal,
+  newDeal,
   newClient,
   newFunnel,
-  removeCard,
+  removeDeal,
   renameFunnel,
   renameStage,
   reorderStages,
@@ -88,7 +92,7 @@ const P1 = "5511900000041";
 const P2 = "5511900000042";
 const P3 = "5511900000043";
 
-describe("Funis: cards", () => {
+describe("Funis: negocios", () => {
   async function cenario() {
     const admin = await loginAsAdmin();
     const atendente = await loginAsAtendente();
@@ -100,20 +104,21 @@ describe("Funis: cards", () => {
     return { admin, atendente, vendas, novo, proposta, fechado, c1, c2, c3 };
   }
 
-  it("atendente adiciona contato escolhendo a etapa inicial; o quadro mostra o card", async () => {
+  it("atendente cria negocio escolhendo a etapa inicial; o quadro mostra o cartao do cliente", async () => {
     const { atendente, vendas, proposta, c1 } = await cenario();
 
-    expect((await addCard(atendente, vendas.id, c1, proposta)).status).toBe(201);
+    expect((await addDeal(atendente, vendas.id, c1, proposta)).status).toBe(201);
 
     const { body } = await board(atendente, vendas.id);
     expect(body.stages.map((s) => [s.name, s.cards.length])).toEqual([["Novo", 0], ["Proposta", 1], ["Fechado", 0]]);
-    expect(body.stages[1]!.cards[0]).toMatchObject({ contactId: c1, phone: P1, name: "Cliente", labels: [] });
+    expect(body.stages[1]!.cards[0]).toMatchObject({ contactId: c1, phone: P1, name: "Cliente", labels: [], productId: null, valueCents: null, originKind: null });
+    expect(body.stages[1]!.cards[0]!.dealId).toBeTruthy();
     expect(body.stages[1]!.cards[0]!.conversationId).toBeTruthy();
   });
 
-  it("o card traz status da conversa, ultima mensagem e foto para o quadro", async () => {
+  it("o cartao traz status da conversa, ultima mensagem e foto para o quadro", async () => {
     const { atendente, vendas, novo, c1 } = await cenario();
-    await addCard(atendente, vendas.id, c1, novo);
+    await addDeal(atendente, vendas.id, c1, novo);
 
     const card = (await board(atendente, vendas.id)).body.stages[0]!.cards[0]!;
 
@@ -123,15 +128,15 @@ describe("Funis: cards", () => {
     expect(card).toHaveProperty("avatarUrl");
   });
 
-  it("no maximo um card por contato em cada funil, mas o contato pode estar em varios funis", async () => {
+  it("o mesmo contato pode ter varios negocios, no mesmo funil ou em outros", async () => {
     const { admin, atendente, vendas, novo, proposta, c1 } = await cenario();
     const suporte = await newFunnel(admin, "Suporte", ["Aberto"]);
 
-    expect((await addCard(atendente, vendas.id, c1, novo)).status).toBe(201);
-    expect((await addCard(atendente, vendas.id, c1, proposta)).status).toBe(409);
-    expect((await addCard(atendente, suporte.id, c1, suporte.stages[0]!.id)).status).toBe(201);
+    expect((await addDeal(atendente, vendas.id, c1, novo)).status).toBe(201);
+    expect((await addDeal(atendente, vendas.id, c1, proposta)).status).toBe(201);
+    expect((await addDeal(atendente, suporte.id, c1, suporte.stages[0]!.id)).status).toBe(201);
 
-    expect(await layout(atendente, vendas.id)).toEqual({ Novo: [P1], Proposta: [], Fechado: [] });
+    expect(await layout(atendente, vendas.id)).toEqual({ Novo: [P1], Proposta: [P1], Fechado: [] });
     expect(await layout(atendente, suporte.id)).toEqual({ Aberto: [P1] });
   });
 
@@ -139,54 +144,126 @@ describe("Funis: cards", () => {
     const { admin, atendente, vendas, novo, c1 } = await cenario();
     const suporte = await newFunnel(admin, "Suporte", ["Aberto"]);
 
-    expect((await addCard(atendente, vendas.id, "nao", novo)).status).toBe(404);
-    expect((await addCard(atendente, "nao", c1, novo)).status).toBe(404);
-    expect((await addCard(atendente, vendas.id, c1, "nao")).status).toBe(404);
-    expect((await addCard(atendente, vendas.id, c1, suporte.stages[0]!.id)).status).toBe(404);
+    expect((await addDeal(atendente, vendas.id, "nao", novo)).status).toBe(404);
+    expect((await addDeal(atendente, "nao", c1, novo)).status).toBe(404);
+    expect((await addDeal(atendente, vendas.id, c1, "nao")).status).toBe(404);
+    expect((await addDeal(atendente, vendas.id, c1, suporte.stages[0]!.id)).status).toBe(404);
+  });
+
+  it("escolher o produto preenche o valor com o preco dele; valor informado vence; produto inexistente ou valor invalido sao recusados", async () => {
+    const { admin, atendente, vendas, novo, c1 } = await cenario();
+    const curso = await newProduct(admin, "Curso", 99700);
+
+    expect((await addDeal(atendente, vendas.id, c1, novo, { productId: curso.id })).status).toBe(201);
+    expect((await addDeal(atendente, vendas.id, c1, novo, { productId: curso.id, valueCents: 50000 })).status).toBe(201);
+    expect((await addDeal(atendente, vendas.id, c1, novo, { valueCents: 1234 })).status).toBe(201);
+
+    expect((await board(atendente, vendas.id)).body.stages[0]!.cards).toMatchObject([
+      { productId: curso.id, productName: "Curso", valueCents: 99700 },
+      { productId: curso.id, productName: "Curso", valueCents: 50000 },
+      { productId: null, productName: null, valueCents: 1234 },
+    ]);
+    expect((await addDeal(atendente, vendas.id, c1, novo, { productId: "nao" })).status).toBe(404);
+    expect((await addDeal(atendente, vendas.id, c1, novo, { valueCents: -1 })).status).toBe(400);
+    expect((await addDeal(atendente, vendas.id, c1, novo, { valueCents: 1.5 })).status).toBe(400);
+  });
+
+  it("produto arquivado nao pode ser escolhido num negocio novo, mas continua aparecendo no antigo", async () => {
+    const { admin, atendente, vendas, novo, c1 } = await cenario();
+    const curso = await newProduct(admin, "Curso", 99700);
+    await newDeal(atendente, vendas.id, c1, novo, { productId: curso.id });
+    await updateProduct(admin, curso.id, { archived: true });
+
+    expect((await addDeal(atendente, vendas.id, c1, novo, { productId: curso.id })).status).toBe(404);
+    expect((await board(atendente, vendas.id)).body.stages[0]!.cards).toMatchObject([{ productName: "Curso" }]);
+  });
+
+  it("origem manual: Indicacao, Organico, Cliente antigo, Outro ou vazia; outro valor e recusado", async () => {
+    const { atendente, vendas, novo, c1 } = await cenario();
+
+    for (const originKind of ["indicacao", "organico", "cliente_antigo", "outro"]) {
+      expect((await addDeal(atendente, vendas.id, c1, novo, { originKind })).status).toBe(201);
+    }
+    expect((await addDeal(atendente, vendas.id, c1, novo, { originKind: null })).status).toBe(201);
+    expect((await addDeal(atendente, vendas.id, c1, novo, { originKind: "facebook" })).status).toBe(400);
+    expect((await addDeal(atendente, vendas.id, c1, novo, { originKind: "campanha" })).status).toBe(400);
+
+    expect((await board(atendente, vendas.id)).body.stages[0]!.cards.map((c) => c.originKind)).toEqual([
+      "indicacao",
+      "organico",
+      "cliente_antigo",
+      "outro",
+      null,
+    ]);
+  });
+
+  it("editar o negocio troca produto, valor e origem; trocar o produto nao mexe no valor ja digitado", async () => {
+    const { admin, atendente, vendas, novo, c1 } = await cenario();
+    const curso = await newProduct(admin, "Curso", 99700);
+    const dealId = await newDeal(atendente, vendas.id, c1, novo, { valueCents: 1000 });
+
+    expect((await editDeal(atendente, vendas.id, dealId, { productId: curso.id, originKind: "indicacao" })).status).toBe(200);
+    expect((await board(atendente, vendas.id)).body.stages[0]!.cards[0]).toMatchObject({ productId: curso.id, valueCents: 1000, originKind: "indicacao" });
+
+    expect((await editDeal(atendente, vendas.id, dealId, { valueCents: 250000, originKind: null, productId: null })).status).toBe(200);
+    expect((await board(atendente, vendas.id)).body.stages[0]!.cards[0]).toMatchObject({ productId: null, valueCents: 250000, originKind: null });
+  });
+
+  it("editar recusa dados invalidos e negocio inexistente", async () => {
+    const { atendente, vendas, novo, c1 } = await cenario();
+    const dealId = await newDeal(atendente, vendas.id, c1, novo);
+
+    expect((await editDeal(atendente, vendas.id, dealId, { valueCents: -5 })).status).toBe(400);
+    expect((await editDeal(atendente, vendas.id, dealId, { originKind: "x" })).status).toBe(400);
+    expect((await editDeal(atendente, vendas.id, dealId, { productId: "nao" })).status).toBe(404);
+    expect((await editDeal(atendente, vendas.id, dealId, {})).status).toBe(400);
+    expect((await editDeal(atendente, vendas.id, "nao", { valueCents: 1 })).status).toBe(404);
   });
 
   it("arrastar: mover para outra etapa na posicao pedida mantem a ordem dos demais", async () => {
     const { atendente, vendas, novo, proposta, c1, c2, c3 } = await cenario();
-    for (const c of [c1, c2, c3]) await addCard(atendente, vendas.id, c, novo);
+    const [d1, , d3] = [await newDeal(atendente, vendas.id, c1, novo), await newDeal(atendente, vendas.id, c2, novo), await newDeal(atendente, vendas.id, c3, novo)];
     expect(await layout(atendente, vendas.id)).toMatchObject({ Novo: [P1, P2, P3] });
 
-    expect((await moveCard(atendente, vendas.id, c3, proposta)).status).toBe(200);
-    expect((await moveCard(atendente, vendas.id, c1, proposta, 0)).status).toBe(200);
+    expect((await moveDeal(atendente, vendas.id, d3, proposta)).status).toBe(200);
+    expect((await moveDeal(atendente, vendas.id, d1, proposta, 0)).status).toBe(200);
 
     expect(await layout(atendente, vendas.id)).toEqual({ Novo: [P2], Proposta: [P1, P3], Fechado: [] });
   });
 
   it("reordenar dentro da mesma etapa respeita o indice", async () => {
     const { atendente, vendas, novo, c1, c2, c3 } = await cenario();
-    for (const c of [c1, c2, c3]) await addCard(atendente, vendas.id, c, novo);
+    await newDeal(atendente, vendas.id, c1, novo);
+    await newDeal(atendente, vendas.id, c2, novo);
+    const d3 = await newDeal(atendente, vendas.id, c3, novo);
 
-    await moveCard(atendente, vendas.id, c3, novo, 0);
+    await moveDeal(atendente, vendas.id, d3, novo, 0);
     expect(await layout(atendente, vendas.id)).toMatchObject({ Novo: [P3, P1, P2] });
 
-    await moveCard(atendente, vendas.id, c3, novo, 99);
+    await moveDeal(atendente, vendas.id, d3, novo, 99);
     expect(await layout(atendente, vendas.id)).toMatchObject({ Novo: [P1, P2, P3] });
   });
 
-  it("mover contato que nao esta no funil, ou para etapa inexistente, responde 404", async () => {
-    const { atendente, vendas, novo, c1, c2 } = await cenario();
-    await addCard(atendente, vendas.id, c1, novo);
+  it("mover negocio inexistente (ou de outro funil), ou para etapa inexistente, responde 404", async () => {
+    const { admin, atendente, vendas, novo, c1 } = await cenario();
+    const suporte = await newFunnel(admin, "Suporte", ["Aberto"]);
+    const dealId = await newDeal(atendente, vendas.id, c1, novo);
 
-    expect((await moveCard(atendente, vendas.id, c2, novo)).status).toBe(404);
-    expect((await moveCard(atendente, vendas.id, c1, "nao")).status).toBe(404);
+    expect((await moveDeal(atendente, vendas.id, "nao", novo)).status).toBe(404);
+    expect((await moveDeal(atendente, suporte.id, dealId, suporte.stages[0]!.id)).status).toBe(404);
+    expect((await moveDeal(atendente, vendas.id, dealId, "nao")).status).toBe(404);
   });
 
-  it("tirar o contato do funil remove so o card dele; o contato continua nos outros funis", async () => {
-    const { admin, atendente, vendas, novo, c1, c2 } = await cenario();
-    const suporte = await newFunnel(admin, "Suporte", ["Aberto"]);
-    await addCard(atendente, vendas.id, c1, novo);
-    await addCard(atendente, vendas.id, c2, novo);
-    await addCard(atendente, suporte.id, c1, suporte.stages[0]!.id);
+  it("remover o negocio tira so o cartao dele; o outro negocio do mesmo contato continua", async () => {
+    const { atendente, vendas, novo, c1, c2 } = await cenario();
+    const d1 = await newDeal(atendente, vendas.id, c1, novo);
+    await newDeal(atendente, vendas.id, c1, novo);
+    await newDeal(atendente, vendas.id, c2, novo);
 
-    expect((await removeCard(atendente, vendas.id, c1)).status).toBe(200);
+    expect((await removeDeal(atendente, vendas.id, d1)).status).toBe(200);
 
-    expect(await layout(atendente, vendas.id)).toMatchObject({ Novo: [P2] });
-    expect(await layout(atendente, suporte.id)).toEqual({ Aberto: [P1] });
-    expect((await removeCard(atendente, vendas.id, c1)).status).toBe(404);
+    expect(await layout(atendente, vendas.id)).toMatchObject({ Novo: [P1, P2] });
+    expect((await removeDeal(atendente, vendas.id, d1)).status).toBe(404);
   });
 
   it("apagar etapa vazia funciona sem destino", async () => {
@@ -197,11 +274,11 @@ describe("Funis: cards", () => {
     expect((await listFunnels(admin))[0]!.stages.map((s) => s.name)).toEqual(["Novo", "Proposta"]);
   });
 
-  it("apagar etapa com cards exige escolher a etapa de destino, e os cards vao para o fim dela", async () => {
+  it("apagar etapa com negocios exige escolher a etapa de destino, e os negocios vao para o fim dela", async () => {
     const { admin, atendente, vendas, novo, proposta, c1, c2, c3 } = await cenario();
-    await addCard(atendente, vendas.id, c1, novo);
-    await addCard(atendente, vendas.id, c2, novo);
-    await addCard(atendente, vendas.id, c3, proposta);
+    await newDeal(atendente, vendas.id, c1, novo);
+    await newDeal(atendente, vendas.id, c2, novo);
+    await newDeal(atendente, vendas.id, c3, proposta);
 
     expect((await deleteStage(admin, vendas.id, novo)).status).toBe(409);
     expect((await deleteStage(admin, vendas.id, novo, novo)).status).toBe(400);
@@ -216,8 +293,8 @@ describe("Funis: cards", () => {
   it("filtra o quadro por etiqueta do contato", async () => {
     const { admin, atendente, vendas, novo, c1, c2 } = await cenario();
     const vip = await newLabel(admin, "VIP");
-    await addCard(atendente, vendas.id, c1, novo);
-    await addCard(atendente, vendas.id, c2, novo);
+    await newDeal(atendente, vendas.id, c1, novo);
+    await newDeal(atendente, vendas.id, c2, novo);
     await applyLabel(atendente, c2, vip.id);
 
     expect(await layout(atendente, vendas.id, `?label=${vip.id}`)).toEqual({ Novo: [P2], Proposta: [], Fechado: [] });
@@ -226,7 +303,7 @@ describe("Funis: cards", () => {
 
   it("filtra o quadro pelo responsavel da conversa atual (eu, sem responsavel ou um membro)", async () => {
     const { admin, atendente, vendas, novo, c1, c2, c3 } = await cenario();
-    for (const c of [c1, c2, c3]) await addCard(atendente, vendas.id, c, novo);
+    for (const c of [c1, c2, c3]) await newDeal(atendente, vendas.id, c, novo);
     const conversas = await inbox(admin);
     const conv = (phone: string) => conversas.find((x) => x.contact.phone === phone)!.id;
     await assume(atendente, conv(P1));
@@ -239,29 +316,60 @@ describe("Funis: cards", () => {
     expect((await board(atendente, vendas.id)).body.stages[0]!.cards.find((c) => c.contactId === c2)).toMatchObject({ assigneeId: adminId });
   });
 
-  it("a ficha lista os funis e etapas do contato, e quem esta fora de qualquer funil nao aparece no quadro", async () => {
-    const { admin, atendente, vendas, proposta, c1, c2 } = await cenario();
-    const suporte = await newFunnel(admin, "Suporte", ["Aberto"]);
-    await addCard(atendente, vendas.id, c1, proposta);
-    await addCard(atendente, suporte.id, c1, suporte.stages[0]!.id);
+  it("filtra o quadro por produto (e combina com os outros filtros)", async () => {
+    const { admin, atendente, vendas, novo, c1, c2, c3 } = await cenario();
+    const curso = await newProduct(admin, "Curso");
+    const mentoria = await newProduct(admin, "Mentoria", 500000);
+    await newDeal(atendente, vendas.id, c1, novo, { productId: curso.id });
+    await newDeal(atendente, vendas.id, c2, novo, { productId: mentoria.id });
+    await newDeal(atendente, vendas.id, c3, novo);
 
-    expect((await ficha(atendente, c1)).funnels).toEqual([
-      { funnelId: vendas.id, funnelName: "Vendas", stageId: proposta, stageName: "Proposta" },
-      { funnelId: suporte.id, funnelName: "Suporte", stageId: suporte.stages[0]!.id, stageName: "Aberto" },
-    ]);
-    expect((await ficha(atendente, c2)).funnels).toEqual([]);
+    expect(await layout(atendente, vendas.id, `?product=${curso.id}`)).toEqual({ Novo: [P1], Proposta: [], Fechado: [] });
+    expect(await layout(atendente, vendas.id, `?product=${mentoria.id}`)).toEqual({ Novo: [P2], Proposta: [], Fechado: [] });
+    expect(await layout(atendente, vendas.id, "?product=none")).toEqual({ Novo: [P3], Proposta: [], Fechado: [] });
+    expect(await layout(atendente, vendas.id, `?product=${curso.id}&assignee=none`)).toMatchObject({ Novo: [P1] });
+    expect(await layout(atendente, vendas.id, `?product=${curso.id}&assignee=me`)).toMatchObject({ Novo: [] });
+  });
+
+  it("o quadro mostra so negocios abertos; contato sem negocio nao aparece", async () => {
+    const { atendente, vendas, novo, c1, c2 } = await cenario();
+    await newDeal(atendente, vendas.id, c1, novo);
+    const ganho = await newDeal(atendente, vendas.id, c1, novo);
+    const perdido = await newDeal(atendente, vendas.id, c2, novo);
+    await closeDealDirect(ganho, "ganho");
+    await closeDealDirect(perdido, "perdido");
+
     expect((await board(atendente, vendas.id)).body.stages.flatMap((s) => s.cards).map((c) => c.contactId)).toEqual([c1]);
   });
 
-  it("adicionar, mover e remover card publicam evento em tempo real para os colegas", async () => {
+  it("a ficha lista todos os negocios do contato (abertos e fechados) com produto, valor, funil, etapa e situacao", async () => {
+    const { admin, atendente, vendas, novo, proposta, c1, c2 } = await cenario();
+    const suporte = await newFunnel(admin, "Suporte", ["Aberto"]);
+    const curso = await newProduct(admin, "Curso", 99700);
+    const d1 = await newDeal(atendente, vendas.id, c1, proposta, { productId: curso.id, originKind: "indicacao" });
+    const d2 = await newDeal(atendente, suporte.id, c1, suporte.stages[0]!.id);
+    const d3 = await newDeal(atendente, vendas.id, c1, novo, { valueCents: 500 });
+    await closeDealDirect(d3, "ganho");
+
+    expect((await ficha(atendente, c1)).deals).toEqual([
+      { id: d1, funnelId: vendas.id, funnelName: "Vendas", stageId: proposta, stageName: "Proposta", productId: curso.id, productName: "Curso", valueCents: 99700, status: "aberto", originKind: "indicacao" },
+      { id: d2, funnelId: suporte.id, funnelName: "Suporte", stageId: suporte.stages[0]!.id, stageName: "Aberto", productId: null, productName: null, valueCents: null, status: "aberto", originKind: null },
+      { id: d3, funnelId: vendas.id, funnelName: "Vendas", stageId: novo, stageName: "Novo", productId: null, productName: null, valueCents: 500, status: "ganho", originKind: null },
+    ]);
+    expect((await ficha(atendente, c2)).deals).toEqual([]);
+  });
+
+  it("criar, editar, mover e remover negocio publicam evento em tempo real para os colegas", async () => {
     const { admin, atendente, vendas, novo, proposta, c1 } = await cenario();
     const ws = await connectRealtime(admin);
 
-    await addCard(atendente, vendas.id, c1, novo);
+    const dealId = await newDeal(atendente, vendas.id, c1, novo);
     expect(await ws.next()).toMatchObject({ type: "funnel.changed", funnelId: vendas.id });
-    await moveCard(atendente, vendas.id, c1, proposta);
+    await editDeal(atendente, vendas.id, dealId, { valueCents: 10 });
     expect(await ws.next()).toMatchObject({ type: "funnel.changed", funnelId: vendas.id });
-    await removeCard(atendente, vendas.id, c1);
+    await moveDeal(atendente, vendas.id, dealId, proposta);
+    expect(await ws.next()).toMatchObject({ type: "funnel.changed", funnelId: vendas.id });
+    await removeDeal(atendente, vendas.id, dealId);
     expect(await ws.next()).toMatchObject({ type: "funnel.changed", funnelId: vendas.id });
     ws.close();
   });
@@ -277,14 +385,15 @@ describe("Funis: cards", () => {
     ws.close();
   });
 
-  it("atendente nao apaga etapa; apagar o funil leva os cards", async () => {
+  it("atendente nao apaga etapa; apagar o funil leva os negocios", async () => {
     const { admin, atendente, vendas, novo, c1 } = await cenario();
-    await addCard(atendente, vendas.id, c1, novo);
+    await newDeal(atendente, vendas.id, c1, novo);
 
     expect((await deleteStage(atendente, vendas.id, novo, novo)).status).toBe(403);
     expect((await deleteFunnel(admin, vendas.id)).status).toBe(200);
 
     expect(await listFunnels(admin)).toEqual([]);
     expect((await board(admin, vendas.id)).status).toBe(404);
+    expect((await ficha(admin, c1)).deals).toEqual([]);
   });
 });

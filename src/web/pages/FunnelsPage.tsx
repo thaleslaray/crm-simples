@@ -2,22 +2,23 @@ import { GripVertical, MoreVertical, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { api, type Board, type BoardFilter, type ContactRow, type FunnelCard, type Member } from "../api";
+import { DealFields, draftToInput, emptyDraft, useActiveProducts } from "../components/DealFields";
 import { authClient } from "../auth-client";
 import { StatusPill } from "../components/StatusPill";
 import { LabelTag } from "../components/LabelTag";
-import { contactLabel, initials, listTime, messagePreview } from "../format";
+import { contactLabel, formatMoney, initials, listTime, messagePreview } from "../format";
 import { useFunnels } from "../funnels";
 import { useLabels } from "../labels";
 import { onRealtime } from "../realtime";
 
 /** Move o card no quadro local (o mesmo que o servidor fará): tira de onde está e põe na etapa, na posição dada. */
-function moveLocal(board: Board, contactId: string, stageId: string, index: number): Board {
-  const card = board.stages.flatMap((s) => s.cards).find((c) => c.contactId === contactId);
+function moveLocal(board: Board, dealId: string, stageId: string, index: number): Board {
+  const card = board.stages.flatMap((s) => s.cards).find((c) => c.dealId === dealId);
   if (!card) return board;
   return {
     ...board,
     stages: board.stages.map((s) => {
-      const rest = s.cards.filter((c) => c.contactId !== contactId);
+      const rest = s.cards.filter((c) => c.dealId !== dealId);
       if (s.id !== stageId) return { ...s, cards: rest };
       const at = Math.min(Math.max(index, 0), rest.length);
       return { ...s, cards: [...rest.slice(0, at), card, ...rest.slice(at)] };
@@ -26,7 +27,7 @@ function moveLocal(board: Board, contactId: string, stageId: string, index: numb
 }
 
 type Drag = {
-  contactId: string;
+  dealId: string;
   startX: number;
   startY: number;
   dx: number;
@@ -37,7 +38,7 @@ type Drag = {
 const EDGE = 48;
 const STEP = 18;
 
-/** Kanban de um funil: uma coluna por etapa e um card por contato; arrastar com mouse ou toque, ou escolher a etapa no card. */
+/** Kanban de um funil: uma coluna por etapa e um cartão por negócio; arrastar com mouse ou toque, ou escolher a etapa no card. */
 export function FunnelsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -45,8 +46,9 @@ export function FunnelsPage() {
   const isAdmin = (data?.user as { role?: string } | undefined)?.role === "admin";
   const funnels = useFunnels();
   const labels = useLabels();
+  const products = useActiveProducts();
   const [members, setMembers] = useState<Member[]>([]);
-  const [filter, setFilter] = useState<BoardFilter>({ label: "", assignee: "" });
+  const [filter, setFilter] = useState<BoardFilter>({ label: "", assignee: "", product: "" });
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
@@ -78,15 +80,15 @@ export function FunnelsPage() {
     });
   }, [load, funnelId]);
 
-  async function applyMove(contactId: string, stageId: string, index?: number) {
+  async function applyMove(dealId: string, stageId: string, index?: number) {
     if (!funnelId || !board) return;
     const target = board.stages.find((s) => s.id === stageId);
     setNotice(null);
-    setBoard(moveLocal(board, contactId, stageId, index ?? target?.cards.length ?? 0));
+    setBoard(moveLocal(board, dealId, stageId, index ?? target?.cards.length ?? 0));
     try {
-      await api.moveCard(funnelId, contactId, stageId, index);
+      await api.moveDeal(funnelId, dealId, stageId, index);
     } catch {
-      setNotice("Não foi possível mover o card.");
+      setNotice("Não foi possível mover o negócio.");
       load();
     }
   }
@@ -95,16 +97,16 @@ export function FunnelsPage() {
     if (!funnelId) return;
     setNotice(null);
     try {
-      await api.removeCard(funnelId, card.contactId);
+      await api.removeDeal(funnelId, card.dealId);
       load();
     } catch {
-      setNotice("Não foi possível tirar o contato do funil.");
+      setNotice("Não foi possível remover o negócio.");
     }
   }
 
   // ---- Arrastar (Pointer Events: o mesmo código serve para mouse e toque) ----
 
-  function locate(x: number, y: number, contactId: string): Drag["over"] {
+  function locate(x: number, y: number, dealId: string): Drag["over"] {
     const root = boardEl.current;
     if (!root) return null;
     const cols = [...root.querySelectorAll<HTMLElement>("[data-stage-id]")];
@@ -116,7 +118,7 @@ export function FunnelsPage() {
       if (dist < bestDist) (best = col), (bestDist = dist);
     }
     if (!best) return null;
-    const cards = [...best.querySelectorAll<HTMLElement>("[data-contact-id]")].filter((el) => el.dataset.contactId !== contactId);
+    const cards = [...best.querySelectorAll<HTMLElement>("[data-deal-id]")].filter((el) => el.dataset.dealId !== dealId);
     const index = cards.filter((el) => {
       const r = el.getBoundingClientRect();
       return y > r.top + r.height / 2;
@@ -137,21 +139,21 @@ export function FunnelsPage() {
   function onGripDown(e: React.PointerEvent<HTMLButtonElement>, card: FunnelCard) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    setDrag({ contactId: card.contactId, startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, over: null });
+    setDrag({ dealId: card.dealId, startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, over: null });
   }
 
   function onGripMove(e: React.PointerEvent<HTMLButtonElement>) {
     if (!drag) return;
     edgeScroll(e.clientX, e.clientY);
-    setDrag({ ...drag, dx: e.clientX - drag.startX, dy: e.clientY - drag.startY, over: locate(e.clientX, e.clientY, drag.contactId) });
+    setDrag({ ...drag, dx: e.clientX - drag.startX, dy: e.clientY - drag.startY, over: locate(e.clientX, e.clientY, drag.dealId) });
   }
 
   function onGripUp(e: React.PointerEvent<HTMLButtonElement>) {
     if (!drag) return;
-    const over = locate(e.clientX, e.clientY, drag.contactId);
+    const over = locate(e.clientX, e.clientY, drag.dealId);
     const moved = Math.abs(drag.dx) + Math.abs(drag.dy) > 4;
     setDrag(null);
-    if (moved && over) void applyMove(drag.contactId, over.stageId, over.index);
+    if (moved && over) void applyMove(drag.dealId, over.stageId, over.index);
   }
 
   /** Cards da etapa; durante o arraste, a linha de destino entra na posição calculada (sem contar o card arrastado). */
@@ -160,14 +162,14 @@ export function FunnelsPage() {
     const overHere = drag?.over?.stageId === stage.id ? drag.over.index : -1;
     let k = 0;
     for (const card of stage.cards.filter(matches)) {
-      const dragging = drag?.contactId === card.contactId;
+      const dragging = drag?.dealId === card.dealId;
       if (!dragging && k === overHere) out.push(<li key="drop" className="kcard-drop" aria-hidden="true" />);
       if (!dragging) k++;
       out.push(
         <li
-          key={card.contactId}
+          key={card.dealId}
           className={`kcard${dragging ? " kcard--dragging" : ""}`}
-          data-contact-id={card.contactId}
+          data-deal-id={card.dealId}
           style={dragging ? { transform: `translate(${drag.dx}px, ${drag.dy}px)` } : undefined}
         >
           <Card
@@ -178,7 +180,7 @@ export function FunnelsPage() {
             onGripMove={onGripMove}
             onGripUp={onGripUp}
             onCancel={() => setDrag(null)}
-            onMove={(to) => void applyMove(card.contactId, to)}
+            onMove={(to) => void applyMove(card.dealId, to)}
             onRemove={() => void removeCard(card)}
           />
         </li>,
@@ -191,7 +193,6 @@ export function FunnelsPage() {
   const needle = query.trim().toLowerCase();
   const matches = (c: FunnelCard) =>
     !needle || [contactLabel(c), c.phone ?? "", c.lastMessage ? messagePreview(c.lastMessage.type, c.lastMessage.text) : ""].some((t) => t.toLowerCase().includes(needle));
-  const taken = new Set(board?.stages.flatMap((s) => s.cards.map((c) => c.contactId)));
 
   if (funnels && id && !funnels.some((f) => f.id === id) && funnels[0]) return <Navigate to={`/funis/${funnels[0].id}`} replace />;
 
@@ -210,12 +211,21 @@ export function FunnelsPage() {
         )}
         <div className="board-head-end">
       <div className="funnels-bar">
-        <input type="search" aria-label="Filtrar cards" placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" aria-label="Filtrar negócios" placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} />
         <select aria-label="Filtrar por etiqueta" value={filter.label} onChange={(e) => setFilter((f) => ({ ...f, label: e.target.value }))}>
           <option value="">Todas as etiquetas</option>
           {labels.map((l) => (
             <option key={l.id} value={l.id}>
               {l.name}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Filtrar por produto" value={filter.product} onChange={(e) => setFilter((f) => ({ ...f, product: e.target.value }))}>
+          <option value="">Todos os produtos</option>
+          <option value="none">Sem produto</option>
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
             </option>
           ))}
         </select>
@@ -230,7 +240,7 @@ export function FunnelsPage() {
           ))}
         </select>
       </div>
-          {funnel && funnel.stages.length > 0 && <AddContact funnelId={funnel.id} stages={funnel.stages} taken={taken} onAdded={load} onError={setNotice} />}
+          {funnel && funnel.stages.length > 0 && <NewDeal funnelId={funnel.id} stages={funnel.stages} onAdded={load} onError={setNotice} />}
           {isAdmin && (
             <Link className="board-manage" to="/funis/gerenciar">
               Gerenciar funis
@@ -270,7 +280,7 @@ export function FunnelsPage() {
                   </h2>
                   <ul>
                     {renderCards(stage)}
-                    {stage.cards.length === 0 && !drag && <li className="board-empty">Arraste um contato para cá</li>}
+                    {stage.cards.length === 0 && !drag && <li className="board-empty">Arraste um negócio para cá</li>}
                   </ul>
                 </section>
               ))}
@@ -310,6 +320,12 @@ function Card(props: {
         <span className="kcard-name">{name}</span>
         {card.lastMessage && <span className="kcard-time">{listTime(card.lastMessage.timestamp)}</span>}
       </div>
+      {(card.productName || card.valueCents !== null) && (
+        <p className="kcard-deal">
+          {card.productName && <span className="kcard-product">{card.productName}</span>}
+          {card.valueCents !== null && <span className="kcard-value">{formatMoney(card.valueCents)}</span>}
+        </p>
+      )}
       {preview && <p className="kcard-preview">{preview}</p>}
       {(status || tags.length > 0) && (
         <div className="kcard-meta">
@@ -346,8 +362,8 @@ function Card(props: {
                 </option>
               ))}
             </select>
-            <button type="button" className="secondary" aria-label={`Tirar ${name} do funil`} onClick={props.onRemove}>
-              Tirar do funil
+            <button type="button" className="secondary" aria-label={`Remover negócio de ${name}`} onClick={props.onRemove}>
+              Remover negócio
             </button>
           </div>
           )}
@@ -368,16 +384,16 @@ function Card(props: {
   );
 }
 
-/** Adiciona um contato ao funil: busca por nome ou telefone e etapa inicial. */
-function AddContact(props: {
+/** "+ Negócio": busca o contato, escolhe a etapa inicial e, se quiser, produto, valor e origem. */
+function NewDeal(props: {
   funnelId: string;
   stages: { id: string; name: string }[];
-  taken: Set<string>;
   onAdded: () => void;
   onError: (msg: string | null) => void;
 }) {
   const [query, setQuery] = useState("");
   const [stageId, setStageId] = useState(props.stages[0]!.id);
+  const [draft, setDraft] = useState(emptyDraft);
   const [rows, setRows] = useState<ContactRow[]>([]);
   const box = useRef<HTMLDetailsElement>(null);
   const stage = props.stages.some((s) => s.id === stageId) ? stageId : props.stages[0]!.id;
@@ -397,42 +413,47 @@ function AddContact(props: {
   async function add(row: ContactRow) {
     props.onError(null);
     try {
-      await api.addCard(props.funnelId, row.id, stage);
+      await api.addDeal(props.funnelId, row.id, stage, draftToInput(draft));
       setQuery("");
-      // O painel flutua sobre o quadro: fecha ao adicionar para não tapar os cards.
+      setDraft(emptyDraft);
+      // O painel flutua sobre o quadro: fecha ao criar para não tapar os cartões.
       if (box.current) box.current.open = false;
       props.onAdded();
     } catch {
-      props.onError("Não foi possível adicionar o contato.");
+      props.onError("Não foi possível criar o negócio.");
     }
   }
 
-  const available = rows.filter((r) => !props.taken.has(r.id)).slice(0, 6);
+  const available = rows.slice(0, 6);
   return (
     <details className="add-contact" ref={box}>
       <summary>
         <Plus size={16} aria-hidden="true" />
-        Adicionar contato
+        Negócio
       </summary>
       <div className="add-contact-body">
-        <input type="search" aria-label="Buscar contato para adicionar" placeholder="Nome ou telefone" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <select aria-label="Etapa inicial" value={stage} onChange={(e) => setStageId(e.target.value)}>
-          {props.stages.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        <input type="search" aria-label="Buscar contato do negócio" placeholder="Nome ou telefone" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <label>
+          Etapa inicial
+          <select value={stage} onChange={(e) => setStageId(e.target.value)}>
+            {props.stages.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <DealFields draft={draft} onChange={setDraft} />
         {query.trim() && (
           <ul className="add-contact-results" aria-label="Contatos encontrados">
             {available.map((r) => (
               <li key={r.id}>
                 <button type="button" className="secondary" onClick={() => void add(r)}>
-                  Adicionar {contactLabel(r)}
+                  Criar negócio para {contactLabel(r)}
                 </button>
               </li>
             ))}
-            {available.length === 0 && <li className="muted">Nenhum contato disponível.</li>}
+            {available.length === 0 && <li className="muted">Nenhum contato encontrado.</li>}
           </ul>
         )}
       </div>

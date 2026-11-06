@@ -406,7 +406,7 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 .funnels-bar { display: flex; flex-wrap: wrap; gap: 8px; }
 .funnels-bar input { flex: 1 1 200px; min-width: 0; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--bg-input); }
 .funnels-bar select, .add-contact select, .ficha-funnel select, .stage-destination select { flex: 1 1 140px; min-width: 0; font: inherit; font-size: 16px; padding: 8px; min-height: 40px; border: 1px solid var(--divider); border-radius: 8px; background: var(--bg-panel); color: var(--text); }
-/* "Adicionar contato": botão do cabeçalho que abre um painel logo abaixo dele. */
+/* "+ Negócio": botão do cabeçalho que abre um painel logo abaixo dele. */
 .funnels-bar select { flex: 0 0 auto; width: auto; max-width: 100%; }
 .add-contact { position: relative; }
 .add-contact summary { list-style: none; min-height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 999px; background: var(--brand); color: var(--brand-fg); font-weight: 500; white-space: nowrap; cursor: pointer; transition: background-color 120ms ease; }
@@ -441,6 +441,9 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 .kcard-name { flex: 1; min-width: 0; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kcard-time { font-size: 0.75rem; color: var(--text-2); white-space: nowrap; }
 .kcard-preview { margin: 0; color: var(--text-2); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kcard-deal { margin: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; font-size: 0.85rem; min-width: 0; }
+.kcard-product { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.kcard-value { color: var(--text-2); font-variant-numeric: tabular-nums; }
 .kcard-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .kcard-tools { position: absolute; top: 4px; right: 4px; display: flex; align-items: center; }
 .kcard-tools .kcard-grip, .kcard-more { width: 32px; height: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--text-2); display: grid; place-items: center; border-radius: 50%; cursor: pointer; list-style: none; }
@@ -469,7 +472,7 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
   .board-head h1 { order: 1; }
   .board-manage { order: 4; min-height: 36px; }
   .board-head h1 { margin-right: auto; }
-  /* Quebra de linha depois de "Funis" + "Adicionar contato"; a linha vazia não soma espaço. */
+  /* Quebra de linha depois de "Funis" + "+ Negócio"; a linha vazia não soma espaço. */
   .board-head::after { content: ""; order: 2; flex-basis: 100%; margin-top: -6px; }
   .chip-row { order: 3; flex: 1 1 0; }
   .funnels-bar { order: 5; width: 100%; }
@@ -503,6 +506,10 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 .ficha-form input[readonly] { background: var(--bg-rail); color: var(--text-2); }
 .ficha-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .ficha-list li { display: grid; gap: 4px; justify-items: start; font-size: 0.9rem; }
+.add-contact-body label, .ficha-deal-new label { display: grid; gap: 4px; flex: 1 1 140px; min-width: 0; font-size: 0.85rem; color: var(--text-2); }
+.add-contact-body label select, .add-contact-body label input, .ficha-deal-new select, .ficha-deal-new input { width: 100%; }
+.ficha-deal-new { display: grid; gap: 10px; }
+.ficha-deal-text { display: grid; gap: 2px; min-width: 0; }
 .ficha-funnel-name { display: flex; align-items: center; gap: 12px; }
 .ficha-funnel-ic { width: 36px; height: 36px; border-radius: 10px; background: var(--bg-active); color: var(--text-2); display: grid; place-items: center; }
 .ficha-note { background: var(--bubble-note); border: 1px solid var(--bubble-note-border); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; white-space: pre-wrap; }

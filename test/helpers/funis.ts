@@ -1,4 +1,5 @@
 import { api, postJson } from "./api";
+import { env } from "cloudflare:workers";
 import { conversationWithClient, inbox } from "./conversations";
 
 // Funis, etapas e cards pela API, como o front faz.
@@ -13,6 +14,11 @@ export interface FunnelView {
   stages: StageView[];
 }
 export interface CardView {
+  dealId: string;
+  productId: string | null;
+  productName: string | null;
+  valueCents: number | null;
+  originKind: string | null;
   contactId: string;
   name: string | null;
   phone: string | null;
@@ -43,12 +49,25 @@ export const reorderStages = (cookie: string, funnelId: string, stageIds: string
 export const deleteStage = (cookie: string, funnelId: string, stageId: string, moveTo?: string) =>
   json(cookie, "DELETE", `/api/funnels/${funnelId}/stages/${stageId}`, moveTo ? { moveTo } : {});
 
-export const addCard = (cookie: string, funnelId: string, contactId: string, stageId: string) =>
-  postJson(`/api/funnels/${funnelId}/cards`, { contactId, stageId }, { cookie });
-export const moveCard = (cookie: string, funnelId: string, contactId: string, stageId: string, index?: number) =>
-  json(cookie, "PUT", `/api/funnels/${funnelId}/cards/${contactId}`, { stageId, ...(index === undefined ? {} : { index }) });
-export const removeCard = (cookie: string, funnelId: string, contactId: string) =>
-  json(cookie, "DELETE", `/api/funnels/${funnelId}/cards/${contactId}`, {});
+export const addDeal = (cookie: string, funnelId: string, contactId: string, stageId: string, extra: Record<string, unknown> = {}) =>
+  postJson(`/api/funnels/${funnelId}/deals`, { contactId, stageId, ...extra }, { cookie });
+export const moveDeal = (cookie: string, funnelId: string, dealId: string, stageId: string, index?: number) =>
+  json(cookie, "PUT", `/api/funnels/${funnelId}/deals/${dealId}`, { stageId, ...(index === undefined ? {} : { index }) });
+export const editDeal = (cookie: string, funnelId: string, dealId: string, body: Record<string, unknown>) =>
+  json(cookie, "PATCH", `/api/funnels/${funnelId}/deals/${dealId}`, body);
+export const removeDeal = (cookie: string, funnelId: string, dealId: string) =>
+  json(cookie, "DELETE", `/api/funnels/${funnelId}/deals/${dealId}`, {});
+
+/** Cria o negocio e devolve o id. */
+export async function newDeal(cookie: string, funnelId: string, contactId: string, stageId: string, extra: Record<string, unknown> = {}): Promise<string> {
+  const res = await addDeal(cookie, funnelId, contactId, stageId, extra);
+  return ((await res.json()) as { deal: { id: string } }).deal.id;
+}
+
+/** Fecha o negocio direto no banco (arrange: as rotas de fechar sao do ticket 03). */
+export async function closeDealDirect(dealId: string, status: "ganho" | "perdido"): Promise<void> {
+  await env.DB.prepare("UPDATE deal SET status = ?, closed_at = ? WHERE id = ?").bind(status, Date.now(), dealId).run();
+}
 
 export async function listFunnels(cookie: string): Promise<FunnelView[]> {
   const res = await api("/api/funnels", { cookie });

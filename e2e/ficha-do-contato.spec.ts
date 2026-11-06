@@ -89,7 +89,7 @@ for (const scheme of ["light", "dark"] as const) {
     ).toBeVisible();
     for (const bloco of [
       "Etiquetas do contato",
-      "Funis do contato",
+      "Negócios do contato",
       "Dados",
       "Notas do contato",
     ]) {
