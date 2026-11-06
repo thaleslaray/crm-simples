@@ -2,6 +2,7 @@ import { and, asc, desc, eq, exists, isNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
 import { DEAL_STATUSES, LOST_REASONS, type ConversationStatus, type DealStatus, type LostReason, type MessageType, type OriginKind } from "./db/schema";
+import { MANUAL_ORIGIN_VALUES } from "../shared/origins";
 import { type LabelView, labelsByContact } from "./labels";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
 import { publish } from "./realtime";
@@ -35,9 +36,6 @@ export async function mainFunnelEntry(db: Db): Promise<{ funnelId: string; stage
   const stage = first?.stages[0];
   return stage ? { funnelId: first!.id, stageId: stage.id } : null;
 }
-
-/** Origens que o atendente escolhe na mao sem campanha. `campanha` tambem vale, mas exige `originCampaignId` de campanha ativa. */
-export const MANUAL_ORIGINS = ["indicacao", "organico", "cliente_antigo", "outro"] as const satisfies readonly OriginKind[];
 
 export type ContactDealView = {
   id: string;
@@ -328,7 +326,7 @@ function parseDealFields(body: Record<string, unknown>): DealFields | null {
   if (campaignId !== undefined && campaignId !== null && typeof campaignId !== "string") return null;
   if ("originKind" in body) {
     const o = body.originKind;
-    if (o !== null && o !== "campanha" && !(MANUAL_ORIGINS as readonly unknown[]).includes(o)) return null;
+    if (o !== null && o !== "campanha" && !(MANUAL_ORIGIN_VALUES as readonly unknown[]).includes(o)) return null;
     // Campanha pede o id; qualquer outra origem (ou nenhuma) nao pode trazer id e solta o vinculo antigo.
     if (o === "campanha" ? !campaignId : Boolean(campaignId)) return null;
     out.originKind = o as OriginKind | null;

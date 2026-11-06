@@ -1,18 +1,11 @@
 import { useEffect, useState } from "react";
 import { api, type Campaign, type DealInput, type OriginKind, type Product } from "../api";
+import { MANUAL_ORIGINS, manualOriginLabel } from "../../shared/origins";
 import { centsFromInput, formatMoney } from "../format";
 import { onRealtime } from "../realtime";
 
-/** Origens que o atendente escolhe na mão. As campanhas ativas entram na lista como `campanha:<id>`. */
-export const MANUAL_ORIGINS: { value: Exclude<OriginKind, "campanha">; label: string }[] = [
-  { value: "indicacao", label: "Indicação" },
-  { value: "organico", label: "Orgânico" },
-  { value: "cliente_antigo", label: "Cliente antigo" },
-  { value: "outro", label: "Outro" },
-];
-
 export const originLabel = (kind: OriginKind | null): string =>
-  kind === "campanha" ? "Campanha" : (MANUAL_ORIGINS.find((o) => o.value === kind)?.label ?? "Sem origem");
+  kind === "campanha" ? "Campanha" : (manualOriginLabel(kind) ?? "Sem origem");
 
 const CAMPAIGN_PREFIX = "campanha:";
 

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { createDb, schema } from "./db";
+import { MANUAL_ORIGIN_VALUES, manualOriginLabel } from "../shared/origins";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
 
 export type ReportRow = {
@@ -14,8 +15,7 @@ export type ReportRow = {
 };
 export type CampaignReport = { rows: ReportRow[]; total: Omit<ReportRow, "key" | "label"> };
 
-const FIXED_LABEL: Record<string, string> = { indicacao: "Indicação", organico: "Orgânico", cliente_antigo: "Cliente antigo", outro: "Outro" };
-const FIXED_ORDER = Object.keys(FIXED_LABEL);
+const FIXED_ORDER = MANUAL_ORIGIN_VALUES;
 /** Campanhas primeiro (por nome), depois as origens fixas na ordem da tela, "Sem origem" por último. */
 const rank = (r: ReportRow) => (r.key.startsWith("campanha:") ? 0 : r.key === "sem_origem" ? 99 : 1 + FIXED_ORDER.indexOf(r.key));
 
@@ -47,7 +47,7 @@ reports.get("/campaigns", requireAuth, requireRole("admin"), async (c) => {
       const camp = r.kind === "campanha" && r.campaignId && r.name !== null;
       const fixed = !camp && r.kind && r.kind !== "campanha" ? r.kind : null;
       const key = camp ? `campanha:${r.campaignId}` : (fixed ?? "sem_origem");
-      const label = camp ? r.name! : fixed ? (FIXED_LABEL[fixed] ?? fixed) : "Sem origem";
+      const label = camp ? r.name! : fixed ? (manualOriginLabel(fixed) ?? fixed) : "Sem origem";
       return { key, label, created: r.created, won: r.won, lost: r.lost, revenueCents: r.revenueCents, conversion: null };
     })
     .reduce<ReportRow[]>((acc, r) => {
