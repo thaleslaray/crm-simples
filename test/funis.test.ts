@@ -353,9 +353,9 @@ describe("Funis: negocios", () => {
     await closeDeal(atendente, vendas.id, d3, { status: "ganho", valueCents: 500 });
 
     expect((await ficha(atendente, c1)).deals).toEqual([
-      { id: d1, funnelId: vendas.id, funnelName: "Vendas", stageId: proposta, stageName: "Proposta", productId: curso.id, productName: "Curso", valueCents: 99700, status: "aberto", originKind: "indicacao" },
-      { id: d2, funnelId: suporte.id, funnelName: "Suporte", stageId: suporte.stages[0]!.id, stageName: "Aberto", productId: null, productName: null, valueCents: null, status: "aberto", originKind: null },
-      { id: d3, funnelId: vendas.id, funnelName: "Vendas", stageId: novo, stageName: "Novo", productId: null, productName: null, valueCents: 500, status: "ganho", originKind: null },
+      { id: d1, funnelId: vendas.id, funnelName: "Vendas", stageId: proposta, stageName: "Proposta", productId: curso.id, productName: "Curso", valueCents: 99700, status: "aberto", originKind: "indicacao", originCampaignName: null },
+      { id: d2, funnelId: suporte.id, funnelName: "Suporte", stageId: suporte.stages[0]!.id, stageName: "Aberto", productId: null, productName: null, valueCents: null, status: "aberto", originKind: null, originCampaignName: null },
+      { id: d3, funnelId: vendas.id, funnelName: "Vendas", stageId: novo, stageName: "Novo", productId: null, productName: null, valueCents: 500, status: "ganho", originKind: null, originCampaignName: null },
     ]);
     expect((await ficha(atendente, c2)).deals).toEqual([]);
   });

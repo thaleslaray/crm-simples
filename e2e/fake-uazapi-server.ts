@@ -22,7 +22,7 @@ const fake = await startFakeUazapi({
     {
       method: "GET",
       path: "/instance/status",
-      responses: [{ body: { instance: { status: "connected" } } }],
+      responses: [{ body: { instance: { status: "connected", owner: "5511987654321" } } }],
     },
     {
       method: "POST",

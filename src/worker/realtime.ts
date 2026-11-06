@@ -21,6 +21,7 @@ export type RealtimeEvent =
   | { type: "labels.changed" }
   // Produto criado, editado ou arquivado: o cliente busca a lista de novo.
   | { type: "products.changed" }
+  | { type: "campaigns.changed" }
   // Funil, etapa ou card mudou (inclusive apagar): o cliente busca o quadro e a ficha de novo.
   | { type: "funnel.changed"; funnelId: string }
   | { type: "connection.changed"; connection: ConnectionState }

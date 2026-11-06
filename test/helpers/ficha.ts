@@ -35,6 +35,7 @@ export interface FichaView {
     valueCents: number | null;
     status: string;
     originKind: string | null;
+    originCampaignName: string | null;
   }[];
 }
 

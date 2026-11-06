@@ -11,6 +11,8 @@ export interface InstanceStatus {
   /** QR code (data URL ou base64) enquanto a instancia estiver `connecting`. */
   qrcode?: string;
   lastDisconnectReason?: string;
+  /** `instance.owner`: numero do WhatsApp conectado, como a Uazapi o informa (so digitos nao e garantido; formato nao validado com a Uazapi real). */
+  owner?: string;
 }
 
 export interface MediaDownload {
@@ -188,9 +190,14 @@ export function createUazapiClient(env: UazapiEnv, options: UazapiClientOptions 
   }
 
   async function readInstance(res: Response): Promise<InstanceStatus> {
-    const body = (await res.json()) as { instance?: { status?: string; qrcode?: string; lastDisconnectReason?: string } };
-    const { status, qrcode, lastDisconnectReason } = body.instance ?? {};
-    return { status: status ?? "unknown", ...(qrcode ? { qrcode } : {}), ...(lastDisconnectReason ? { lastDisconnectReason } : {}) };
+    const body = (await res.json()) as { instance?: { status?: string; qrcode?: string; lastDisconnectReason?: string; owner?: unknown } };
+    const { status, qrcode, lastDisconnectReason, owner } = body.instance ?? {};
+    return {
+      status: status ?? "unknown",
+      ...(qrcode ? { qrcode } : {}),
+      ...(lastDisconnectReason ? { lastDisconnectReason } : {}),
+      ...(typeof owner === "string" && owner ? { owner } : {}),
+    };
   }
   const postJson = (path: string, body: unknown) =>
     request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });

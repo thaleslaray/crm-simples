@@ -114,6 +114,8 @@ export const connectionState = sqliteTable("connection_state", {
   /** `type` do evento connection (Disconnected, TemporaryBan). */
   disconnectType: text("disconnect_type"),
   lastDisconnectReason: text("last_disconnect_reason"),
+  /** Numero do WhatsApp conectado (so digitos), como a Uazapi o informa em `instance.owner`. Base do link das campanhas. */
+  phone: text("phone"),
   updatedAt: integer("updated_at").notNull(),
 });
 
@@ -381,6 +383,29 @@ export const product = sqliteTable(
   (t) => [uniqueIndex("product_name_nocase_idx").on(sql`lower(${t.name})`)],
 );
 
+export const CAMPAIGN_CHANNEL_VALUES = ["meta", "google", "instagram", "tiktok", "outro"] as const;
+
+/**
+ * Campanha: gera o codigo (`CUR-M01`) e a mensagem do link de WhatsApp. Arquivada some da escolha, nunca e apagada.
+ * `deal.originCampaignId` aponta para ca sem FK (ver ticket 05).
+ */
+export const campaign = sqliteTable(
+  "campaign",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    productId: text("product_id")
+      .notNull()
+      .references(() => product.id),
+    channel: text("channel", { enum: CAMPAIGN_CHANNEL_VALUES }).notNull(),
+    code: text("code").notNull(),
+    message: text("message").notNull(),
+    archivedAt: integer("archived_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("campaign_code_idx").on(t.code)],
+);
+
 export const DEAL_STATUSES = ["aberto", "ganho", "perdido"] as const;
 export type DealStatus = (typeof DEAL_STATUSES)[number];
 export const LOST_REASONS = ["preco", "sem_resposta", "comprou_de_outro", "sem_interesse", "sem_perfil", "outro"] as const;
@@ -390,7 +415,7 @@ export type OriginKind = (typeof ORIGIN_KINDS)[number];
 
 /**
  * Negocio: um interesse do contato num produto, e o cartao do funil. O mesmo contato pode ter varios.
- * `originCampaignId` ainda sem FK (a tabela `campaign` chega depois). `sourceMessageId` e unico (varios null)
+ * `originCampaignId` sem FK (recriar `deal` so por isso nao vale; a rota valida a campanha). `sourceMessageId` e unico (varios null)
  * e garante a criacao automatica idempotente. `position` e a ordem dentro da etapa.
  */
 export const deal = sqliteTable(

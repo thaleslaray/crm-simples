@@ -362,6 +362,7 @@ function Card(props: {
           {card.valueCents !== null && <span className="kcard-value">{formatMoney(card.valueCents)}</span>}
         </p>
       )}
+      {card.originCampaignName && <p className="kcard-origin muted">Campanha: {card.originCampaignName}</p>}
       {closed && (
         <p className={`kcard-closed kcard-closed--${card.dealStatus}`}>
           <strong>{card.dealStatus === "ganho" ? "Ganho" : `Perdido: ${lostReasonLabel(card.lostReason)}`}</strong>

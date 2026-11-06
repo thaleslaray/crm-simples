@@ -29,7 +29,7 @@ export async function loadFunnels(db: Db, only?: string): Promise<FunnelView[]> 
   }));
 }
 
-/** Origens que o atendente escolhe na mao (a campanha vem da criacao automatica). */
+/** Origens que o atendente escolhe na mao sem campanha. `campanha` tambem vale, mas exige `originCampaignId` de campanha ativa. */
 export const MANUAL_ORIGINS = ["indicacao", "organico", "cliente_antigo", "outro"] as const satisfies readonly OriginKind[];
 
 export type ContactDealView = {
@@ -43,6 +43,7 @@ export type ContactDealView = {
   valueCents: number | null;
   status: DealStatus;
   originKind: OriginKind | null;
+  originCampaignName: string | null;
 };
 
 /** Todos os negocios do contato (abertos e fechados), do mais antigo ao mais novo. */
@@ -59,11 +60,13 @@ export async function dealsOfContact(db: Db, contactId: string): Promise<Contact
       valueCents: schema.deal.valueCents,
       status: schema.deal.status,
       originKind: schema.deal.originKind,
+      originCampaignName: schema.campaign.name,
     })
     .from(schema.deal)
     .innerJoin(schema.funnel, eq(schema.funnel.id, schema.deal.funnelId))
     .innerJoin(schema.funnelStage, eq(schema.funnelStage.id, schema.deal.stageId))
     .leftJoin(schema.product, eq(schema.product.id, schema.deal.productId))
+    .leftJoin(schema.campaign, eq(schema.campaign.id, schema.deal.originCampaignId))
     .where(eq(schema.deal.contactId, contactId))
     .orderBy(asc(schema.deal.createdAt), sql`"deal"."rowid"`);
 }
@@ -203,6 +206,8 @@ export type CardView = {
   productName: string | null;
   valueCents: number | null;
   originKind: OriginKind | null;
+  originCampaignId: string | null;
+  originCampaignName: string | null;
   contactId: string;
   name: string | null;
   phone: string | null;
@@ -238,6 +243,8 @@ funnels.get("/:id/board", requireAuth, async (c) => {
       productName: schema.product.name,
       valueCents: schema.deal.valueCents,
       originKind: schema.deal.originKind,
+      originCampaignId: schema.deal.originCampaignId,
+      originCampaignName: schema.campaign.name,
       contactId: schema.contact.id,
       name: schema.contact.name,
       phone: schema.contact.phone,
@@ -253,6 +260,7 @@ funnels.get("/:id/board", requireAuth, async (c) => {
     .from(schema.deal)
     .innerJoin(schema.contact, eq(schema.contact.id, schema.deal.contactId))
     .leftJoin(schema.product, eq(schema.product.id, schema.deal.productId))
+    .leftJoin(schema.campaign, eq(schema.campaign.id, schema.deal.originCampaignId))
     .leftJoin(schema.conversation, eq(schema.conversation.contactId, schema.contact.id))
     .leftJoin(schema.message, eq(schema.message.id, schema.conversation.lastMessageId))
     .leftJoin(schema.user, eq(schema.user.id, schema.conversation.assigneeId))
@@ -295,7 +303,7 @@ funnels.get("/:id/board", requireAuth, async (c) => {
   });
 });
 
-type DealFields = { productId?: string | null; valueCents?: number | null; originKind?: OriginKind | null };
+type DealFields = { productId?: string | null; valueCents?: number | null; originKind?: OriginKind | null; originCampaignId?: string | null };
 
 /** Campos editaveis do negocio; `null` se algum for invalido. So vem o que o corpo trouxe. */
 function parseDealFields(body: Record<string, unknown>): DealFields | null {
@@ -309,12 +317,24 @@ function parseDealFields(body: Record<string, unknown>): DealFields | null {
     if (v !== null && (typeof v !== "number" || !Number.isSafeInteger(v) || v < 0)) return null;
     out.valueCents = v;
   }
+  const campaignId = body.originCampaignId;
+  if (campaignId !== undefined && campaignId !== null && typeof campaignId !== "string") return null;
   if ("originKind" in body) {
     const o = body.originKind;
-    if (o !== null && !(MANUAL_ORIGINS as readonly unknown[]).includes(o)) return null;
+    if (o !== null && o !== "campanha" && !(MANUAL_ORIGINS as readonly unknown[]).includes(o)) return null;
+    // Campanha pede o id; qualquer outra origem (ou nenhuma) nao pode trazer id e solta o vinculo antigo.
+    if (o === "campanha" ? !campaignId : Boolean(campaignId)) return null;
     out.originKind = o as OriginKind | null;
-  }
+    out.originCampaignId = o === "campanha" ? (campaignId as string) : null;
+  } else if (campaignId) return null;
   return out;
+}
+
+/** Campanha de origem precisa existir e estar ativa (ou ser a que o negocio ja tem, mesmo arquivada). */
+async function campaignAllowed(db: Db, campaignId: string | null | undefined, current: string | null = null): Promise<boolean> {
+  if (!campaignId || campaignId === current) return true;
+  const found = await db.query.campaign.findFirst({ where: eq(schema.campaign.id, campaignId), columns: { archivedAt: true } });
+  return Boolean(found) && found!.archivedAt === null;
 }
 
 /** Produto ativo (ou o que o negocio ja tem, mesmo arquivado). */
@@ -327,6 +347,7 @@ funnels.post("/:id/deals", requireAuth, async (c) => {
   if (!fields) return c.json({ error: "negocio_invalido" }, 400);
   const db = createDb(c.env.DB);
   const id = c.req.param("id");
+  if (!(await campaignAllowed(db, fields.originCampaignId))) return c.json({ error: "negocio_invalido" }, 400);
   const [stage, contact] = await Promise.all([
     stageOf(db, id, body.stageId),
     db.query.contact.findFirst({ where: eq(schema.contact.id, body.contactId), columns: { id: true } }),
@@ -347,6 +368,7 @@ funnels.post("/:id/deals", requireAuth, async (c) => {
     productId: fields.productId ?? null,
     valueCents: valueCents ?? null,
     originKind: fields.originKind ?? null,
+    originCampaignId: fields.originCampaignId ?? null,
     createdAt: Date.now(),
   };
   await db.insert(schema.deal).values(row);
@@ -363,6 +385,7 @@ funnels.patch("/:id/deals/:dealId", requireAuth, async (c) => {
   const { id, dealId } = c.req.param();
   const deal = await db.query.deal.findFirst({ where: and(eq(schema.deal.id, dealId), eq(schema.deal.funnelId, id)) });
   if (!deal) return c.json({ error: "nao_encontrado" }, 404);
+  if (!(await campaignAllowed(db, fields.originCampaignId, deal.originCampaignId))) return c.json({ error: "negocio_invalido" }, 400);
   if (fields.productId && fields.productId !== deal.productId) {
     const product = await findProduct(db, fields.productId);
     if (!product || product.archivedAt !== null) return c.json({ error: "nao_encontrado" }, 404);

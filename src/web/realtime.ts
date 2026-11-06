@@ -12,6 +12,7 @@ export type RealtimeEvent =
   | { type: "labels.changed" }
   // Produto criado, editado ou arquivado: o cliente busca a lista de novo.
   | { type: "products.changed" }
+  | { type: "campaigns.changed" }
   | { type: "funnel.changed"; funnelId: string }
   | { type: "connection.changed"; connection: ConnectionState }
   | { type: "workspace.changed"; companyName: string }
@@ -73,7 +74,7 @@ export function useRealtimeConnection() {
         if (e.data === "pong") return clearTimeout(pongTimer);
         try {
           const event = JSON.parse(String(e.data)) as RealtimeEvent;
-          if (["message.created", "message.status", "conversation.updated", "note.created", "contact.updated", "labels.changed", "products.changed", "funnel.changed", "connection.changed", "workspace.changed"].includes(event.type)) emit(event);
+          if (["message.created", "message.status", "conversation.updated", "note.created", "contact.updated", "labels.changed", "products.changed", "campaigns.changed", "funnel.changed", "connection.changed", "workspace.changed"].includes(event.type)) emit(event);
         } catch {
           // Mensagem desconhecida: ignora.
         }

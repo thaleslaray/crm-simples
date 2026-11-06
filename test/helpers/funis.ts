@@ -23,6 +23,8 @@ export interface CardView {
   productName: string | null;
   valueCents: number | null;
   originKind: string | null;
+  originCampaignId: string | null;
+  originCampaignName: string | null;
   contactId: string;
   name: string | null;
   phone: string | null;

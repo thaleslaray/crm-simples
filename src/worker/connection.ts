@@ -58,6 +58,17 @@ export async function recordConnection(env: Cloudflare.Env, db: Db, obs: Connect
   return after;
 }
 
+/** So os digitos do dono da instancia (`5511...@s.whatsapp.net`, `+55 (11) ...`); null se nao sobrar numero. */
+export function phoneFromOwner(owner: string | undefined): string | null {
+  const digits = (owner ?? "").split("@")[0]!.replace(/\D/g, "");
+  return digits.length >= 8 ? digits : null;
+}
+
+/** Numero do WhatsApp conectado, guardado da ultima vez que a Uazapi informou o dono. */
+export async function loadConnectedPhone(db: Db): Promise<string | null> {
+  return (await db.query.connectionState.findFirst({ where: eq(schema.connectionState.id, ROW_ID), columns: { phone: true } }))?.phone ?? null;
+}
+
 /**
  * Pergunta o status a Uazapi e grava. Serve ao cron e a tela do admin (nem toda queda gera aviso).
  * Se a Uazapi nao responder, o estado anterior fica como esta: sem resposta nao e prova de queda.
@@ -78,6 +89,9 @@ export async function refreshConnection(env: Cloudflare.Env, db: Db): Promise<{ 
     disconnectType: before.temporaryBan ? "TemporaryBan" : null,
     lastDisconnectReason: remote.lastDisconnectReason ?? before.lastDisconnectReason,
   });
+  // O numero fica guardado mesmo se a instancia cair: a resposta sem dono nao apaga o que ja se sabe.
+  const phone = phoneFromOwner(remote.owner);
+  if (phone) await db.update(schema.connectionState).set({ phone }).where(eq(schema.connectionState.id, ROW_ID));
   return { state, qrcode: status === "connecting" ? remote.qrcode : undefined };
 }
 

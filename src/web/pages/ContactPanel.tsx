@@ -261,6 +261,7 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
                         <span className="muted">
                           {d.funnelName} · {d.stageName} · {DEAL_STATUS_LABEL[d.status]}
                         </span>
+                        {d.originCampaignName && <span className="muted">Campanha: {d.originCampaignName}</span>}
                       </span>
                     </span>
                     {d.status !== "aberto" && isAdmin && (

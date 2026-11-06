@@ -34,6 +34,28 @@ export interface Product {
   archivedAt: number | null;
 }
 
+export type CampaignChannel = "meta" | "google" | "instagram" | "tiktok" | "outro";
+
+/** Campanha cadastrada pelo admin. `link` é null enquanto não há número do WhatsApp conectado. */
+export interface Campaign {
+  id: string;
+  name: string;
+  productId: string;
+  productName: string;
+  channel: CampaignChannel;
+  code: string;
+  message: string;
+  archivedAt: number | null;
+  link: string | null;
+}
+
+export interface CampaignList {
+  campaigns: Campaign[];
+  whatsappNumber: string | null;
+  /** Há funil com etapa? Sem ele a criação automática de negócio não acontece. */
+  hasFunnel: boolean;
+}
+
 /** Linha da lista de contatos. */
 export interface ContactRow {
   id: string;
@@ -106,6 +128,8 @@ export interface FunnelCard {
   productName: string | null;
   valueCents: number | null;
   originKind: OriginKind | null;
+  originCampaignId: string | null;
+  originCampaignName: string | null;
   contactId: string;
   name: string | null;
   phone: string | null;
@@ -144,6 +168,7 @@ export interface ContactDeal {
   valueCents: number | null;
   status: DealStatus;
   originKind: OriginKind | null;
+  originCampaignName: string | null;
 }
 
 /** Campos que o atendente preenche ao criar ou editar um negócio. */
@@ -151,6 +176,8 @@ export interface DealInput {
   productId?: string | null;
   valueCents?: number | null;
   originKind?: OriginKind | null;
+  /** Obrigatório (campanha ativa) quando `originKind` é `campanha`. */
+  originCampaignId?: string | null;
 }
 
 export interface Ficha {
@@ -405,6 +432,11 @@ export const api = {
   updateLabel: (id: string, l: Partial<Omit<Label, "id">>) =>
     sendJson<{ label: Label }>("PATCH", `/api/labels/${encodeURIComponent(id)}`, l),
   deleteLabel: (id: string) => sendJson<{ ok: true }>("DELETE", `/api/labels/${encodeURIComponent(id)}`, {}),
+  campaigns: (all = false) => getJson<CampaignList>(`/api/campaigns${all ? "?todos=1" : ""}`),
+  createCampaign: (c: { name: string; productId: string; channel: CampaignChannel; message?: string }) =>
+    sendJson<{ campaign: Campaign }>("POST", "/api/campaigns", c),
+  updateCampaign: (id: string, c: { name?: string; message?: string; archived?: boolean }) =>
+    sendJson<{ campaign: Campaign }>("PATCH", `/api/campaigns/${encodeURIComponent(id)}`, c),
   products: (all = false) => getJson<{ products: Product[] }>(`/api/products${all ? "?todos=1" : ""}`),
   createProduct: (p: { name: string; priceCents: number }) => sendJson<{ product: Product }>("POST", "/api/products", p),
   updateProduct: (id: string, p: { name?: string; priceCents?: number; archived?: boolean }) =>
