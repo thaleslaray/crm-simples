@@ -660,3 +660,17 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 .report-note { font-size: 0.8rem; }
 .settings-body:has(.report-page) { max-width: 920px; }
 .report-table th, .report-table td { padding: 10px 10px; }
+/* No celular cada origem vira um bloco: nome em cima e os números em pares rótulo/valor, sem rolagem lateral. */
+@media (max-width: 767px) {
+  .report-scroll { overflow-x: visible; }
+  .report-table, .report-table tbody, .report-table tfoot { display: block; min-width: 0; width: 100%; }
+  .report-table thead { display: none; }
+  .report-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 16px; padding: 12px; border-bottom: 1px solid var(--border); }
+  .report-table tbody tr:last-child { border-bottom: 0; }
+  .report-table tfoot tr { background: var(--bg-active); border-top: 2px solid var(--border); }
+  .report-table th, .report-table td, .report-table tfoot th, .report-table tfoot td { padding: 0; border: 0; background: none; }
+  .report-table tbody th, .report-table tfoot th { grid-column: 1 / -1; min-width: 0; margin-bottom: 4px; }
+  .report-table td { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 8px; min-width: 0; }
+  .report-table td::before { content: attr(data-label); color: var(--muted); font-weight: 400; }
+  .report-table td[data-label="Faturado"] { grid-column: 1 / -1; order: 1; }
+}

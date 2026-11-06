@@ -133,22 +133,22 @@ export function ReportPage() {
               {report.rows.map((r) => (
                 <tr key={r.key}>
                   <th scope="row">{r.label}</th>
-                  <td>{r.created}</td>
-                  <td>{r.won}</td>
-                  <td>{r.lost}</td>
-                  <td>{formatMoney(r.revenueCents)}</td>
-                  <td>{percent(r.conversion)}</td>
+                  <td data-label="Criados">{r.created}</td>
+                  <td data-label="Ganhos">{r.won}</td>
+                  <td data-label="Perdidos">{r.lost}</td>
+                  <td data-label="Faturado">{formatMoney(r.revenueCents)}</td>
+                  <td data-label="Conversão">{percent(r.conversion)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr>
                 <th scope="row">Total</th>
-                <td>{report.total.created}</td>
-                <td>{report.total.won}</td>
-                <td>{report.total.lost}</td>
-                <td>{formatMoney(report.total.revenueCents)}</td>
-                <td>{percent(report.total.conversion)}</td>
+                <td data-label="Criados">{report.total.created}</td>
+                <td data-label="Ganhos">{report.total.won}</td>
+                <td data-label="Perdidos">{report.total.lost}</td>
+                <td data-label="Faturado">{formatMoney(report.total.revenueCents)}</td>
+                <td data-label="Conversão">{percent(report.total.conversion)}</td>
               </tr>
             </tfoot>
           </table>

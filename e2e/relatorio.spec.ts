@@ -69,9 +69,10 @@ for (const scheme of ["light", "dark"] as const) {
     expect(await linha.getByRole("cell").first().evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toContain("tabular-nums");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (mobile) {
-      // No celular a tabela rola dentro do próprio bloco, sem estourar a página.
+      // No celular cada origem vira um bloco com rótulo e valor: nada rola para o lado.
       const bloco = page.getByRole("region", { name: "Tabela do relatório" });
-      expect(await bloco.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+      expect(await bloco.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }
     await snap(page, "tabela", info.project.name, scheme);
 
