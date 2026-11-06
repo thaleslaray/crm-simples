@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { CAMPAIGN_CHANNELS, type CampaignChannel, codePrefix, nextCode } from "./campaign-code";
 import { loadConnectedPhone, refreshConnection } from "./connection";
 import { createDb, type Db, schema } from "./db";
+import { mainFunnelEntry } from "./funnels";
 import { type AppEnv, requireAuth, requireRole } from "./middleware";
 import { publish } from "./realtime";
 
@@ -51,11 +52,6 @@ async function connectedPhone(env: Cloudflare.Env, db: Db): Promise<string | nul
   return (await loadConnectedPhone(db)) ?? ((await refreshConnection(env, db)) ? await loadConnectedPhone(db) : null);
 }
 
-/** Ha funil com pelo menos uma etapa? Sem ele a criacao automatica de negocio nao acontece. */
-async function hasFunnelWithStage(db: Db): Promise<boolean> {
-  return Boolean(await db.query.funnelStage.findFirst({ columns: { id: true } }));
-}
-
 /** Campanhas: todo membro le (o seletor de origem precisa); so admin cria, edita e arquiva. */
 export const campaigns = new Hono<AppEnv>();
 
@@ -71,7 +67,7 @@ campaigns.get("/", requireAuth, async (c) => {
   return c.json({
     campaigns: rows.map((r) => view(r.campaign, r.productName, phone)),
     whatsappNumber: phone,
-    hasFunnel: await hasFunnelWithStage(db),
+    hasFunnel: (await mainFunnelEntry(db)) !== null,
   });
 });
 

@@ -1,5 +1,6 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { schema, type Db } from "./db";
+import { mainFunnelEntry } from "./funnels";
 import { publish } from "./realtime";
 import { publishUpdate } from "./status";
 
@@ -20,18 +21,6 @@ async function findCampaign(db: Db, text: string | null) {
     if (found) return found;
   }
   return null;
-}
-
-/** Funil principal: o primeiro por ordem de criacao; a entrada e a 1a etapa dele. Sem etapa, nao ha onde criar. */
-async function mainFunnelEntry(db: Db) {
-  const funnels = await db.select().from(schema.funnel).orderBy(asc(schema.funnel.createdAt), sql`"funnel"."rowid"`);
-  const first = funnels[0];
-  if (!first) return null;
-  const stage = await db.query.funnelStage.findFirst({
-    where: eq(schema.funnelStage.funnelId, first.id),
-    orderBy: asc(schema.funnelStage.position),
-  });
-  return stage ? { funnelId: first.id, stageId: stage.id } : null;
 }
 
 export interface CampaignHit {

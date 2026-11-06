@@ -111,6 +111,16 @@ describe("Campanha: o codigo na mensagem cria o negocio", () => {
     expect(await events(admin, conversa)).toHaveLength(0);
   });
 
+  it("funil principal sem etapa: nao cria negocio em outro funil", async () => {
+    const admin = await loginAsAdmin();
+    const produto = await newProduct(admin, "Curso", 99700);
+    const campanha = await newCampaign(admin, produto.id);
+    await newFunnel(admin, "Principal vazio", []);
+    const outro = await newFunnel(admin, "Outro", ["Novo"]);
+    await postWebhook(textMessageEvent({ sender, text: `#${campanha.code}` }));
+    expect(await cards(admin, outro.id)).toHaveLength(0);
+  });
+
   it("sem codigo na mensagem: nao cria", async () => {
     const { admin, funil, campanha } = await cenario();
     await postWebhook(textMessageEvent({ sender, text: `Oi, vi a campanha ${campanha.code} sem o jogo da velha` }));

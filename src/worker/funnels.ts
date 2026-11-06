@@ -20,13 +20,20 @@ function parseName(body: unknown): string | null {
 
 /** Funis com as etapas em ordem; `only` limita a um funil. */
 export async function loadFunnels(db: Db, only?: string): Promise<FunnelView[]> {
-  const funnels = await db.select().from(schema.funnel).where(only ? eq(schema.funnel.id, only) : undefined).orderBy(asc(schema.funnel.createdAt), asc(schema.funnel.id));
+  const funnels = await db.select().from(schema.funnel).where(only ? eq(schema.funnel.id, only) : undefined).orderBy(asc(schema.funnel.createdAt), sql`"funnel"."rowid"`);
   const stages = await db.select().from(schema.funnelStage).orderBy(asc(schema.funnelStage.position));
   return funnels.map((f) => ({
     id: f.id,
     name: f.name,
     stages: stages.filter((s) => s.funnelId === f.id).map(({ id, name }) => ({ id, name })),
   }));
+}
+
+/** Funil principal: o primeiro por ordem de criacao (mesma ordem da lista de funis); a entrada e a 1a etapa dele. Sem etapa, nao ha onde criar negocio. */
+export async function mainFunnelEntry(db: Db): Promise<{ funnelId: string; stageId: string } | null> {
+  const [first] = await loadFunnels(db);
+  const stage = first?.stages[0];
+  return stage ? { funnelId: first!.id, stageId: stage.id } : null;
 }
 
 /** Origens que o atendente escolhe na mao sem campanha. `campanha` tambem vale, mas exige `originCampaignId` de campanha ativa. */

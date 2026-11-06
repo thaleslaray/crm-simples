@@ -116,6 +116,14 @@ describe("Campanhas", () => {
     await newFunnel(admin, "Vendas", ["Novo"]);
     expect((await listCampaigns(admin)).hasFunnel).toBe(true);
   });
+
+  it("avisa quando o funil principal (o primeiro criado) nao tem etapa, mesmo que outro funil tenha", async () => {
+    const admin = await loginAsAdmin();
+    await newFunnel(admin, "Principal vazio", []);
+    await newFunnel(admin, "Outro", ["Novo"]);
+
+    expect((await listCampaigns(admin)).hasFunnel).toBe(false);
+  });
 });
 
 describe("Campanhas: link do WhatsApp", () => {
