@@ -70,11 +70,14 @@ export type ConversationStatus = "aberta" | "em_andamento" | "aguardando_cliente
 /** Evento de sistema da linha do tempo (assumir, atribuir, transferir, resolver, reabrir). */
 export interface TimelineEvent {
   id: string;
-  type: "assumida" | "atribuida" | "transferida" | "resolvida" | "reaberta" | "devolvida";
+  type: "assumida" | "atribuida" | "transferida" | "resolvida" | "reaberta" | "devolvida" | "campanha";
   timestamp: number;
   actorName: string | null;
   toName: string | null;
   fromName: string | null;
+  /** So em `campanha`. */
+  campaignName?: string | null;
+  campaignAction?: "criou" | "voltou" | null;
 }
 
 /** Nota interna: só a equipe vê; aparece na linha do tempo e na ficha. */

@@ -1,6 +1,8 @@
 import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
 import type { Db } from "./db";
 import { schema } from "./db";
+import { applyCampaignCode, type CampaignHit } from "./campaign-deal";
+import { errorName } from "./errors";
 import { reopenOnClientMessage } from "./status";
 
 /** Campos do evento `messages` da Uazapi que usamos. */
@@ -137,7 +139,7 @@ export async function ingestMessage(
   db: Db,
   msg: UazapiMessage,
   queue: Queue<MediaJob>,
-): Promise<{ conversationId: string; messageId: string; reopened: { eventId: string | null } | undefined } | null> {
+): Promise<{ conversationId: string; messageId: string; reopened: { eventId: string | null } | undefined; campaign: CampaignHit | null } | null> {
   if (msg.isGroup || msg.fromMe) return null;
   if (!msg.id) throw new Error("mensagem sem id");
 
@@ -193,5 +195,13 @@ export async function ingestMessage(
 
   // Fora da requisicao do webhook: o consumer baixa o arquivo. Se o envio falhar, a midia fica "pendente" (reenfileirada na reconciliacao).
   if (parsed.media) await queue.send({ messageId });
-  return { conversationId, messageId, reopened };
+
+  // Codigo de campanha na mensagem: cria o negocio (ou registra o retorno). Falha aqui nunca desfaz a mensagem ja gravada.
+  let campaign: CampaignHit | null = null;
+  try {
+    campaign = await applyCampaignCode(db, { contactId, conversationId, messageId, text: parsed.text, timestamp });
+  } catch (err) {
+    console.error("ingest: falha ao aplicar codigo de campanha", { erro: errorName(err) });
+  }
+  return { conversationId, messageId, reopened, campaign };
 }

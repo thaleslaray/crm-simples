@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createDb, type Db, schema } from "./db";
 import { eq } from "drizzle-orm";
+import { publishCampaignHit } from "./campaign-deal";
 import { ingestMessage, type UazapiMessage } from "./ingest";
 import { normalizeStatus, recordConnection } from "./connection";
 import { loadConversation, loadMessage } from "./conversations";
@@ -81,6 +82,7 @@ async function processEvent(env: Cloudflare.Env, db: Db, eventId: string, payloa
           loadMessage(db, env.MEDIA, ingested.messageId),
         ]);
         if (conversation && message) await publish(env, { type: "message.created", conversation, message });
+        await publishCampaignHit(env, db, ingested.conversationId, ingested.campaign);
       }
     } catch (err) {
       // Nunca logar payload/token: so o tipo do erro e o id do evento. O evento fica sem processedAt.

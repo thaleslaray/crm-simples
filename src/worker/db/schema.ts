@@ -285,7 +285,7 @@ export const message = sqliteTable(
 );
 
 /** Eventos de sistema da linha do tempo: quem mudou o status/responsavel e quando (o vaivem automatico nao entra). */
-export const EVENT_TYPES = ["assumida", "atribuida", "transferida", "resolvida", "reaberta", "devolvida"] as const;
+export const EVENT_TYPES = ["assumida", "atribuida", "transferida", "resolvida", "reaberta", "devolvida", "campanha"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 export const conversationEvent = sqliteTable(
@@ -303,8 +303,16 @@ export const conversationEvent = sqliteTable(
     /** Responsavel antes (transferida). */
     fromUserId: text("from_user_id").references(() => user.id, { onDelete: "set null" }),
     timestamp: integer("timestamp").notNull(),
+    /** So em `campanha`: nome da campanha e o que ela fez ("criou" o negocio ou o cliente "voltou" com negocio aberto). */
+    campaignName: text("campaign_name"),
+    campaignAction: text("campaign_action", { enum: ["criou", "voltou"] }),
+    /** Mensagem que trouxe o codigo; unico por tipo, para reprocessar nao duplicar o evento. */
+    sourceMessageId: text("source_message_id"),
   },
-  (t) => [index("conversation_event_conv_ts_idx").on(t.conversationId, t.timestamp)],
+  (t) => [
+    index("conversation_event_conv_ts_idx").on(t.conversationId, t.timestamp),
+    uniqueIndex("conversation_event_source_idx").on(t.type, t.sourceMessageId),
+  ],
 );
 
 /** Nota interna: so da equipe, aparece na linha do tempo da conversa e na ficha. Nunca vai para a Uazapi. */

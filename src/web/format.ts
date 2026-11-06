@@ -22,6 +22,10 @@ export function eventText(e: TimelineEvent): string {
       return `${who} resolveu a conversa`;
     case "devolvida":
       return `${who} removeu ${e.fromName ?? "o responsável"} da equipe: conversa devolvida, sem responsável`;
+    case "campanha":
+      return e.campaignAction === "voltou"
+        ? `O cliente voltou pela campanha ${e.campaignName ?? "apagada"}`
+        : `Negócio criado pela campanha ${e.campaignName ?? "apagada"}`;
     case "reaberta":
       // Reaberta por um atendente (nova conversa) tem autor; pelo cliente, não.
       if (e.actorName) return `${e.actorName} reabriu a conversa${e.toName ? ` com ${e.toName}` : ""}`;

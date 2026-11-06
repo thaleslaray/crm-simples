@@ -21,6 +21,8 @@ const eventQuery = (db: Db) =>
       actorName: actor.name,
       toName: to.name,
       fromName: from.name,
+      campaignName: schema.conversationEvent.campaignName,
+      campaignAction: schema.conversationEvent.campaignAction,
     })
     .from(schema.conversationEvent)
     .leftJoin(actor, eq(actor.id, schema.conversationEvent.actorId))

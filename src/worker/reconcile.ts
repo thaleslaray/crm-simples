@@ -1,6 +1,7 @@
 import { and, eq, lt } from "drizzle-orm";
 import { loadConversation, loadMessage } from "./conversations";
 import { createDb, type Db, schema } from "./db";
+import { publishCampaignHit } from "./campaign-deal";
 import { ingestMessage } from "./ingest";
 import { publish } from "./realtime";
 import { getUazapiClient } from "./uazapi/config";
@@ -37,6 +38,7 @@ async function recoverMessages(env: Cloudflare.Env, db: Db, now: number): Promis
           loadMessage(db, env.MEDIA, ingested.messageId),
         ]);
         if (conversation && message) await publish(env, { type: "message.created", conversation, message });
+        await publishCampaignHit(env, db, ingested.conversationId, ingested.campaign);
       } catch (err) {
         failed = true;
         console.error("reconciliacao: falha ao ingerir mensagem", { erro: errorName(err) });
