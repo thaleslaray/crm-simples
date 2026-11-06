@@ -8,6 +8,7 @@ import { onRealtime } from "../realtime";
 import { readFichaAberta, saveFichaAberta } from "../ficha-aberta";
 import { ContactPanel } from "./ContactPanel";
 import { ChatHeader } from "../components/ChatHeader";
+import { DealStrip } from "../components/DealStrip";
 import { EventPill } from "../components/EventPill";
 import { MessageBubble } from "../components/MessageBubble";
 import { NoteBubble } from "../components/NoteBubble";
@@ -398,6 +399,7 @@ export function ConversationPage() {
     setFichaState(open);
     saveFichaAberta(open);
   }, []);
+  const [dealsFocus, setDealsFocus] = useState(0);
 
   const sendNote = useCallback(async () => {
     const text = draft.trim();
@@ -514,6 +516,7 @@ export function ConversationPage() {
         onChanged={(c) => setState((s) => (s.kind === "ready" ? { ...s, conversation: c } : s))}
         onReload={refreshConversation}
       />
+      <DealStrip contact={conversation.contact} onOpenDeals={() => (setFichaOpen(true), setDealsFocus((n) => n + 1))} />
       <div className={`conv-body${fichaOpen ? " conv-body--ficha" : ""}`}>
       <div className="conv-col">
       <div className="chat-surface doodle-bg">
@@ -721,6 +724,7 @@ export function ConversationPage() {
       {fichaOpen && (
         <ContactPanel
           contactId={conversation.contact.id}
+          scrollToDeals={dealsFocus}
           onClose={() => setFichaOpen(false)}
         />
       )}

@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, SquareKanban, X } from "lucide-react";
 import { api, type Contact, type ContactDeal, type DealStatus, type Ficha } from "../api";
 import { authClient } from "../auth-client";
@@ -60,13 +60,15 @@ interface ContactPanelProps {
   /** Ação própria do lugar onde a ficha aparece (ex.: "Iniciar conversa", "Abrir conversa"), logo abaixo do telefone. */
   heroAction?: (contact: Contact) => ReactNode;
   className?: string;
+  /** Muda (contador) quando alguém pede para ver o bloco Negócios; a ficha rola até ele. */
+  scrollToDeals?: number;
 }
 
 /**
  * Ficha do contato ("Dados do contato"): foto, nome e telefone; Etiquetas; Negócios; Dados editáveis; Notas do contato.
  * Só depende do contato; o que é da conversa entra por props.
  */
-export function ContactPanel({ contactId, onClose, heroAction, className }: ContactPanelProps) {
+export function ContactPanel({ contactId, onClose, heroAction, className, scrollToDeals }: ContactPanelProps) {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [failed, setFailed] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", company: "", notes: "" });
@@ -86,6 +88,12 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
   const [closing, setClosing] = useState<{ deal: ContactDeal; kind: "ganho" | "perdido" } | null>(null);
   const { data: session } = authClient.useSession();
   const isAdmin = (session?.user as { role?: string } | undefined)?.role === "admin";
+
+  const dealsSection = useRef<HTMLElement>(null);
+  const loaded = ficha !== null;
+  useEffect(() => {
+    if (scrollToDeals && loaded) dealsSection.current?.scrollIntoView({ block: "start" });
+  }, [scrollToDeals, loaded]);
 
   const fill = (c: Contact) => setForm({ name: c.name ?? "", email: c.email ?? "", company: c.company ?? "", notes: c.notes ?? "" });
 
@@ -242,7 +250,7 @@ export function ContactPanel({ contactId, onClose, heroAction, className }: Cont
               </p>
             )}
           </section>
-          <section className="ficha-sec" aria-label="Negócios do contato">
+          <section className="ficha-sec" aria-label="Negócios do contato" ref={dealsSection}>
             <h4>Negócios</h4>
             <ul className="ficha-list">
               {ficha.deals.map((d) => {
