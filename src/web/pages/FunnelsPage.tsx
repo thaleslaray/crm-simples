@@ -1,4 +1,4 @@
-import { GripVertical, MoreVertical } from "lucide-react";
+import { GripVertical, MoreVertical, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { api, type Board, type BoardFilter, type ContactRow, type FunnelCard, type Member } from "../api";
@@ -196,7 +196,7 @@ export function FunnelsPage() {
   if (funnels && id && !funnels.some((f) => f.id === id) && funnels[0]) return <Navigate to={`/funis/${funnels[0].id}`} replace />;
 
   return (
-    <div className="shell funnels-page board-wrap doodle-bg">
+    <div className="shell funnels-page board-wrap">
       <header className="board-head">
         <h1>Funis</h1>
         {funnels && funnels.length > 0 && (
@@ -230,6 +230,7 @@ export function FunnelsPage() {
           ))}
         </select>
       </div>
+          {funnel && funnel.stages.length > 0 && <AddContact funnelId={funnel.id} stages={funnel.stages} taken={taken} onAdded={load} onError={setNotice} />}
           {isAdmin && (
             <Link className="board-manage" to="/funis/gerenciar">
               Gerenciar funis
@@ -245,7 +246,6 @@ export function FunnelsPage() {
         </p>
       ) : (
         <>
-          {funnel && funnel.stages.length > 0 && <AddContact funnelId={funnel.id} stages={funnel.stages} taken={taken} onAdded={load} onError={setNotice} />}
           {notice && (
             <p className="error funnels-msg" role="alert">
               {notice}
@@ -266,11 +266,11 @@ export function FunnelsPage() {
               {board.stages.map((stage) => (
                 <section key={stage.id} className={`board-col${drag?.over?.stageId === stage.id ? " board-col--over" : ""}`} data-stage-id={stage.id} aria-label={`Etapa ${stage.name}`}>
                   <h2>
-                    {stage.name} <span className="muted">({stage.cards.length})</span>
+                    <span className="board-col-name">{stage.name}</span> <span className="board-count">{stage.cards.length}</span>
                   </h2>
                   <ul>
                     {renderCards(stage)}
-                    {stage.cards.length === 0 && !drag && <li className="muted board-empty">Sem cards</li>}
+                    {stage.cards.length === 0 && !drag && <li className="board-empty">Arraste um contato para cá</li>}
                   </ul>
                 </section>
               ))}
@@ -299,6 +299,8 @@ function Card(props: {
   const preview = card.lastMessage ? messagePreview(card.lastMessage.type, card.lastMessage.text) : "";
   const tags = card.labels.slice(0, 2);
   const more = card.labels.length - tags.length;
+  // "Aberta" é o estado comum de quase todo card: o selo só aparece quando o status foge disso.
+  const status = card.status === "aberta" ? null : card.status;
   const body = (
     <>
       <div className="kcard-line">
@@ -309,13 +311,15 @@ function Card(props: {
         {card.lastMessage && <span className="kcard-time">{listTime(card.lastMessage.timestamp)}</span>}
       </div>
       {preview && <p className="kcard-preview">{preview}</p>}
-      <div className="kcard-meta">
-        {card.status && <StatusPill status={card.status} />}
-        {tags.map((l) => (
-          <LabelTag key={l.id} label={l} />
-        ))}
-        {more > 0 && <span className="label-tag label-tag--more">+{more}</span>}
-      </div>
+      {(status || tags.length > 0) && (
+        <div className="kcard-meta">
+          {status && <StatusPill status={status} />}
+          {tags.map((l) => (
+            <LabelTag key={l.id} label={l} />
+          ))}
+          {more > 0 && <span className="label-tag label-tag--more">+{more}</span>}
+        </div>
+      )}
     </>
   );
   return (
@@ -375,6 +379,7 @@ function AddContact(props: {
   const [query, setQuery] = useState("");
   const [stageId, setStageId] = useState(props.stages[0]!.id);
   const [rows, setRows] = useState<ContactRow[]>([]);
+  const box = useRef<HTMLDetailsElement>(null);
   const stage = props.stages.some((s) => s.id === stageId) ? stageId : props.stages[0]!.id;
 
   useEffect(() => {
@@ -394,6 +399,8 @@ function AddContact(props: {
     try {
       await api.addCard(props.funnelId, row.id, stage);
       setQuery("");
+      // O painel flutua sobre o quadro: fecha ao adicionar para não tapar os cards.
+      if (box.current) box.current.open = false;
       props.onAdded();
     } catch {
       props.onError("Não foi possível adicionar o contato.");
@@ -402,8 +409,11 @@ function AddContact(props: {
 
   const available = rows.filter((r) => !props.taken.has(r.id)).slice(0, 6);
   return (
-    <details className="add-contact">
-      <summary>Adicionar contato</summary>
+    <details className="add-contact" ref={box}>
+      <summary>
+        <Plus size={16} aria-hidden="true" />
+        Adicionar contato
+      </summary>
       <div className="add-contact-body">
         <input type="search" aria-label="Buscar contato para adicionar" placeholder="Nome ou telefone" value={query} onChange={(e) => setQuery(e.target.value)} />
         <select aria-label="Etapa inicial" value={stage} onChange={(e) => setStageId(e.target.value)}>

@@ -188,7 +188,8 @@ test("admin monta o funil, a equipe arrasta o card e o colega ve ao vivo; a fich
     .getByRole("region", { name: "Etapa Fechado" })
     .getByRole("link", { name: new RegExp(`Abrir conversa de ${clientName}`) });
   await expect(fechadoCard).toContainText("Quero fechar negócio");
-  await expect(fechadoCard).toContainText("Aberta");
+  // "Aberta" é o status comum: o card não repete o selo.
+  await expect(fechadoCard).not.toContainText("Aberta");
   await snap(page, "card", project);
   await fechadoCard.click();
   await expect(page).toHaveURL(/\/conversas\/[^/?]+$/);
