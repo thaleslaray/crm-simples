@@ -11,6 +11,7 @@ import { FunnelsAdminPage } from "./pages/FunnelsAdminPage";
 import { FunnelsPage } from "./pages/FunnelsPage";
 import { InboxPage, NoConversationSelected } from "./pages/InboxPage";
 import { LabelsPage } from "./pages/LabelsPage";
+import { ProductsPage } from "./pages/ProductsPage";
 import { InvitePage, ResetPasswordPage } from "./pages/LinkPages";
 import { LoginPage } from "./pages/LoginPage";
 import { TeamPage } from "./pages/TeamPage";
@@ -70,6 +71,7 @@ export function App() {
             <Route path="/conexao" element={<ConnectionPage />} />
             <Route path="/equipe" element={<TeamPage />} />
             <Route path="/etiquetas" element={<LabelsPage />} />
+            <Route path="/produtos" element={<ProductsPage />} />
             <Route path="/empresa" element={<CompanyPage />} />
             <Route path="/funis/gerenciar" element={<FunnelsAdminPage />} />
           </Route>

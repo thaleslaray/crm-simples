@@ -99,3 +99,13 @@ export function dayLabel(ts: number, now = new Date()): string {
 export function sameDay(a: number, b: number): boolean {
   return startOfDay(new Date(a)) === startOfDay(new Date(b));
 }
+
+/** Centavos em reais, no formato `R$ 1.234,56`. */
+export function formatMoney(cents: number): string {
+  return `R$ ${(cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Máscara de valor: só os dígitos digitados viram centavos (`"99700"` → 99700); vazio vira 0. */
+export function centsFromInput(text: string): number {
+  return Number(text.replace(/\D/g, "").slice(0, 12) || "0");
+}

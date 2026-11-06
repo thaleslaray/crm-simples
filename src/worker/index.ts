@@ -12,6 +12,7 @@ import { preferences } from "./preferences";
 import { funnels } from "./funnels";
 import { workspace } from "./workspace";
 import { labels } from "./labels";
+import { products } from "./products";
 import { handleQueue } from "./queue";
 import { quickReplies } from "./quick-replies";
 import { realtime } from "./realtime";
@@ -56,6 +57,7 @@ app.route("/api/connection", connection);
 app.route("/api/me/preferences", preferences);
 app.route("/api/quick-replies", quickReplies);
 app.route("/api/labels", labels);
+app.route("/api/products", products);
 app.route("/api/funnels", funnels);
 app.route("/api/workspace", workspace);
 

@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Kanban, LogOut, Smartphone, Tag, UserRound, UsersRound, Zap, type LucideProps } from "lucide-react";
+import { ArrowLeft, Building2, Kanban, LogOut, Package, Smartphone, Tag, UserRound, UsersRound, Zap, type LucideProps } from "lucide-react";
 import { authClient } from "../auth-client";
 import { TwoColumnPage } from "../components/TwoColumnPage";
 import { clearDrafts } from "../drafts";
@@ -19,6 +19,7 @@ interface SettingsItem {
 export const SETTINGS_ITEMS: SettingsItem[] = [
   { to: "/respostas-rapidas", title: "Respostas rápidas", hint: "Atalhos de texto para a equipe", icon: Zap },
   { to: "/etiquetas", title: "Etiquetas", hint: "Cores e nomes", icon: Tag, adminOnly: true },
+  { to: "/produtos", title: "Produtos", hint: "O que você vende e o preço", icon: Package, adminOnly: true },
   { to: "/funis/gerenciar", title: "Funis e etapas", hint: "Monte o caminho dos seus contatos", icon: Kanban, adminOnly: true },
   { to: "/equipe", title: "Equipe", hint: "Convites e papéis", icon: UsersRound, adminOnly: true },
   { to: "/conexao", title: "Conexão do número", hint: "WhatsApp conectado", icon: Smartphone, adminOnly: true },

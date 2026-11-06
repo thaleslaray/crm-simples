@@ -389,3 +389,16 @@ export const funnelCard = sqliteTable(
     index("funnel_card_contact_idx").on(t.contactId),
   ],
 );
+
+/** Produto (negocios e campanhas): nome unico sem diferenciar maiusculas, preco em centavos. Arquivado sai da lista de escolha. */
+export const product = sqliteTable(
+  "product",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    priceCents: integer("price_cents").notNull(),
+    archivedAt: integer("archived_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("product_name_nocase_idx").on(sql`lower(${t.name})`)],
+);

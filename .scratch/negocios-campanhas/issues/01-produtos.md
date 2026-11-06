@@ -13,3 +13,6 @@
 - [ ] Testes de borda + E2E de criar e arquivar
 
 ## Comments
+
+### 2026-11-06
+Feito. Tabela `product` (migração `0020_produtos`), rotas `GET/POST/PATCH /api/products` (`src/worker/products.ts`), tela Produtos em Configurações (só admin) com máscara de R$, evento `products.changed`. Testes de borda em `test/produtos.test.ts` (8) e E2E em `e2e/produtos.spec.ts`. Decisões para os próximos tickets: arquivar é `PATCH {archived: true|false}`; `GET /api/products` devolve só os ativos, `?todos=1` inclui arquivados (para mostrar o nome em negócios antigos). Nome é único mesmo entre arquivados.

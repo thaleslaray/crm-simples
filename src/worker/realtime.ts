@@ -19,6 +19,8 @@ export type RealtimeEvent =
   | { type: "contact.updated"; contact: ContactView }
   // Etiqueta criada, renomeada, recolorida ou apagada: o cliente busca as etiquetas e a lista de novo.
   | { type: "labels.changed" }
+  // Produto criado, editado ou arquivado: o cliente busca a lista de novo.
+  | { type: "products.changed" }
   // Funil, etapa ou card mudou (inclusive apagar): o cliente busca o quadro e a ficha de novo.
   | { type: "funnel.changed"; funnelId: string }
   | { type: "connection.changed"; connection: ConnectionState }

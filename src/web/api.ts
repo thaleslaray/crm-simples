@@ -26,6 +26,14 @@ export interface Label {
   color: string;
 }
 
+/** Produto cadastrado pelo admin; preço em centavos. */
+export interface Product {
+  id: string;
+  name: string;
+  priceCents: number;
+  archivedAt: number | null;
+}
+
 /** Linha da lista de contatos. */
 export interface ContactRow {
   id: string;
@@ -363,6 +371,10 @@ export const api = {
   updateLabel: (id: string, l: Partial<Omit<Label, "id">>) =>
     sendJson<{ label: Label }>("PATCH", `/api/labels/${encodeURIComponent(id)}`, l),
   deleteLabel: (id: string) => sendJson<{ ok: true }>("DELETE", `/api/labels/${encodeURIComponent(id)}`, {}),
+  products: (all = false) => getJson<{ products: Product[] }>(`/api/products${all ? "?todos=1" : ""}`),
+  createProduct: (p: { name: string; priceCents: number }) => sendJson<{ product: Product }>("POST", "/api/products", p),
+  updateProduct: (id: string, p: { name?: string; priceCents?: number; archived?: boolean }) =>
+    sendJson<{ product: Product }>("PATCH", `/api/products/${encodeURIComponent(id)}`, p),
   applyLabel: (contactId: string, labelId: string) =>
     sendJson<{ contact: Contact }>("PUT", `/api/contacts/${encodeURIComponent(contactId)}/labels/${encodeURIComponent(labelId)}`, {}),
   removeLabel: (contactId: string, labelId: string) =>
