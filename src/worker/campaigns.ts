@@ -47,9 +47,9 @@ const isUnique = (e: unknown) => String((e as Error)?.cause ?? e).includes("UNIQ
 const validName = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0 && v.trim().length <= MAX_NAME;
 const validMessage = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= MAX_MESSAGE;
 
-/** Numero do WhatsApp conectado (so digitos) ou null. Sem numero guardado, pergunta a instancia uma vez. */
-async function connectedPhone(env: Cloudflare.Env, db: Db): Promise<string | null> {
-  return (await loadConnectedPhone(db)) ?? ((await refreshConnection(env, db)) ? await loadConnectedPhone(db) : null);
+/** Numero do WhatsApp conectado (so digitos) ou null. Sem numero guardado, so o admin (`askInstance`) faz a instancia ser consultada. */
+async function connectedPhone(env: Cloudflare.Env, db: Db, askInstance = true): Promise<string | null> {
+  return (await loadConnectedPhone(db)) ?? (askInstance && (await refreshConnection(env, db)) ? await loadConnectedPhone(db) : null);
 }
 
 /** Campanhas: todo membro le (o seletor de origem precisa); so admin cria, edita e arquiva. */
@@ -58,7 +58,7 @@ export const campaigns = new Hono<AppEnv>();
 // Por padrao so as ativas; `?todos=1` inclui as arquivadas (tela de admin).
 campaigns.get("/", requireAuth, async (c) => {
   const db = createDb(c.env.DB);
-  const phone = await connectedPhone(c.env, db);
+  const phone = await connectedPhone(c.env, db, c.get("user").role === "admin");
   const q = db
     .select({ campaign: schema.campaign, productName: schema.product.name })
     .from(schema.campaign)

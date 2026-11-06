@@ -159,12 +159,20 @@ describe("Campanhas: link do WhatsApp", () => {
     expect((await listCampaigns(admin)).whatsappNumber).toBe("5511999998888");
   });
 
-  it("sem numero guardado, a lista pergunta a instancia na hora", async () => {
+  it("sem numero guardado, a lista do admin pergunta a instancia na hora", async () => {
     const admin = await loginAsAdmin();
+    await statusWith({ status: "connected", owner: "5521988887777" });
+
+    expect((await listCampaigns(admin)).whatsappNumber).toBe("5521988887777");
+  });
+
+  it("sem numero guardado, a lista do atendente nao consulta a Uazapi e vem sem numero", async () => {
+    await loginAsAdmin();
     const atendente = await loginAsAtendente();
     await statusWith({ status: "connected", owner: "5521988887777" });
 
-    expect((await listCampaigns(atendente)).whatsappNumber).toBe("5521988887777");
+    expect((await listCampaigns(atendente)).whatsappNumber).toBeNull();
+    expect(await uazapi.calls()).toEqual([]);
   });
 
   it("o numero continua guardado quando a instancia cai e a Uazapi nao informa o dono", async () => {
