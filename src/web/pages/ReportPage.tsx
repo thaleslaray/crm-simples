@@ -71,7 +71,7 @@ export function ReportPage() {
       <div className="report-filters">
         <div className="report-presets" role="group" aria-label="Período">
           {PRESETS.map((p) => (
-            <button key={p.value} type="button" className={preset === p.value ? "" : "secondary"} aria-pressed={preset === p.value} onClick={() => setPreset(p.value)}>
+            <button key={p.value} type="button" className="chip" aria-pressed={preset === p.value} onClick={() => setPreset(p.value)}>
               {p.label}
             </button>
           ))}

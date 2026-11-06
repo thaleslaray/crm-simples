@@ -243,6 +243,7 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .deal-strip-text { flex: 1 1 0; min-width: 0; margin: 0; display: flex; white-space: nowrap; }
 .deal-strip-text strong { color: var(--text); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .deal-strip-value { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.deal-strip-value::before, .deal-strip-stage::before { content: "·"; margin: 0 6px; }
 .deal-strip-stage { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1000; }
 .deal-strip button { min-height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--divider); background: transparent; color: var(--text); font-size: 0.8rem; font-weight: 600; flex-shrink: 0; }
 .deal-strip button:hover:not(:disabled) { background: var(--bg-hover); }
@@ -313,6 +314,10 @@ button.link { background: transparent; color: var(--brand); padding: 0 4px; min-
 .qr-menu .qr-empty { cursor: default; }
 .qr-admin { width: 100%; }
 .qr-form { display: grid; gap: 12px; }
+.qr-form label { display: grid; gap: 4px; }
+.qr-form select { font: inherit; font-size: 16px; padding: 0 12px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--fg); width: 100%; }
+/* Aviso que pede uma ação antes (conectar o número, criar um funil): faixa discreta, não texto solto. */
+.notice { margin: 0; padding: 12px 16px; border-radius: 8px; background: var(--bg-active); color: var(--text); font-size: 0.9rem; }
 .qr-form textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; width: 100%; resize: vertical; }
 .qr-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .campaign-link { font: inherit; font-size: 0.85rem; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text-2); }
@@ -457,9 +462,9 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 .kcard-name { flex: 1; min-width: 0; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kcard-time { font-size: 0.75rem; color: var(--text-2); white-space: nowrap; }
 .kcard-preview { margin: 0; color: var(--text-2); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kcard-deal { margin: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; font-size: 0.85rem; min-width: 0; }
+.kcard-deal { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 0.85rem; min-width: 0; }
 .kcard-product { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.kcard-value { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.kcard-value { color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
 .kcard-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .kcard-tools { position: absolute; top: 4px; right: 4px; display: flex; align-items: center; }
 .kcard-tools .kcard-grip, .kcard-more { width: 32px; height: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--text-2); display: grid; place-items: center; border-radius: 50%; cursor: pointer; list-style: none; }
@@ -556,6 +561,8 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 .modal { width: 100%; max-width: 460px; max-height: 100dvh; overflow-y: auto; background: var(--card); border-radius: 12px 12px 0 0; padding: 16px; display: grid; gap: 12px; }
 .modal h2 { margin: 0; font-size: 1.1rem; }
 .modal textarea { font: inherit; font-size: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; width: 100%; resize: vertical; }
+.modal select { font: inherit; font-size: 16px; padding: 0 12px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--fg); width: 100%; }
+.modal label { display: grid; gap: 4px; }
 .modal .chosen { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .picker { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }

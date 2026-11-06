@@ -3,6 +3,10 @@ import { expect, test } from "./fixtures";
 import { loggedInPage, signInAsAdmin, spyOnSockets, waitForRealtime } from "./navegacao";
 import { E2E_WEBHOOK } from "./e2e-env";
 
+/** Produto, valor e etapa nessa ordem (o "·" entre eles é desenhado pelo CSS). */
+const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const seq = (...parts: string[]) => new RegExp(parts.map(esc).join(".*"));
+
 async function clientWrites(request: APIRequestContext, id: string, phone: string) {
   const res = await request.post(`/api/webhook/${E2E_WEBHOOK.urlSecret}`, {
     data: {
@@ -84,13 +88,13 @@ for (const scheme of ["light", "dark"] as const) {
     await dlg.getByLabel("Etapa inicial").selectOption({ label: ids.stageName });
     await dlg.getByRole("button", { name: "Criar negócio" }).click();
     await expect(dlg).toHaveCount(0);
-    await expect(faixa).toContainText(`${curso} · R$ 997,00 · ${ids.stageName}`);
+    await expect(faixa).toContainText(seq(curso, "R$ 997,00", ids.stageName));
     await expect(faixa.getByRole("button", { name: "+ Negócio" })).toHaveCount(0);
     await snap(page, "um", info.project.name, scheme);
 
     // Vários: mostra o mais recente e "+1"
     await addDeal(page, ids, { productId: mentoriaId });
-    await expect(faixa).toContainText(`${mentoria} · R$ 2.500,00 · ${ids.stageName}`);
+    await expect(faixa).toContainText(seq(mentoria, "R$ 2.500,00", ids.stageName));
     const mais = faixa.getByRole("button", { name: /^\+1/ });
     await expect(mais).toBeVisible();
     await snap(page, "varios", info.project.name, scheme);
@@ -138,7 +142,7 @@ test("faixa na conversa: outra pessoa muda o negócio e a faixa reflete em tempo
     const nome = `Curso${run}`;
     const pid = await product(other.page, nome, 49700);
     const dealId = await addDeal(other.page, ids, { productId: pid });
-    await expect(faixa).toContainText(`${nome} · R$ 497,00 · ${ids.stageName}`);
+    await expect(faixa).toContainText(seq(nome, "R$ 497,00", ids.stageName));
 
     const res = await other.page.request.post(`/api/funnels/${ids.funnelId}/deals/${dealId}/close`, { data: { status: "ganho", valueCents: 49700 } });
     expect(res.ok()).toBe(true);

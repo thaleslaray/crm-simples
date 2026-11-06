@@ -168,12 +168,12 @@ export function CampaignsPage() {
       ) : (
         <>
           {list && !list.hasFunnel && (
-            <p className="muted" role="status">
+            <p className="notice" role="status">
               Crie um funil antes: sem um funil com etapa, a conversa que chega com o código não vira negócio.
             </p>
           )}
           {list && !list.whatsappNumber && (
-            <p className="muted" role="status">
+            <p className="notice" role="status">
               Conecte o número do WhatsApp para gerar o link.
             </p>
           )}
