@@ -25,7 +25,7 @@ function resolve(pref: ThemePreference): "light" | "dark" {
 function apply() {
   const theme = resolve(getThemePreference());
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#161917" : "#008069");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#161717" : "#1b8755");
 }
 
 export function setThemePreference(pref: ThemePreference) {

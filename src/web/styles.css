@@ -1,39 +1,44 @@
-/* Tokens do tema (estilo WhatsApp Web). `data-theme` vem de theme.ts; sem JS vale o claro. */
+/* Tokens do tema. Tons de base alinhados ao WhatsApp atual (claro quente, escuro grafite);
+   os papéis próprios do CRM (status, nota interna, negócio) são nossos. `data-theme` vem de theme.ts. */
 :root {
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --bg-rail: #f0f2f0;
+  --bg-rail: #f7f5f3;
   --bg-panel: #ffffff;
-  --bg-hover: #f2f5f2;
-  --bg-active: #e9eeea;
-  --bg-input: #e9eeea;
-  --bg-chat: #eae7df;
+  --bg-hover: #f6f5f4;
+  --bg-active: #f1eeeb;
+  --bg-input: #f6f5f4;
+  --bg-chat: #f5f1eb;
   --bubble-in: #ffffff;
-  --bubble-out: #d6f8cc;
+  --bubble-out: #d9fdd3;
+  --composer-bg: #ffffff;
   --bubble-note: #fff6c2;
   --bubble-note-border: #f0dc7a;
   --composer-note: #fff9d9;
-  --text: #18251d;
-  --text-2: #68756c;
-  --divider: #e2e7e3;
+  --text: #0a0a0a;
+  --text-2: #666666;
+  --divider: #e6e6e6;
   --green: #25d366;
   --green-strong: #1daa61;
-  --green-text: #008069;
-  --tick-read: #53bdeb;
-  --pill-event: #ffffffd9;
-  --doodle-stroke: #dcd8cd;
-  --shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
-  --menu-shadow: 0 2px 5px rgba(11, 20, 26, 0.26), 0 2px 10px rgba(11, 20, 26, 0.16);
+  --green-text: #1b8755;
+  --tick-read: #007bfc;
+  --pill-event: #ffffffe6;
+  --doodle-stroke: #eae0d3;
+  --shadow: 0 1px 0.5px rgba(10, 10, 10, 0.13);
+  --menu-shadow: 0 2px 5px rgba(10, 10, 10, 0.2), 0 2px 10px rgba(10, 10, 10, 0.12);
   --author-0: #6a3fb5; --author-1: #0b6fc4; --author-2: #c2185b; --author-3: #0b7a62;
   --author-4: #b25400; --author-5: #8d4b2f; --author-6: #3f51b5; --author-7: #a1257e;
+  /* Avatar sem foto: fundo claro com a inicial na cor forte (par por cor). */
+  --av-0-bg: #d9fdd3; --av-0-fg: #1b8755; --av-1-bg: #fee2d8; --av-1-fg: #c4532d;
+  --av-2-bg: #e8e0ff; --av-2-fg: #5e47de; --av-3-bg: #cbf2ee; --av-3-fg: #028377;
+  --av-4-bg: #ffdae7; --av-4-fg: #d42a66; --av-5-bg: #fff0d4; --av-5-fg: #9d6c2c;
+  --av-6-bg: #f4ded1; --av-6-fg: #855538; --av-7-bg: #caecfa; --av-7-fg: #027eb5;
   --danger-bar: #ea0038;
   --st-aberta-bg: #ffe9d6; --st-aberta-fg: #b54708;
   --st-andamento-bg: #dcecff; --st-andamento-fg: #1d5fbf;
   --st-aguardando-bg: #e3e9ef; --st-aguardando-fg: #4a5d70;
-  --st-resolvida-bg: #e9eeea; --st-resolvida-fg: #68756c;
-  --shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
-  --menu-shadow: 0 2px 5px rgba(11, 20, 26, 0.26), 0 2px 10px rgba(11, 20, 26, 0.16);
-  --fab-bg: #18251d; --fab-fg: #fff;
-  --filter-on-bg: #d6f8cc; --filter-on-fg: #0a5d3a;
+  --st-resolvida-bg: #f1eeeb; --st-resolvida-fg: #666666;
+  --fab-bg: #0a0a0a; --fab-fg: #fff;
+  --filter-on-bg: #d9fdd3; --filter-on-fg: #15603e;
   /* Nomes antigos das telas atuais, ligados aos tokens novos. */
   --bg: var(--bg-input);
   --fg: var(--text);
@@ -47,34 +52,40 @@
   font-family: var(--font);
 }
 :root[data-theme="dark"] {
-  --bg-rail: #202420;
-  --bg-panel: #161917;
-  --bg-hover: #262b27;
-  --bg-active: #2e332f;
-  --bg-input: #2e332f;
-  --bg-chat: #101612;
-  --bubble-in: #242925;
-  --bubble-out: #144b37;
+  --bg-rail: #1d1f1f;
+  --bg-panel: #161717;
+  --bg-hover: #222424;
+  --bg-active: #2e2f2f;
+  --bg-input: #2e2f2f;
+  --bg-chat: #161717;
+  --bubble-in: #242626;
+  --bubble-out: #144d37;
+  --composer-bg: #242626;
   --bubble-note: #3d3514;
   --bubble-note-border: #6b5c1f;
   --composer-note: #2f2a12;
-  --text: #edf0ed;
-  --text-2: #a1a6a2;
-  --divider: #2b302c;
-  --green-text: #58c577;
-  --pill-event: #1d211e;
-  --doodle-stroke: #1a221d;
+  --text: #fafafa;
+  --text-2: #a2a3a3;
+  --divider: #2d2e2e;
+  --green-text: #21c063;
+  --tick-read: #53bdeb;
+  --pill-event: #1d1f1f;
+  --doodle-stroke: #212323;
   --shadow: 0 1px 0.5px rgba(0, 0, 0, 0.4);
   --menu-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(0, 0, 0, 0.4);
   --author-0: #d1b3ff; --author-1: #8cc8ff; --author-2: #ff9ec4; --author-3: #7ee8c3;
   --author-4: #ffc380; --author-5: #e0b8a0; --author-6: #aab6ff; --author-7: #f3a6dd;
+  --av-0-bg: #103529; --av-0-fg: #25d366; --av-1-bg: #35221e; --av-1-fg: #fc9775;
+  --av-2-bg: #242447; --av-2-fg: #a791ff; --av-3-bg: #092d2f; --av-3-fg: #42c7b8;
+  --av-4-bg: #36192a; --av-4-fg: #ff72a1; --av-5-bg: #362c1f; --av-5-fg: #ffd279;
+  --av-6-bg: #35271e; --av-6-fg: #dba685; --av-7-bg: #092c3d; --av-7-fg: #53bdeb;
   --st-aberta-bg: #4a2b12; --st-aberta-fg: #ffb371;
   --st-andamento-bg: #16324f; --st-andamento-fg: #8cc0ff;
   --st-aguardando-bg: #26343f; --st-aguardando-fg: #a7b8c7;
-  --st-resolvida-bg: #242925; --st-resolvida-fg: #a1a6a2;
-  --fab-bg: #edf0ed; --fab-fg: #161917;
-  --filter-on-bg: #183c2b; --filter-on-fg: #d9fbe5;
-  --brand-fg: #102c18;
+  --st-resolvida-bg: #242626; --st-resolvida-fg: #a2a3a3;
+  --fab-bg: #fafafa; --fab-fg: #0a0a0a;
+  --filter-on-bg: #424445; --filter-on-fg: #fafafa;
+  --brand-fg: #0a0a0a;
   --danger: #ff6b6b;
   color-scheme: dark;
 }
@@ -148,7 +159,7 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 /* Caixa de entrada: lista + conversa lado a lado; no celular, uma tela de cada vez. */
 .inbox { min-height: 0; }
 .inbox-body { flex: 1; display: flex; min-height: 0; }
-.conv-list { width: clamp(340px, 30vw, 460px); flex-shrink: 0; overflow: hidden; background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.conv-list { width: clamp(340px, 30vw, 560px); flex-shrink: 0; overflow: hidden; background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
 .conv-list ul { list-style: none; margin: 0; padding: 0; }
 .conv-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .conv-item { display: flex; gap: 12px; align-items: center; padding: 12px 16px; color: inherit; text-decoration: none; border-bottom: 1px solid var(--border); }
@@ -195,6 +206,14 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .conv-item--row:hover { background: var(--bg-hover); }
 .conv-item--row.active { background: var(--bg-active); }
 .avatar--initials { color: #fff; }
+.avatar--c0 { background: var(--av-0-bg); color: var(--av-0-fg); }
+.avatar--c1 { background: var(--av-1-bg); color: var(--av-1-fg); }
+.avatar--c2 { background: var(--av-2-bg); color: var(--av-2-fg); }
+.avatar--c3 { background: var(--av-3-bg); color: var(--av-3-fg); }
+.avatar--c4 { background: var(--av-4-bg); color: var(--av-4-fg); }
+.avatar--c5 { background: var(--av-5-bg); color: var(--av-5-fg); }
+.avatar--c6 { background: var(--av-6-bg); color: var(--av-6-fg); }
+.avatar--c7 { background: var(--av-7-bg); color: var(--av-7-fg); }
 .avatar--row { width: 49px; height: 49px; font-size: 17px; }
 .conv-item--row .conv-main { display: block; padding-top: 1px; }
 .conv-item--row .conv-row { align-items: center; gap: 8px; min-width: 0; }
@@ -260,7 +279,7 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .back { display: none; color: var(--text-2); text-decoration: none; min-width: 40px; min-height: 40px; place-items: center; margin-left: -8px; border-radius: 50%; }
 .chat-surface { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; background: var(--bg-chat); }
 .doodle-bg::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: var(--doodle-stroke); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M30 40h46a8 8 0 0 1 8 8v26a8 8 0 0 1-8 8H56l-12 12V82H30a8 8 0 0 1-8-8V48a8 8 0 0 1 8-8z'/%3E%3Cpath d='M160 30h32l22 22-32 32-22-22z'/%3E%3Ccircle cx='178' cy='46' r='4'/%3E%3Cpath d='M30 150h56l-20 24v26l-16-8v-18z'/%3E%3Cpath d='M180 140l5 12 13 1-10 9 3 13-11-7-11 7 3-13-10-9 13-1z'/%3E%3Cpath d='M90 205h50v34H90z'/%3E%3Cpath d='M90 205l25 20 25-20'/%3E%3Cpath d='M215 245c-20-14-22-28-12-34 6-3 12 0 12 6 0-6 6-9 12-6 10 6 8 20-12 34z'/%3E%3Ccircle cx='110' cy='112' r='14'/%3E%3Cpath d='M103 112l5 5 9-10'/%3E%3C/svg%3E") 0 0 / 240px 240px repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M30 40h46a8 8 0 0 1 8 8v26a8 8 0 0 1-8 8H56l-12 12V82H30a8 8 0 0 1-8-8V48a8 8 0 0 1 8-8z'/%3E%3Cpath d='M160 30h32l22 22-32 32-22-22z'/%3E%3Ccircle cx='178' cy='46' r='4'/%3E%3Cpath d='M30 150h56l-20 24v26l-16-8v-18z'/%3E%3Cpath d='M180 140l5 12 13 1-10 9 3 13-11-7-11 7 3-13-10-9 13-1z'/%3E%3Cpath d='M90 205h50v34H90z'/%3E%3Cpath d='M90 205l25 20 25-20'/%3E%3Cpath d='M215 245c-20-14-22-28-12-34 6-3 12 0 12 6 0-6 6-9 12-6 10 6 8 20-12 34z'/%3E%3Ccircle cx='110' cy='112' r='14'/%3E%3Cpath d='M103 112l5 5 9-10'/%3E%3C/svg%3E") 0 0 / 240px 240px repeat; }
-.messages { position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 16px 7% 12px; overscroll-behavior: contain; }
+.messages { position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 16px 5% 12px; overscroll-behavior: contain; }
 .messages ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .messages-edge { text-align: center; font-size: 0.8rem; margin: 8px 0; min-height: 1em; }
 .event-pill { align-self: center; margin: 10px 0; max-width: 90%; text-align: center; }
@@ -284,7 +303,7 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 button.link { background: transparent; color: var(--brand); padding: 0 4px; min-height: 32px; text-decoration: underline; }
 /* Campo de mensagem: pílula arredondada sobre o fundo do chat (a nota deixa a pílula amarela). */
 .composer { position: relative; padding: 8px 16px 14px; display: grid; gap: 6px; }
-.composer-pill { display: flex; align-items: flex-end; gap: 4px; background: var(--bg-panel); border-radius: 26px; padding: 6px 8px; box-shadow: var(--shadow); transition: background 0.15s; }
+.composer-pill { display: flex; align-items: flex-end; gap: 4px; background: var(--composer-bg); border-radius: 26px; padding: 6px 8px; box-shadow: var(--shadow); transition: background 0.15s; }
 .composer.note-mode .composer-pill { background: var(--composer-note); outline: 1px solid var(--bubble-note-border); }
 .composer textarea { flex: 1 1 0; width: 0; min-width: 0; font: inherit; font-size: 16px; line-height: 22px; padding: 9px 6px; border: 0; outline: 0; background: transparent; color: var(--text); border-radius: 0; resize: none; field-sizing: content; min-height: 40px; max-height: 120px; }
 .composer-btn { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; min-height: 40px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; }
