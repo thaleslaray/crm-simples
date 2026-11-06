@@ -45,9 +45,10 @@ export function DealStrip({ contact, onOpenDeals }: { contact: StripContact; onO
       {current ? (
         <>
           <p className="deal-strip-text">
+            {/* O nome do produto é o que encolhe: valor e etapa continuam à vista. */}
             <strong>{current.productName ?? "Sem produto"}</strong>
-            {current.valueCents !== null && ` · ${formatMoney(current.valueCents)}`}
-            {` · ${current.stageName}`}
+            {current.valueCents !== null && <span className="deal-strip-value">{` · ${formatMoney(current.valueCents)}`}</span>}
+            <span className="deal-strip-stage">{` · ${current.stageName}`}</span>
           </p>
           {extra > 0 && (
             <button type="button" className="deal-strip-more" aria-label={`+${extra} negócios abertos: ver na ficha`} onClick={onOpenDeals}>

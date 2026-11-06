@@ -240,8 +240,10 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .icon-btn:hover { background: var(--bg-hover); }
 .menu-empty { padding: 8px 12px; font-size: 0.9rem; color: var(--text-2); }
 .deal-strip { display: flex; align-items: center; gap: 6px; padding: 4px 16px; min-height: 40px; background: var(--bg-panel); border-bottom: 1px solid var(--divider); font-size: 0.85rem; color: var(--text-2); }
-.deal-strip-text { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.deal-strip-text strong { color: var(--text); font-weight: 600; }
+.deal-strip-text { flex: 1 1 0; min-width: 0; margin: 0; display: flex; white-space: nowrap; }
+.deal-strip-text strong { color: var(--text); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.deal-strip-value { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.deal-strip-stage { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1000; }
 .deal-strip button { min-height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--divider); background: transparent; color: var(--text); font-size: 0.8rem; font-weight: 600; flex-shrink: 0; }
 .deal-strip button:hover:not(:disabled) { background: var(--bg-hover); }
 .deal-strip .deal-strip-more { padding: 0 8px; color: var(--green-text); border-color: transparent; background: var(--bg-active); }
