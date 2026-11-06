@@ -438,6 +438,7 @@ export const api = {
   addNote: (id: string, text: string) =>
     sendJson<{ note: Note }>("POST", `/api/conversations/${encodeURIComponent(id)}/notes`, { text }),
   ficha: (contactId: string) => getJson<Ficha>(`/api/contacts/${encodeURIComponent(contactId)}`),
+  contactDeals: (contactId: string) => getJson<{ deals: Ficha["deals"] }>(`/api/contacts/${encodeURIComponent(contactId)}/deals`),
   editContact: (contactId: string, edit: ContactEdit) =>
     sendJson<{ contact: Contact }>("PATCH", `/api/contacts/${encodeURIComponent(contactId)}`, edit),
   /** A foto quebrou (URL temporária expirada): busca outra. */

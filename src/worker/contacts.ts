@@ -121,6 +121,16 @@ async function refreshAvatar(env: Cloudflare.Env, db: Db, contactId: string): Pr
   }
 }
 
+// Só os negócios do contato: a faixa da conversa pede isso a cada conversa aberta,
+// então não passa pela ficha (que busca a foto na Uazapi).
+contacts.get("/:id/deals", async (c) => {
+  const db = createDb(c.env.DB);
+  const id = c.req.param("id");
+  const found = await db.query.contact.findFirst({ where: eq(schema.contact.id, id), columns: { id: true } });
+  if (!found) return c.json({ error: "nao_encontrado" }, 404);
+  return c.json({ deals: await dealsOfContact(db, id) });
+});
+
 contacts.get("/:id", async (c) => {
   const db = createDb(c.env.DB);
   const id = c.req.param("id");

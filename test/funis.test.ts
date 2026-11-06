@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { api } from "./helpers/api";
+import { fakeUazapi } from "./helpers/fake-uazapi";
 import { assume, conversationOf, inbox } from "./helpers/conversations";
 import { applyLabel, newLabel } from "./helpers/etiquetas";
 import { ficha } from "./helpers/ficha";
@@ -94,6 +96,7 @@ const P2 = "5511900000042";
 const P3 = "5511900000043";
 
 describe("Funis: negocios", () => {
+  const uazapi = fakeUazapi();
   async function cenario() {
     const admin = await loginAsAdmin();
     const atendente = await loginAsAtendente();
@@ -358,6 +361,19 @@ describe("Funis: negocios", () => {
       { id: d3, funnelId: vendas.id, funnelName: "Vendas", stageId: novo, stageName: "Novo", productId: null, productName: null, valueCents: 500, status: "ganho", originKind: null, originCampaignName: null },
     ]);
     expect((await ficha(atendente, c2)).deals).toEqual([]);
+  });
+
+  it("GET /api/contacts/:id/deals devolve so os negocios, sem ir buscar a foto na Uazapi (a faixa da conversa usa)", async () => {
+    const { atendente, vendas, novo, c1 } = await cenario();
+    const d1 = await newDeal(atendente, vendas.id, c1, novo, { valueCents: 500 });
+    const before = (await uazapi.calls()).length;
+
+    const res = await api(`/api/contacts/${c1}/deals`, { cookie: atendente });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { deals: { id: string; status: string }[] };
+    expect(body.deals.map((d) => [d.id, d.status])).toEqual([[d1, "aberto"]]);
+    expect((await uazapi.calls()).slice(before)).toEqual([]);
+    expect((await api(`/api/contacts/inexistente/deals`, { cookie: atendente })).status).toBe(404);
   });
 
   it("criar, editar, mover e remover negocio publicam evento em tempo real para os colegas", async () => {

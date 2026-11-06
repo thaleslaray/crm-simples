@@ -14,7 +14,7 @@ function useOpenDeals(contactId: string): ContactDeal[] | null {
   const [deals, setDeals] = useState<ContactDeal[] | null>(null);
   const load = useCallback(() => {
     api
-      .ficha(contactId)
+      .contactDeals(contactId)
       .then((f) => setDeals(f.deals.filter((d) => d.status === "aberto")))
       .catch(() => undefined);
   }, [contactId]);
