@@ -5,6 +5,7 @@ import { fillName, filterQuickReplies, slashQuery } from "../quick-replies";
 import { getDraft, setDraft } from "../drafts";
 import { contactLabel, dayLabel, eventText, formatSize, messagePreview, messageTime, sameDay } from "../format";
 import { onRealtime } from "../realtime";
+import { authClient } from "../auth-client";
 import { readFichaAberta, saveFichaAberta } from "../ficha-aberta";
 import { ContactPanel } from "./ContactPanel";
 import { ChatHeader } from "../components/ChatHeader";
@@ -45,6 +46,8 @@ type State =
   | { kind: "ready"; conversation: Conversation; messages: Message[]; events: TimelineEvent[]; notes: Note[]; nextBefore: string | null; nextAfter: string | null };
 
 export function ConversationPage() {
+  // Nome no balão só para mensagens de colegas: as suas você sabe que mandou (como no WhatsApp).
+  const myId = authClient.useSession().data?.user.id;
   const { id } = useParams<{ id: string }>();
   // ?m=<id da mensagem>: aberta a partir de um resultado de busca, posicionada nela.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -555,7 +558,7 @@ export function ConversationPage() {
                   message={m}
                   clientLabel={label}
                   first={first}
-                  showAuthor={m.direction === "out" && !!m.authorName && !sameAuthor}
+                  showAuthor={m.direction === "out" && !!m.authorName && !sameAuthor && m.sentById !== myId}
                   found={m.id === target}
                   isTemp={m.id.startsWith(TEMP)}
                   onOpenQuote={goToQuoted}

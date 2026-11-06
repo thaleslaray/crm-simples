@@ -29,10 +29,44 @@ interface Props {
 
 export function MessageBubble({ message: m, clientLabel, first, showAuthor, found, isTemp, onOpenQuote, onReply, onResend }: Props) {
   const delivery = m.status ? DELIVERY[m.status] : undefined;
+  // Hora na última linha do texto quando não há aviso de envio (falhou, incerto, enviando) ocupando o rodapé.
+  const endsWithText = m.media ? !!m.text : !m.location && !m.contact;
+  const inlineMeta = endsWithText && m.status !== "failed" && m.status !== "uncertain" && m.status !== "sending";
+  const metaItems = () => (
+    <>
+      {m.status === "failed" && (
+        <>
+          <span className="bubble-status" role="status">
+            Falhou
+          </span>
+          <button type="button" className="link" onClick={() => onResend(m)}>
+            Reenviar
+          </button>
+        </>
+      )}
+      {m.status === "uncertain" && (
+        <span className="bubble-status" role="status">
+          Incerto: o WhatsApp não confirmou. Confira antes de enviar de novo.
+        </span>
+      )}
+      {m.status === "sending" && <span className="bubble-status">Enviando…</span>}
+      {!isTemp && m.status !== "failed" && m.status !== "sending" && (
+        <button type="button" className="link bubble-reply" onClick={() => onReply(m)}>
+          Responder
+        </button>
+      )}
+      <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
+      {delivery && (
+        <span className={`bubble-delivery${delivery.read ? " is-read" : ""}`} data-delivery={m.status} role="img" aria-label={delivery.label}>
+          {delivery.double ? <CheckCheck size={16} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
+        </span>
+      )}
+    </>
+  );
   return (
     <li
       data-message-id={m.id}
-      className={`bubble bubble--${m.direction}${first ? " bubble--first" : ""}${m.type === "unsupported" ? " is-unsupported" : ""}${m.status ? ` is-${m.status}` : ""}${found ? " is-found" : ""}`}
+      className={`bubble bubble--${m.direction}${first ? " bubble--first" : ""}${inlineMeta ? " bubble--inline-meta" : ""}${m.type === "unsupported" ? " is-unsupported" : ""}${m.status ? ` is-${m.status}` : ""}${found ? " is-found" : ""}`}
     >
       {showAuthor && (
         <span className="bubble-author" style={{ color: authorColorVar(m.sentById ?? m.authorName) }}>
@@ -45,36 +79,20 @@ export function MessageBubble({ message: m, clientLabel, first, showAuthor, foun
           <span className="quote-text">{messagePreview(m.quote.type, m.quote.text)}</span>
         </button>
       )}
-      <MessageBody message={m} />
-      <span className="bubble-meta">
-        {m.status === "failed" && (
-          <>
-            <span className="bubble-status" role="status">
-              Falhou
-            </span>
-            <button type="button" className="link" onClick={() => onResend(m)}>
-              Reenviar
-            </button>
-          </>
-        )}
-        {m.status === "uncertain" && (
-          <span className="bubble-status" role="status">
-            Incerto: o WhatsApp não confirmou. Confira antes de enviar de novo.
-          </span>
-        )}
-        {m.status === "sending" && <span className="bubble-status">Enviando…</span>}
-        {!isTemp && m.status !== "failed" && m.status !== "sending" && (
-          <button type="button" className="link" onClick={() => onReply(m)}>
-            Responder
-          </button>
-        )}
-        <time dateTime={new Date(m.timestamp).toISOString()}>{messageTime(m.timestamp)}</time>
-        {delivery && (
-          <span className={`bubble-delivery${delivery.read ? " is-read" : ""}`} data-delivery={m.status} role="img" aria-label={delivery.label}>
-            {delivery.double ? <CheckCheck size={16} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
-          </span>
-        )}
-      </span>
+      <MessageBody
+        message={m}
+        trailing={
+          inlineMeta ? (
+            // Só reserva a largura do rodapé no fim do texto; o conteúdo vem do CSS (não entra no texto da mensagem).
+            <span
+              className={`bubble-meta-space${delivery ? " has-ticks" : ""}${!isTemp ? " has-reply" : ""}`}
+              data-time={messageTime(m.timestamp)}
+              aria-hidden="true"
+            />
+          ) : undefined
+        }
+      />
+      <span className="bubble-meta">{metaItems()}</span>
     </li>
   );
 }

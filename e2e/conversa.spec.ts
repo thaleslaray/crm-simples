@@ -125,7 +125,7 @@ test("conversa no estilo do WhatsApp: botão de ação por status, autor só no 
     `com ${E2E_ADMIN.name}`,
   );
 
-  // Duas respostas seguidas: o nome do autor aparece só na primeira
+  // Respostas de quem está olhando não levam o próprio nome (como no WhatsApp); o nome aparece só nas de colegas
   await reply(request, page, conversation, `cv-${run}-a`, "Entregamos sim");
   await reply(
     request,
@@ -134,16 +134,15 @@ test("conversa no estilo do WhatsApp: botão de ação por status, autor só no 
     `cv-${run}-b`,
     "Em até 2 dias úteis",
   );
-  await expect(conversation.locator(".bubble-author")).toHaveCount(1);
-  await expect(conversation.locator(".bubble-author")).toHaveText(
-    E2E_ADMIN.name,
-  );
+  await expect(conversation.getByText("Em até 2 dias úteis")).toBeVisible();
+  await expect(conversation.locator(".bubble-author")).toHaveCount(0);
 
-  // O cliente fala no meio: o autor volta a aparecer na próxima resposta
+  // O cliente fala no meio e a resposta seguinte continua sem o próprio nome
   await clientWrites(request, run, phone, 3, "Perfeito, obrigado");
   await expect(conversation.getByText("Perfeito, obrigado")).toBeVisible();
   await reply(request, page, conversation, `cv-${run}-c`, "Por nada!");
-  await expect(conversation.locator(".bubble-author")).toHaveCount(2);
+  await expect(conversation.getByText("Por nada!")).toBeVisible();
+  await expect(conversation.locator(".bubble-author")).toHaveCount(0);
 
   // Nota interna: balão próprio, fora dos balões de mensagem
   await conversation.getByRole("button", { name: "Nota interna" }).click();

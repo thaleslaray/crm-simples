@@ -1,9 +1,16 @@
+import type { ReactNode } from "react";
 import type { Message } from "../api";
 import { formatPhone, formatSize, messagePreview } from "../format";
 
 /** Conteúdo de uma bolha: texto, mídia (imagem, vídeo, áudio, documento, figurinha), localização ou contato. */
-export function MessageBody({ message: m }: { message: Message }) {
-  const caption = m.text ? <p>{m.text}</p> : null;
+/** `trailing`: espaço invisível no fim do texto, do tamanho da hora, para a hora caber na última linha (como no WhatsApp). */
+export function MessageBody({ message: m, trailing }: { message: Message; trailing?: ReactNode }) {
+  const caption = m.text ? (
+    <p>
+      {m.text}
+      {trailing}
+    </p>
+  ) : null;
 
   if (m.media) {
     const url = `/api/media/${encodeURIComponent(m.id)}`;
@@ -73,5 +80,10 @@ export function MessageBody({ message: m }: { message: Message }) {
     );
   }
 
-  return <p>{messagePreview(m.type, m.text)}</p>;
+  return (
+    <p>
+      {messagePreview(m.type, m.text)}
+      {trailing}
+    </p>
+  );
 }

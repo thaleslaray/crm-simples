@@ -301,6 +301,13 @@ button.secondary { background: transparent; color: var(--brand); border: 1px sol
 .bubble-author { font-size: 0.8rem; font-weight: 600; }
 .bubble-meta { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 8px; font-size: 0.75rem; color: var(--muted); }
 .bubble-meta time { justify-self: auto; }
+/* Hora na última linha do texto: a cópia invisível reserva o espaço e a hora real fica por cima, no canto. */
+.bubble--inline-meta .bubble-meta { position: absolute; right: 7px; bottom: 4px; }
+.bubble-meta-space { display: inline-block; height: 0; margin-left: 8px; visibility: hidden; font-size: 0.75rem; white-space: nowrap; }
+.bubble-meta-space::before { content: attr(data-time); }
+.bubble-meta-space.has-ticks::after { content: ""; display: inline-block; width: 20px; }
+/* Sem mouse, o "Responder" fica no rodapé e também ocupa lugar. */
+.bubble-meta-space.has-reply::before { content: "Responder" "\2003\2003" attr(data-time); }
 .bubble-status { font-size: 0.75rem; }
 .bubble.is-failed .bubble-status, .bubble.is-uncertain .bubble-status { color: var(--danger); font-weight: 600; }
 .bubble.is-sending { opacity: 0.7; }
@@ -603,6 +610,11 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 @media (hover: hover) {
   .bubble:not(.is-failed) .bubble-meta button.link { opacity: 0; transition: opacity 120ms ease; }
   .bubble:hover .bubble-meta button.link, .bubble:focus-within .bubble-meta button.link { opacity: 1; }
+  /* Com mouse, o "Responder" não ocupa espaço na linha: aparece ao passar o mouse, à esquerda da hora, sobre o próprio balão. */
+  .bubble--inline-meta .bubble-meta .bubble-reply { position: absolute; right: 100%; margin-right: 4px; padding: 0 6px; border-radius: 6px; background: inherit; }
+  .bubble--in.bubble--inline-meta .bubble-meta .bubble-reply { background: var(--bubble-in); }
+  .bubble--out.bubble--inline-meta .bubble-meta .bubble-reply { background: var(--bubble-out); }
+  .bubble-meta-space.has-reply::before { content: attr(data-time); }
 }
 
 /* Duas colunas: Contatos e Configurações (ticket design-07) */
