@@ -14,6 +14,7 @@ import { workspace } from "./workspace";
 import { labels } from "./labels";
 import { campaigns } from "./campaigns";
 import { products } from "./products";
+import { reports } from "./reports";
 import { handleQueue } from "./queue";
 import { quickReplies } from "./quick-replies";
 import { realtime } from "./realtime";
@@ -60,6 +61,7 @@ app.route("/api/quick-replies", quickReplies);
 app.route("/api/labels", labels);
 app.route("/api/products", products);
 app.route("/api/campaigns", campaigns);
+app.route("/api/reports", reports);
 app.route("/api/funnels", funnels);
 app.route("/api/workspace", workspace);
 

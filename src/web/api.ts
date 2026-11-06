@@ -56,6 +56,21 @@ export interface CampaignList {
   hasFunnel: boolean;
 }
 
+/** Linha do relatório de campanhas (uma origem). `conversion` = ganhos ÷ criados; null sem criados. */
+export interface CampaignReportRow {
+  key: string;
+  label: string;
+  created: number;
+  won: number;
+  lost: number;
+  revenueCents: number;
+  conversion: number | null;
+}
+export interface CampaignReport {
+  rows: CampaignReportRow[];
+  total: Omit<CampaignReportRow, "key" | "label">;
+}
+
 /** Linha da lista de contatos. */
 export interface ContactRow {
   id: string;
@@ -440,6 +455,8 @@ export const api = {
     sendJson<{ campaign: Campaign }>("POST", "/api/campaigns", c),
   updateCampaign: (id: string, c: { name?: string; message?: string; archived?: boolean }) =>
     sendJson<{ campaign: Campaign }>("PATCH", `/api/campaigns/${encodeURIComponent(id)}`, c),
+  campaignReport: (from: number, to: number, product: string) =>
+    getJson<CampaignReport>(`/api/reports/campaigns?from=${from}&to=${to}${product ? `&product=${encodeURIComponent(product)}` : ""}`),
   products: (all = false) => getJson<{ products: Product[] }>(`/api/products${all ? "?todos=1" : ""}`),
   createProduct: (p: { name: string; priceCents: number }) => sendJson<{ product: Product }>("POST", "/api/products", p),
   updateProduct: (id: string, p: { name?: string; priceCents?: number; archived?: boolean }) =>

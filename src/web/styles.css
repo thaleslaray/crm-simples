@@ -640,3 +640,23 @@ button.secondary.danger:hover, button.secondary.danger:focus-visible { color: va
 .kcard-closed { margin: 0; font-size: 0.85rem; color: var(--text-2); }
 .kcard-closed--ganho strong { color: var(--green-text); }
 .kcard-closed--perdido strong { color: var(--danger, #b3261e); }
+
+/* Relatório de campanhas */
+.report-page { max-width: none; }
+.report-filters { display: grid; gap: 12px; }
+.report-filters label { display: grid; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+.report-filters select, .report-filters input[type="date"] { font: inherit; font-size: 16px; padding: 8px 12px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--fg); width: 100%; }
+.report-presets { display: flex; gap: 8px; flex-wrap: wrap; }
+.report-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.report-scroll { overflow-x: auto; max-width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+.report-table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.95rem; }
+.report-table th, .report-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.report-table thead th { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-align: right; background: var(--bg-rail); }
+.report-table td, .report-table tfoot th ~ td { text-align: right; font-variant-numeric: tabular-nums; }
+.report-table thead th:first-child, .report-table tbody th, .report-table tfoot th { text-align: left; font-weight: 500; }
+.report-table tbody th { white-space: normal; min-width: 140px; }
+.report-table tbody tr:last-child th, .report-table tbody tr:last-child td { border-bottom: 0; }
+.report-table tfoot th, .report-table tfoot td { font-weight: 700; background: var(--bg-active); border-bottom: 0; border-top: 2px solid var(--border); }
+.report-note { font-size: 0.8rem; }
+.settings-body:has(.report-page) { max-width: 920px; }
+.report-table th, .report-table td { padding: 10px 10px; }
