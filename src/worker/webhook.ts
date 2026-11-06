@@ -75,7 +75,10 @@ async function processEvent(env: Cloudflare.Env, db: Db, eventId: string, payloa
       const ingested = await ingestMessage(db, (payload.message ?? {}) as UazapiMessage, env.MEDIA_QUEUE);
       await db.update(schema.webhookEvent).set({ processedAt: Date.now() }).where(eq(schema.webhookEvent.id, eventId));
       // Mensagem nova (nao duplicada): avisa o hub. Depois de gravar tudo; falha de publicacao nao some com a mensagem.
-      if (ingested) {
+      if (ingested?.alreadyStored) {
+        // Reprocessamento que so recuperou o negocio da campanha: a mensagem ja foi publicada antes.
+        await publishCampaignHit(env, db, ingested.conversationId, ingested.campaign);
+      } else if (ingested) {
         if (ingested.reopened) await publishUpdate(env, db, ingested.conversationId, ingested.reopened.eventId);
         const [conversation, message] = await Promise.all([
           loadConversation(db, ingested.conversationId),

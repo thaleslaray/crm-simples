@@ -131,6 +131,25 @@ async function resolveConversation(db: Db, contactId: string, now: number): Prom
   return conv!.id;
 }
 
+export type IngestResult = {
+  conversationId: string;
+  messageId: string;
+  reopened: { eventId: string | null } | undefined;
+  campaign: CampaignHit | null;
+  /** Mensagem que ja estava gravada: so o codigo de campanha foi reaplicado (o chamador nao republica a mensagem). */
+  alreadyStored?: true;
+};
+
+/** Aplica o codigo de campanha da mensagem. Falha aqui nunca desfaz a mensagem ja gravada: o reprocessamento tenta de novo. */
+async function tryCampaignCode(db: Db, input: Parameters<typeof applyCampaignCode>[1]): Promise<CampaignHit | null> {
+  try {
+    return await applyCampaignCode(db, input);
+  } catch (err) {
+    console.error("ingest: falha ao aplicar codigo de campanha", { erro: errorName(err) });
+    return null;
+  }
+}
+
 /**
  * Processa o evento `messages`. Descarta grupo e `fromMe`; idempotente por `message.id`.
  * Lanca se o payload nao tem `message.id` (o evento fica sem `processedAt`).
@@ -139,12 +158,25 @@ export async function ingestMessage(
   db: Db,
   msg: UazapiMessage,
   queue: Queue<MediaJob>,
-): Promise<{ conversationId: string; messageId: string; reopened: { eventId: string | null } | undefined; campaign: CampaignHit | null } | null> {
+): Promise<IngestResult | null> {
   if (msg.isGroup || msg.fromMe) return null;
   if (!msg.id) throw new Error("mensagem sem id");
 
   const already = await db.query.message.findFirst({ where: eq(schema.message.externalId, msg.id) });
-  if (already) return null;
+  if (already) {
+    // Reenvio do webhook ou reconciliacao: se o codigo de campanha falhou da 1a vez, tenta de novo com o id da mensagem GRAVADA
+    // (idempotente por `deal.sourceMessageId` e pelo indice unico do evento).
+    const conversation = await db.query.conversation.findFirst({ where: eq(schema.conversation.id, already.conversationId) });
+    if (!conversation) return null;
+    const campaign = await tryCampaignCode(db, {
+      contactId: conversation.contactId,
+      conversationId: conversation.id,
+      messageId: already.id,
+      text: already.text,
+      timestamp: already.timestamp,
+    });
+    return campaign ? { conversationId: conversation.id, messageId: already.id, reopened: undefined, campaign, alreadyStored: true } : null;
+  }
 
   const now = Date.now();
   const contactId = await resolveContact(db, msg, now);
@@ -152,11 +184,10 @@ export async function ingestMessage(
 
   const parsed = parse(msg, msg.text || null);
   const timestamp = msg.messageTimestamp ?? now;
-  const messageId = crypto.randomUUID();
   const inserted = await db
     .insert(schema.message)
     .values({
-      id: messageId,
+      id: crypto.randomUUID(),
       externalId: msg.id,
       whatsappMessageId: msg.messageid ?? null,
       conversationId,
@@ -174,6 +205,7 @@ export async function ingestMessage(
     .onConflictDoNothing({ target: schema.message.externalId })
     .returning({ id: schema.message.id });
   if (inserted.length === 0) return null; // corrida com outro request: ja ingerida
+  const messageId = inserted[0]!.id;
 
   await db
     .update(schema.conversation)
@@ -197,11 +229,6 @@ export async function ingestMessage(
   if (parsed.media) await queue.send({ messageId });
 
   // Codigo de campanha na mensagem: cria o negocio (ou registra o retorno). Falha aqui nunca desfaz a mensagem ja gravada.
-  let campaign: CampaignHit | null = null;
-  try {
-    campaign = await applyCampaignCode(db, { contactId, conversationId, messageId, text: parsed.text, timestamp });
-  } catch (err) {
-    console.error("ingest: falha ao aplicar codigo de campanha", { erro: errorName(err) });
-  }
+  const campaign = await tryCampaignCode(db, { contactId, conversationId, messageId, text: parsed.text, timestamp });
   return { conversationId, messageId, reopened, campaign };
 }

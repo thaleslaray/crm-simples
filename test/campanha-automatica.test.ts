@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { newCampaign, updateCampaign } from "./helpers/campanhas";
 import { events, history, inbox } from "./helpers/conversations";
+import { runCron } from "./helpers/cron";
+import { fakeUazapi } from "./helpers/fake-uazapi";
+import { breakDealCreation, fixDealCreation } from "./helpers/falha-de-negocio";
+import { programRecentMessages } from "./helpers/reconcile";
 import { newClient, newFunnel, board, newDeal, closeDeal, type CardView } from "./helpers/funis";
 import { newProduct, updateProduct } from "./helpers/produtos";
 import { loginAsAdmin } from "./helpers/session";
@@ -153,5 +157,66 @@ describe("Campanha: o codigo na mensagem cria o negocio", () => {
     await newDeal(admin, funil.id, outro, funil.stages[0]!.id);
     await postWebhook(textMessageEvent({ sender, text: `#ZZZ-M99 e #${campanha.code}` }));
     expect((await cards(admin, funil.id)).map((c) => c.phone)).toEqual(["5511988880000", PHONE]);
+  });
+});
+
+describe("Campanha: reprocessar a mesma mensagem", () => {
+  const uazapi = fakeUazapi();
+
+  it("falha ao criar o negocio na 1a vez; reenviar o webhook cria o negocio uma vez so", async () => {
+    const { admin, funil, campanha } = await cenario();
+    const evento = textMessageEvent({ id: "owner:FALHA1", sender, text: `#${campanha.code}` });
+
+    await breakDealCreation();
+    await postWebhook(evento);
+    await fixDealCreation();
+    expect(await cards(admin, funil.id)).toHaveLength(0);
+
+    await postWebhook(evento);
+    await postWebhook(evento);
+
+    expect(await cards(admin, funil.id)).toMatchObject([{ originKind: "campanha", originCampaignId: campanha.id }]);
+    const conversa = await conversaDe(admin);
+    expect((await history(admin, conversa)).messages).toHaveLength(1);
+    expect(await events(admin, conversa)).toMatchObject([{ type: "campanha", campaignAction: "criou" }]);
+  });
+
+  it("falha ao criar o negocio na 1a vez; a reconciliacao recupera", async () => {
+    const { admin, funil, campanha } = await cenario();
+    const evento = textMessageEvent({ id: "owner:FALHA2", sender, text: `#${campanha.code}`, timestamp: Date.now() - 60_000 });
+    await uazapi.program("GET", "/instance/status", [{ body: { instance: { status: "connected" } } }]);
+
+    await breakDealCreation();
+    await postWebhook(evento);
+    await fixDealCreation();
+    await programRecentMessages(uazapi, [evento.message]);
+    await runCron();
+
+    expect(await cards(admin, funil.id)).toHaveLength(1);
+    expect(await events(admin, await conversaDe(admin))).toHaveLength(1);
+  });
+
+  it("reprocessar depois do sucesso nao duplica negocio nem evento", async () => {
+    const { admin, funil, campanha } = await cenario();
+    const evento = textMessageEvent({ id: "owner:OK1", sender, text: `#${campanha.code}` });
+    await postWebhook(evento);
+    await postWebhook(evento);
+
+    expect(await cards(admin, funil.id)).toHaveLength(1);
+    expect(await events(admin, await conversaDe(admin))).toHaveLength(1);
+  });
+
+  it("reprocessar depois que o negocio foi fechado nao cria outro", async () => {
+    const { admin, funil, campanha } = await cenario();
+    const evento = textMessageEvent({ id: "owner:FECHADO1", sender, text: `#${campanha.code}` });
+    await postWebhook(evento);
+    const [card] = await cards(admin, funil.id);
+    await closeDeal(admin, funil.id, card!.dealId, { status: "ganho", valueCents: 99700 });
+
+    await postWebhook(evento);
+
+    expect(await cards(admin, funil.id)).toHaveLength(0);
+    expect((await board(admin, funil.id, "?status=ganho")).body.stages.flatMap((s) => s.cards)).toHaveLength(1);
+    expect(await events(admin, await conversaDe(admin))).toHaveLength(1);
   });
 });

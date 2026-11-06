@@ -41,6 +41,14 @@ export async function applyCampaignCode(
   const campaign = await findCampaign(db, input.text);
   if (!campaign) return null;
 
+  // Reprocessamento: o negocio desta mensagem ja nasceu (talvez so faltasse o evento); completa o que faltar sem criar outro,
+  // mesmo que ele ja tenha sido fechado.
+  const born = await db.query.deal.findFirst({ where: eq(schema.deal.sourceMessageId, input.messageId) });
+  if (born) {
+    const eventId = await recordCampaignEvent(db, input, campaign.name, "criou");
+    return eventId ? { funnelId: born.funnelId, eventId } : null;
+  }
+
   const open = await db.query.deal.findFirst({
     where: and(
       eq(schema.deal.contactId, input.contactId),

@@ -33,6 +33,10 @@ async function recoverMessages(env: Cloudflare.Env, db: Db, now: number): Promis
       try {
         const ingested = await ingestMessage(db, msg, env.MEDIA_QUEUE);
         if (!ingested) continue;
+        if (ingested.alreadyStored) {
+          await publishCampaignHit(env, db, ingested.conversationId, ingested.campaign);
+          continue;
+        }
         const [conversation, message] = await Promise.all([
           loadConversation(db, ingested.conversationId),
           loadMessage(db, env.MEDIA, ingested.messageId),
